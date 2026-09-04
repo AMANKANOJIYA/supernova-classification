@@ -119,6 +119,11 @@ Rules:
 - `flux` is never clipped at zero.
 - `cutouts` is `None` for all simulated data. This is not a bug; see §5.1.
 - `class_id` uses the ELAsTiCC2 taxonomy in §4, never a local string label.
+- `flux` is on the SNANA `FLUXCAL` convention: AB zeropoint 27.5.\*\*
+  Every reader is responsible for converting its source's photometry
+  to this scale. `tensorize.py` and all models may assume a single
+  consistent flux scale across all tiers and must never apply a
+  per-survey correction.
 
 ### Filter effective wavelengths (nm)
 
@@ -190,6 +195,13 @@ Alert
   weight errors higher in the tree more heavily. Confusing Ia with Ib/c is a
   small error; confusing a supernova with an artifact is a large one.
   Reference: Villar et al. 2023, arXiv:2312.02266.
+- §4 transcribes only the branches we use. The real ELAsTiCC2
+  taxonomy is wider: it also contains 0 Meta (100 Meta/Other,
+  200 Residual, 300 NotClassified), 1000 Static, and an `.../Other`
+  sibling for every category (2221, 2231, 2241, 2310, 2321, 2331).
+  None currently carries a specific gentype, so nothing breaks, but
+  `load_*` must not assume every classid in the CSVs appears in this
+  tree.
 
 ---
 
@@ -437,3 +449,9 @@ a reportable metric here — always-predict-Ia scores well and is useless.
 - **Commit per logical unit**, with a message saying what was verified, not just
   what was written.
 - Prefer deleting code to adding flags.
+- **Metrics code does not render.** `src/eval/metrics.py` and
+  `phase_curves.py` return numbers only and must not import
+  matplotlib. All rendering lives in `src/eval/plots.py`, which
+  consumes those return values; `report.py` orchestrates
+  compute-then-render. This keeps metrics unit-testable against
+  analytically known values without a rendering backend.
