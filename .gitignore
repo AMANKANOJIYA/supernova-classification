@@ -1,0 +1,26 @@
+# Data — never commit. See CLAUDE.md §5.
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Experiment tracking / Hydra run dirs
+mlruns/
+outputs/
+multirun/
+.hydra/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/

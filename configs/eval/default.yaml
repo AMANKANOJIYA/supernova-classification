@@ -1,0 +1,5 @@
+# Consumed by src/eval/report.py — this group is real and wired up, unlike
+# model/ and train/ below.
+phase_cutoffs: [-5, 0, 5, 15, 30, null]  # days since first detection; null = "full" (no truncation). CLAUDE.md §7 Gate A / §6 step 12.
+ece_num_bins: 15  # expected calibration error bin count
+output_dir: outputs/eval

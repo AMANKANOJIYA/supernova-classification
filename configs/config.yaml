@@ -1,0 +1,11 @@
+# Top-level Hydra composition root.
+#
+# Day 1 scaffolding only — defaults below point at placeholder groups because
+# src/models/ and src/train/ don't exist yet (CLAUDE.md §6 steps 6+). Nothing
+# currently consumes this file. Fill in `model:` and `train:` defaults when
+# those modules land; `eval:` is real today and safe to use.
+defaults:
+  - eval: default
+  - _self_
+
+seed: 42
