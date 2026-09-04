@@ -191,13 +191,33 @@ class TestLoadGentypeOfClassidSynthetic:
         with pytest.raises(ValueError, match="classid"):
             taxonomy.load_gentype_of_classid(str(path))
 
-    def test_blank_gentype_raises(self, tmp_path):
-        path = tmp_path / "blank.csv"
-        path.write_text("gentype,classid\n10,2222\n,2223\n")
-        with pytest.raises(ValueError, match="blank"):
-            taxonomy.load_gentype_of_classid(str(path))
+    def test_blank_gentype_rows_are_skipped_and_logged_not_raised(self, tmp_path, caplog):
+        """Blank gentype is legitimate here (category-level classIds like
+        2220 SN-like have no single specific gentype) -- must not raise."""
+        path = tmp_path / "with_blanks.csv"
+        path.write_text("gentype,classid\n10,2222\n,2220\n,2230\n20,2223\n")
+        with caplog.at_level("INFO", logger="src.taxonomy"):
+            mapping = taxonomy.load_gentype_of_classid(str(path))
+        assert mapping == {10: 2222, 20: 2223}
+        assert any("skipped 2" in record.message for record in caplog.records)
 
-    def test_duplicate_gentype_raises(self, tmp_path):
+    def test_no_blanks_logs_nothing(self, tmp_path, caplog):
+        path = tmp_path / "no_blanks.csv"
+        path.write_text("gentype,classid\n10,2222\n20,2223\n")
+        with caplog.at_level("INFO", logger="src.taxonomy"):
+            taxonomy.load_gentype_of_classid(str(path))
+        assert caplog.records == []
+
+    def test_blank_rows_do_not_count_toward_duplicate_check(self, tmp_path):
+        """Two category-level rows, both blank, must not look like a
+        duplicate-gentype collision -- blanks are excluded before the
+        uniqueness check runs."""
+        path = tmp_path / "blanks_not_dupes.csv"
+        path.write_text("gentype,classid\n,2220\n,2230\n10,2222\n")
+        mapping = taxonomy.load_gentype_of_classid(str(path))
+        assert mapping == {10: 2222}
+
+    def test_duplicate_nonblank_gentype_raises(self, tmp_path):
         path = tmp_path / "dup.csv"
         path.write_text("gentype,classid\n10,2222\n10,2223\n")
         with pytest.raises(ValueError, match="unique"):
@@ -240,3 +260,22 @@ class TestLoadClassidOfGentypeSynthetic:
         with caplog.at_level("INFO", logger="src.taxonomy"):
             taxonomy.load_classid_of_gentype(str(path))
         assert caplog.records == []
+
+
+class TestGentypeFileAsymmetry:
+    """The real distinction between the two files (both have legitimate
+    blank-gentype category rows -- that part is symmetric): non-blank
+    gentype is unique in gentypeofclassid, but repeats across the hierarchy
+    in classidofgentype. Same underlying data, read through each file."""
+
+    def test_gentype_of_classid_is_keyed_uniquely(self, tmp_path):
+        path = tmp_path / "gentypeofclassid.csv"
+        path.write_text("gentype,classid\n10,2222\n,2220\n20,2223\n")
+        mapping = taxonomy.load_gentype_of_classid(str(path))
+        assert mapping == {10: 2222, 20: 2223}
+
+    def test_classid_of_gentype_repeats_the_same_gentype_across_the_hierarchy(self, tmp_path):
+        path = tmp_path / "classidofgentype.csv"
+        path.write_text("gentype,classid\n10,2220\n10,2222\n,2220\n20,2223\n")
+        mapping = taxonomy.load_classid_of_gentype(str(path))
+        assert mapping == {10: [2220, 2222], 20: [2223]}

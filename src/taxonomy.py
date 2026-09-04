@@ -219,66 +219,83 @@ def _require_gentype_classid_columns(df, path: str) -> None:
 
 
 def load_gentype_of_classid(path: str) -> dict[int, int]:
-    """Load `elasticc2_gentypeofclassid.csv`: a clean 1:1 table where every
-    `gentype` value is unique and non-blank. Answers "which specific classid
-    corresponds to this gentype?"
+    """Load `elasticc2_gentypeofclassid.csv`. Where `gentype` is non-blank,
+    it is unique across rows. Answers "which specific classid corresponds to
+    this gentype?"
+
+    Blank `gentype` is legitimate and expected here, exactly as in
+    `load_classid_of_gentype`: every category-level classId (2000, 2200,
+    2220, 2230, 2240, 2300, 2320, 2330 — every internal/category node in the
+    tree this project uses) has no single corresponding gentype, because
+    every SNANA-simulated object has come from one specific model/type — a
+    category can't be "the" gentype for anything. Blank rows are excluded
+    from the returned mapping (a blank can't be a dict key) and the excluded
+    count is logged via `logging` at INFO level, per CLAUDE.md §2.5 — never
+    silently dropped, and never raised on, since this is documented/expected
+    shape, not an anomaly.
 
     Args:
         path: path to `elasticc2_gentypeofclassid.csv`.
 
     Returns:
-        Mapping from SNANA gentype (int) to ELAsTiCC2 taxonomy `class_id` (int).
+        Mapping from SNANA gentype (int) to ELAsTiCC2 taxonomy `class_id`
+        (int), covering only rows with a non-blank gentype.
 
     Raises:
-        ValueError: if the `gentype`/`classid` columns are missing, if any
-            `gentype` value is blank (unexpected in this file — unlike
-            `load_classid_of_gentype`, blanks here are a data anomaly, not a
-            documented case), or if `gentype` values are not unique.
+        ValueError: if the `gentype`/`classid` columns are missing, or if two
+            non-blank `gentype` values collide (a violation of this file's
+            documented uniqueness-when-present property).
     """
     import polars as pl
 
     df = pl.read_csv(path)
     _require_gentype_classid_columns(df, path)
 
-    n_blank = int(df[_GENTYPE_COL].is_null().sum())
+    blank_mask = df[_GENTYPE_COL].is_null()
+    n_blank = int(blank_mask.sum())
     if n_blank > 0:
-        raise ValueError(
-            f"{path}: found {n_blank} row(s) with blank '{_GENTYPE_COL}'; this "
-            "file is documented to have unique, non-blank gentypes for every "
-            "row (unlike elasticc2_classidofgentype.csv, where category-level "
-            "classIds are expected to have a blank gentype)."
+        logger.info(
+            "%s: skipped %d of %d row(s) with blank '%s' (category-level "
+            "classIds, which have no single corresponding gentype)",
+            path,
+            n_blank,
+            df.height,
+            _GENTYPE_COL,
         )
 
-    n_duplicates = df.height - df[_GENTYPE_COL].n_unique()
+    kept = df.filter(~blank_mask)
+    n_duplicates = kept.height - kept[_GENTYPE_COL].n_unique()
     if n_duplicates > 0:
         raise ValueError(
-            f"{path}: expected unique '{_GENTYPE_COL}' values but found "
-            f"{n_duplicates} duplicate row(s)."
+            f"{path}: expected unique non-blank '{_GENTYPE_COL}' values but "
+            f"found {n_duplicates} duplicate row(s)."
         )
 
     return dict(
         zip(
-            df[_GENTYPE_COL].cast(pl.Int64).to_list(),
-            df[_CLASSID_COL].cast(pl.Int64).to_list(),
+            kept[_GENTYPE_COL].cast(pl.Int64).to_list(),
+            kept[_CLASSID_COL].cast(pl.Int64).to_list(),
         )
     )
 
 
 def load_classid_of_gentype(path: str) -> dict[int, list[int]]:
-    """Load `elasticc2_classidofgentype.csv`: `gentype` repeats across rows
-    because of the taxonomy hierarchy — e.g. every SN gentype has a row with
+    """Load `elasticc2_classidofgentype.csv`. Unlike `load_gentype_of_classid`
+    (unique when non-blank), `gentype` here repeats across rows because of
+    the taxonomy hierarchy — e.g. every SN gentype has a row with
     `classid=2220` (SN-like) in addition to rows for its more specific
     classid(s). That repetition is intentional, not a data error. Answers
     "which classids is this gentype consistent with?"
 
-    Category-level classIds (one- and two-digit classIds — broad categories,
-    not specific types) have no single associated gentype and appear with a
-    blank `gentype`. Those rows are excluded from the returned mapping (a
-    blank cannot be a dict key) and the excluded count is logged via the
-    stdlib `logging` module at INFO level — not silently dropped, per
-    CLAUDE.md §2.5, and not raised, because this is the documented, expected
-    shape of this specific file (contrast `load_gentype_of_classid`, where a
-    blank gentype is an anomaly).
+    Blank `gentype` is legitimate and expected here too, for the same reason
+    as `load_gentype_of_classid`: category-level classIds (2000, 2200, 2220,
+    2230, 2240, 2300, 2320, 2330 — every internal/category node in the tree
+    this project uses) have no single corresponding gentype, since every
+    SNANA-simulated object has come from one specific model/type. Blank rows
+    are excluded from the returned mapping (a blank cannot be a dict key) and
+    the excluded count is logged via the stdlib `logging` module at INFO
+    level — not silently dropped, per CLAUDE.md §2.5, and not raised on,
+    because this is documented/expected shape, not an anomaly.
 
     Args:
         path: path to `elasticc2_classidofgentype.csv`.
@@ -300,7 +317,7 @@ def load_classid_of_gentype(path: str) -> dict[int, list[int]]:
     if n_blank > 0:
         logger.info(
             "%s: skipped %d of %d row(s) with blank '%s' (category-level "
-            "classIds, e.g. one-/two-digit ids, which have no single gentype)",
+            "classIds, which have no single corresponding gentype)",
             path,
             n_blank,
             df.height,
