@@ -1,19 +1,31 @@
-"""ELAsTiCC2 taxonomy tree (CLAUDE.md §4). NOT frozen — WHXE loss (§6 step 7)
-will extend this module, but the tree structure and mappings below should not
-change without a reason as strong as an actual taxonomy revision from the
-ELAsTiCC2 project.
+"""ELAsTiCC2 taxonomy tree (CLAUDE.md §4). NOT frozen — §2.1 lists only
+schema.py and src/eval/ as frozen; this file was never on that list. It
+becomes freezable once `load_gentype_of_classid`/`load_classid_of_gentype`
+are verified against the real CSVs (Day 3) and WHXE loss (§6 step 7) has
+landed without needing further changes here.
 
 The taxonomy is a 4-digit id where the hierarchy is encoded positionally:
 zeroing the rightmost nonzero digit of a node's id gives its parent's id, all
-the way up to the implicit root (id 0, "Alert"). E.g. 2222 -> 2220 -> 2200 ->
-2000 -> 0. This module exploits that structure instead of hardcoding a parent
-map, per CLAUDE.md §4.
+the way up to the implicit root, `ROOT_ID`. E.g. 2222 -> 2220 -> 2200 -> 2000
+-> ROOT_ID. This module exploits that structure instead of hardcoding a
+parent map, per CLAUDE.md §4.
 """
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 
-ROOT_ID = 0
+logger = logging.getLogger(__name__)
+
+# The synthetic root of the tree CLAUDE.md §4 defines (a trimmed subset of the
+# full ELAsTiCC2 taxonomy: only the Variable/Non-Recurring/SN-like branch and
+# siblings we actually use). This must NOT be 0: in the real, untrimmed
+# ELAsTiCC2 taxonomy, id 0 is the "Meta" branch (100 Meta/Other, 200 Residual,
+# 300 NotClassified), which we deliberately left out of `_NODES` below but
+# whose id is still taken. Using 0 here would silently collide with it if
+# that branch is ever added back. -1 is guaranteed not to collide with any
+# real taxonomy id (all real ids are >= 0).
+ROOT_ID = -1
 
 
 class TargetClass(str, Enum):
@@ -88,7 +100,9 @@ def parent(class_id: int) -> int | None:
     """Return the immediate parent id, or None if `class_id` is the root.
 
     Implemented by zeroing the rightmost nonzero digit of the (zero-padded,
-    4-digit) id — see module docstring.
+    4-digit) id — see module docstring. A fully-zeroed result (i.e. the top
+    of the digit hierarchy) maps to `ROOT_ID`, not to the literal int 0 —
+    see the `ROOT_ID` comment on why 0 itself must never be used here.
     """
     _check_valid(class_id)
     if class_id == ROOT_ID:
@@ -98,13 +112,21 @@ def parent(class_id: int) -> int | None:
         if digits[i] != "0":
             digits[i] = "0"
             break
-    return int("".join(digits))
+    result = int("".join(digits))
+    return ROOT_ID if result == 0 else result
 
 
 def parents(class_id: int) -> list[int]:
     """Return the chain of ancestor ids from `class_id`'s immediate parent up
-    to and including the root (id 0, "Alert"). Empty list if `class_id` is
-    already the root.
+    to and including `ROOT_ID`. Empty list if `class_id` is already the root.
+
+    `ROOT_ID` is included so every non-root id has a stable, non-empty
+    ancestor chain ending the same way — useful for consistent indexing. It
+    carries no discriminating information (every object sits beneath it, so
+    it is a constant for every example): WHXE loss (§6 step 7) must exclude
+    `ROOT_ID` from its per-node loss terms, or it will contribute a useless
+    constant to every example's loss. Documented here so step 7 doesn't have
+    to rediscover it.
     """
     _check_valid(class_id)
     chain: list[int] = []
@@ -150,9 +172,14 @@ def to_target_class(class_id: int) -> TargetClass:
 
 
 def ordered_class_ids() -> list[int]:
-    """Stable pre-order traversal of every node id, for indexing into model
-    outputs. Deterministic across runs (children are visited in ascending id
-    order), so an index computed today stays valid tomorrow.
+    """Stable pre-order traversal of every node id (including `ROOT_ID`), for
+    indexing into model outputs. Deterministic across runs (children are
+    visited in ascending id order), so an index computed today stays valid
+    tomorrow.
+
+    Includes `ROOT_ID` at index 0 for a complete, stable index space, but see
+    the note on `parents()`: `ROOT_ID` carries no information and WHXE loss
+    (§6 step 7) must exclude its index from per-node loss terms.
     """
 
     order: list[int] = []
@@ -172,48 +199,119 @@ def class_index(class_id: int) -> int:
     return ordered_class_ids().index(class_id)
 
 
-def load_gentype_mapping(
-    gentype_of_classid_path: str,
-    classid_of_gentype_path: str,
-) -> dict[int, int]:
-    """Load the SNANA gentype <-> ELAsTiCC2 taxonomy id mapping.
+# Confirmed by the user directly (2026-09-05), not guessed: both CSVs have
+# columns named 'gentype' and 'classid'. Read by name — not positionally —
+# and fail loudly if either is absent. Still unverified against the real
+# files, since data/raw/elasticc2/ is empty as of this session; the two
+# functions below should be re-checked against the actual CSVs on Day 3.
+_GENTYPE_COL = "gentype"
+_CLASSID_COL = "classid"
 
-    CLAUDE.md §4: "Truth labels in the SNANA files are 'gentypes', not
-    taxonomy ids. Map them using `elasticc2_gentypeofclassid.csv` and
-    `elasticc2_classidofgentype.csv`."
 
-    ASSUMPTION (flagged, not silently picked): CLAUDE.md does not document
-    the exact column names in these two CSVs, and they are not present on
-    disk as of this session (only `data/raw/elasticc2/` exists, empty). This
-    function reads whichever of the two files maps gentype -> classid
-    (`classid_of_gentype_path`, by the naming convention `<x>_of_<y>` = a
-    table keyed by y giving x) and expects exactly two integer-castable
-    columns, taking the first as the key (gentype) and the second as the
-    value (classid) — positionally, not by a guessed header name. This should
-    be verified against the real file when it lands (see CLAUDE.md §5.1 on
-    A_FORMAT.TXT) and this docstring updated with the confirmed column names.
-    `gentype_of_classid_path` (the inverse table) is accepted for symmetry
-    with the two documented filenames but is currently unused; both tables
-    are redundant with each other for this function's purpose.
+def _require_gentype_classid_columns(df, path: str) -> None:
+    missing = [c for c in (_GENTYPE_COL, _CLASSID_COL) if c not in df.columns]
+    if missing:
+        raise ValueError(
+            f"{path} is missing expected column(s) {missing}; found columns "
+            f"{df.columns}. Expected '{_GENTYPE_COL}' and '{_CLASSID_COL}' "
+            "(CLAUDE.md §4)."
+        )
+
+
+def load_gentype_of_classid(path: str) -> dict[int, int]:
+    """Load `elasticc2_gentypeofclassid.csv`: a clean 1:1 table where every
+    `gentype` value is unique and non-blank. Answers "which specific classid
+    corresponds to this gentype?"
+
+    Args:
+        path: path to `elasticc2_gentypeofclassid.csv`.
 
     Returns:
-        Mapping from SNANA gentype (int) to ELAsTiCC2 taxonomy class_id (int).
+        Mapping from SNANA gentype (int) to ELAsTiCC2 taxonomy `class_id` (int).
 
     Raises:
-        FileNotFoundError: if `classid_of_gentype_path` does not exist.
+        ValueError: if the `gentype`/`classid` columns are missing, if any
+            `gentype` value is blank (unexpected in this file — unlike
+            `load_classid_of_gentype`, blanks here are a data anomaly, not a
+            documented case), or if `gentype` values are not unique.
     """
     import polars as pl
 
-    df = pl.read_csv(classid_of_gentype_path)
-    if df.width < 2:
+    df = pl.read_csv(path)
+    _require_gentype_classid_columns(df, path)
+
+    n_blank = int(df[_GENTYPE_COL].is_null().sum())
+    if n_blank > 0:
         raise ValueError(
-            f"{classid_of_gentype_path} has {df.width} column(s); expected at "
-            "least 2 (gentype, classid)"
+            f"{path}: found {n_blank} row(s) with blank '{_GENTYPE_COL}'; this "
+            "file is documented to have unique, non-blank gentypes for every "
+            "row (unlike elasticc2_classidofgentype.csv, where category-level "
+            "classIds are expected to have a blank gentype)."
         )
-    gentype_col, classid_col = df.columns[0], df.columns[1]
+
+    n_duplicates = df.height - df[_GENTYPE_COL].n_unique()
+    if n_duplicates > 0:
+        raise ValueError(
+            f"{path}: expected unique '{_GENTYPE_COL}' values but found "
+            f"{n_duplicates} duplicate row(s)."
+        )
+
     return dict(
         zip(
-            df[gentype_col].cast(pl.Int64).to_list(),
-            df[classid_col].cast(pl.Int64).to_list(),
+            df[_GENTYPE_COL].cast(pl.Int64).to_list(),
+            df[_CLASSID_COL].cast(pl.Int64).to_list(),
         )
     )
+
+
+def load_classid_of_gentype(path: str) -> dict[int, list[int]]:
+    """Load `elasticc2_classidofgentype.csv`: `gentype` repeats across rows
+    because of the taxonomy hierarchy — e.g. every SN gentype has a row with
+    `classid=2220` (SN-like) in addition to rows for its more specific
+    classid(s). That repetition is intentional, not a data error. Answers
+    "which classids is this gentype consistent with?"
+
+    Category-level classIds (one- and two-digit classIds — broad categories,
+    not specific types) have no single associated gentype and appear with a
+    blank `gentype`. Those rows are excluded from the returned mapping (a
+    blank cannot be a dict key) and the excluded count is logged via the
+    stdlib `logging` module at INFO level — not silently dropped, per
+    CLAUDE.md §2.5, and not raised, because this is the documented, expected
+    shape of this specific file (contrast `load_gentype_of_classid`, where a
+    blank gentype is an anomaly).
+
+    Args:
+        path: path to `elasticc2_classidofgentype.csv`.
+
+    Returns:
+        Mapping from gentype to the list of classids it is consistent with,
+        in file order, duplicates preserved as-is.
+
+    Raises:
+        ValueError: if the `gentype`/`classid` columns are missing.
+    """
+    import polars as pl
+
+    df = pl.read_csv(path)
+    _require_gentype_classid_columns(df, path)
+
+    blank_mask = df[_GENTYPE_COL].is_null()
+    n_blank = int(blank_mask.sum())
+    if n_blank > 0:
+        logger.info(
+            "%s: skipped %d of %d row(s) with blank '%s' (category-level "
+            "classIds, e.g. one-/two-digit ids, which have no single gentype)",
+            path,
+            n_blank,
+            df.height,
+            _GENTYPE_COL,
+        )
+
+    kept = df.filter(~blank_mask)
+    mapping: dict[int, list[int]] = {}
+    for gentype, classid in zip(
+        kept[_GENTYPE_COL].cast(pl.Int64).to_list(),
+        kept[_CLASSID_COL].cast(pl.Int64).to_list(),
+    ):
+        mapping.setdefault(gentype, []).append(classid)
+    return mapping

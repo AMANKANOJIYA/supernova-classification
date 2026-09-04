@@ -9,7 +9,7 @@ matplotlib.use("Agg")  # headless — no display in CI or this session
 import numpy as np
 import pytest
 
-from src.eval import baselines, metrics, phase_curves, report
+from src.eval import baselines, metrics, phase_curves, plots, report
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +347,17 @@ class TestEvaluateAtCutoffs:
         assert math.isnan(results["-5"].macro_f1)
 
 
+class TestPhaseCurvesHasNoMatplotlib:
+    """Regression for the metrics.py/phase_curves.py <-> plots.py split:
+    compute stays plot-free so it's usable anywhere a figure isn't wanted."""
+
+    def test_phase_curves_module_does_not_import_matplotlib(self):
+        assert "matplotlib" not in vars(phase_curves)
+
+    def test_metrics_module_does_not_import_matplotlib(self):
+        assert "matplotlib" not in vars(metrics)
+
+
 class TestPlotting:
     """Just confirm figures are producible without raising — visual
     correctness isn't something a unit test can check."""
@@ -357,7 +368,7 @@ class TestPlotting:
             phase_curves.PhasePrediction("b", 0, true_class=1, probs=np.array([0.2, 0.8])),
         ]
         results = phase_curves.evaluate_at_cutoffs(preds, num_classes=2, cutoffs=(0.0, None))
-        fig = phase_curves.plot_macro_f1_vs_phase(
+        fig = plots.plot_macro_f1_vs_phase(
             results, class_names=["Ia", "II"], cutoff_order=(0.0, None)
         )
         assert fig is not None
@@ -368,7 +379,7 @@ class TestPlotting:
             phase_curves.PhasePrediction("b", 0, true_class=1, probs=np.array([0.2, 0.8])),
         ]
         results = phase_curves.evaluate_at_cutoffs(preds, num_classes=2, cutoffs=(0.0, None))
-        fig = phase_curves.plot_confusion_matrices(
+        fig = plots.plot_confusion_matrices(
             results, class_names=["Ia", "II"], cutoff_order=(0.0, None)
         )
         assert fig is not None

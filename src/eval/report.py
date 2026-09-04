@@ -18,9 +18,8 @@ from src.eval.phase_curves import (
     PhaseCutoffResult,
     PhasePrediction,
     evaluate_at_cutoffs,
-    plot_confusion_matrices,
-    plot_macro_f1_vs_phase,
 )
+from src.eval.plots import plot_confusion_matrices, plot_macro_f1_vs_phase
 
 
 def _sanitize(value):

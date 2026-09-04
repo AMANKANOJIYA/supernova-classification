@@ -13,6 +13,9 @@ readme = "CLAUDE.md"
 # bounds — that lockfile, not this file, is the source of truth for exact versions.
 dependencies = [
     # Modelling
+    # TODO before Day 5 (§6 step 6, first trained model): confirm this range
+    # actually resolves a CUDA-enabled build against the local CUDA version —
+    # not verified yet, deferred deliberately per user direction on Day 2.
     "torch>=2.5,<2.6",
     "lightning>=2.4,<2.5",
     # Config

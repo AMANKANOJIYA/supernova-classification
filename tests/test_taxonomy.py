@@ -129,30 +129,114 @@ class TestClassIndex:
             assert taxonomy.class_index(cid) == i
 
 
-class TestLoadGentypeMapping:
+class TestLoadGentypeOfClassidRealFile:
     """CLAUDE.md: if the CSVs aren't on disk, write against documented columns
     and skip rather than invent data. As of Day 1, data/raw/elasticc2/ is
-    empty, so this is skipped — see the ASSUMPTION note in
-    src/taxonomy.py::load_gentype_mapping about unconfirmed column names.
+    empty, so this is skipped. Column names ('gentype', 'classid') are no
+    longer a guess — confirmed directly by the user on Day 2 — but the real
+    file's actual content is still unverified until it lands.
     """
 
-    _CLASSID_PATH = Path("data/raw/elasticc2/elasticc2_classidofgentype.csv")
-    _GENTYPE_PATH = Path("data/raw/elasticc2/elasticc2_gentypeofclassid.csv")
+    _PATH = Path("data/raw/elasticc2/elasticc2_gentypeofclassid.csv")
 
     @pytest.mark.skipif(
-        not _CLASSID_PATH.exists(),
+        not _PATH.exists(),
         reason=(
-            "elasticc2_classidofgentype.csv not present on disk yet (expected — "
-            "Day 0 downloads incomplete); column names are also unconfirmed "
-            "against real data. Re-enable once the file lands, per CLAUDE.md."
+            "elasticc2_gentypeofclassid.csv not present on disk yet (expected — "
+            "Day 0 downloads incomplete). Re-enable once the file lands."
         ),
     )
     def test_loads_mapping_from_real_file(self):
-        mapping = taxonomy.load_gentype_mapping(
-            str(self._GENTYPE_PATH), str(self._CLASSID_PATH)
-        )
+        mapping = taxonomy.load_gentype_of_classid(str(self._PATH))
         assert isinstance(mapping, dict)
         assert len(mapping) > 0
         for gentype, class_id in mapping.items():
             assert isinstance(gentype, int)
             assert class_id in taxonomy._VALID_IDS  # noqa: SLF001 (internal check)
+
+
+class TestLoadClassidOfGentypeRealFile:
+    _PATH = Path("data/raw/elasticc2/elasticc2_classidofgentype.csv")
+
+    @pytest.mark.skipif(
+        not _PATH.exists(),
+        reason=(
+            "elasticc2_classidofgentype.csv not present on disk yet (expected — "
+            "Day 0 downloads incomplete). Re-enable once the file lands."
+        ),
+    )
+    def test_loads_mapping_from_real_file(self):
+        mapping = taxonomy.load_classid_of_gentype(str(self._PATH))
+        assert isinstance(mapping, dict)
+        assert len(mapping) > 0
+        for gentype, class_ids in mapping.items():
+            assert isinstance(gentype, int)
+            assert isinstance(class_ids, list)
+            for class_id in class_ids:
+                assert class_id in taxonomy._VALID_IDS  # noqa: SLF001 (internal check)
+
+
+# ---------------------------------------------------------------------------
+# The functions above are unverified against the *real* CSVs (not on disk
+# yet), but the column-name contract the user confirmed ('gentype', 'classid')
+# and the documented blank-handling behavior can be tested now against
+# synthetic CSVs, independent of Day 3's data drop.
+# ---------------------------------------------------------------------------
+
+
+class TestLoadGentypeOfClassidSynthetic:
+    def test_missing_column_raises(self, tmp_path):
+        path = tmp_path / "bad.csv"
+        path.write_text("gentype,not_classid\n10,2222\n")
+        with pytest.raises(ValueError, match="classid"):
+            taxonomy.load_gentype_of_classid(str(path))
+
+    def test_blank_gentype_raises(self, tmp_path):
+        path = tmp_path / "blank.csv"
+        path.write_text("gentype,classid\n10,2222\n,2223\n")
+        with pytest.raises(ValueError, match="blank"):
+            taxonomy.load_gentype_of_classid(str(path))
+
+    def test_duplicate_gentype_raises(self, tmp_path):
+        path = tmp_path / "dup.csv"
+        path.write_text("gentype,classid\n10,2222\n10,2223\n")
+        with pytest.raises(ValueError, match="unique"):
+            taxonomy.load_gentype_of_classid(str(path))
+
+    def test_clean_file_loads_correctly(self, tmp_path):
+        path = tmp_path / "clean.csv"
+        path.write_text("gentype,classid\n10,2222\n20,2223\n30,2224\n")
+        mapping = taxonomy.load_gentype_of_classid(str(path))
+        assert mapping == {10: 2222, 20: 2223, 30: 2224}
+
+
+class TestLoadClassidOfGentypeSynthetic:
+    def test_missing_column_raises(self, tmp_path):
+        path = tmp_path / "bad.csv"
+        path.write_text("not_gentype,classid\n10,2222\n")
+        with pytest.raises(ValueError, match="gentype"):
+            taxonomy.load_classid_of_gentype(str(path))
+
+    def test_repeated_gentype_is_intentional_not_an_error(self, tmp_path):
+        """Every SN gentype has a row for its category (2220) as well as its
+        specific classid — repetition is expected, not a data error."""
+        path = tmp_path / "repeated.csv"
+        path.write_text("gentype,classid\n10,2220\n10,2222\n")
+        mapping = taxonomy.load_classid_of_gentype(str(path))
+        assert mapping == {10: [2220, 2222]}
+
+    def test_blank_gentype_rows_are_skipped_and_logged(self, tmp_path, caplog):
+        # classid=22 is a stand-in category-level (two-digit) classId row with no gentype.
+        path = tmp_path / "with_blanks.csv"
+        path.write_text("gentype,classid\n10,2220\n,22\n,22\n20,2223\n")
+        with caplog.at_level("INFO", logger="src.taxonomy"):
+            mapping = taxonomy.load_classid_of_gentype(str(path))
+        assert mapping == {10: [2220], 20: [2223]}
+        assert any("skipped 2" in record.message for record in caplog.records)
+
+    def test_no_blanks_logs_nothing(self, tmp_path, caplog):
+        path = tmp_path / "no_blanks.csv"
+        path.write_text("gentype,classid\n10,2220\n20,2223\n")
+        with caplog.at_level("INFO", logger="src.taxonomy"):
+            taxonomy.load_classid_of_gentype(str(path))
+        assert caplog.records == []
