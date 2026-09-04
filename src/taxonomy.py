@@ -1,8 +1,9 @@
 """ELAsTiCC2 taxonomy tree (CLAUDE.md §4). NOT frozen — §2.1 lists only
 schema.py and src/eval/ as frozen; this file was never on that list. It
-becomes freezable once `load_gentype_of_classid`/`load_classid_of_gentype`
-are verified against the real CSVs (Day 3) and WHXE loss (§6 step 7) has
-landed without needing further changes here.
+becomes freezable once WHXE loss (§6 step 7) has landed without needing
+further changes here. `load_gentype_of_classid`/`load_classid_of_gentype`
+were verified against the real CSVs on Day 2 (data/raw/elasticc2/ landed);
+see TestLoadGentypeOfClassidRealFile etc. in tests/test_taxonomy.py.
 
 The taxonomy is a 4-digit id where the hierarchy is encoded positionally:
 zeroing the rightmost nonzero digit of a node's id gives its parent's id, all
@@ -199,11 +200,12 @@ def class_index(class_id: int) -> int:
     return ordered_class_ids().index(class_id)
 
 
-# Confirmed by the user directly (2026-09-05), not guessed: both CSVs have
-# columns named 'gentype' and 'classid'. Read by name — not positionally —
-# and fail loudly if either is absent. Still unverified against the real
-# files, since data/raw/elasticc2/ is empty as of this session; the two
-# functions below should be re-checked against the actual CSVs on Day 3.
+# Confirmed by the user directly, not guessed: both CSVs have columns named
+# 'gentype' and 'classid'. Read by name — not positionally — and fail loudly
+# if either is absent. Verified against the real files on Day 2 (both also
+# carry extra columns we ignore: 'description' in elasticc2_gentypeofclassid,
+# 'description'/'exactmatch'/'categorymatch'/'broadmatch'/'generalmatch' in
+# elasticc2_classidofgentype — harmless, since we read by name).
 _GENTYPE_COL = "gentype"
 _CLASSID_COL = "classid"
 

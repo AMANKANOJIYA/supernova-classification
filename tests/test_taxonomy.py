@@ -130,21 +130,18 @@ class TestClassIndex:
 
 
 class TestLoadGentypeOfClassidRealFile:
-    """CLAUDE.md: if the CSVs aren't on disk, write against documented columns
-    and skip rather than invent data. As of Day 1, data/raw/elasticc2/ is
-    empty, so this is skipped. Column names ('gentype', 'classid') are no
-    longer a guess — confirmed directly by the user on Day 2 — but the real
-    file's actual content is still unverified until it lands.
+    """Un-skipped Day 2: the real files landed in data/raw/elasticc2/.
+    Column names matched the confirmed contract exactly ('gentype', 'classid'
+    present, plus an unused 'description' column we ignore by reading by
+    name). The skipif guard stays so this degrades gracefully in a fresh
+    clone where data/ (gitignored) hasn't been populated yet.
     """
 
     _PATH = Path("data/raw/elasticc2/elasticc2_gentypeofclassid.csv")
 
     @pytest.mark.skipif(
         not _PATH.exists(),
-        reason=(
-            "elasticc2_gentypeofclassid.csv not present on disk yet (expected — "
-            "Day 0 downloads incomplete). Re-enable once the file lands."
-        ),
+        reason="elasticc2_gentypeofclassid.csv not present on disk (data/ is gitignored).",
     )
     def test_loads_mapping_from_real_file(self):
         mapping = taxonomy.load_gentype_of_classid(str(self._PATH))
@@ -154,16 +151,33 @@ class TestLoadGentypeOfClassidRealFile:
             assert isinstance(gentype, int)
             assert class_id in taxonomy._VALID_IDS  # noqa: SLF001 (internal check)
 
+    @pytest.mark.skipif(not _PATH.exists(), reason="elasticc2_gentypeofclassid.csv not present on disk.")
+    def test_known_ia_gentype(self):
+        """Cross-checked against the file's real content and against a real
+        SNIa-SALT3 HEAD.FITS header's SIM_TYPE_INDEX, both = 10."""
+        mapping = taxonomy.load_gentype_of_classid(str(self._PATH))
+        assert mapping[10] == 2222
+
+    @pytest.mark.skipif(not _PATH.exists(), reason="elasticc2_gentypeofclassid.csv not present on disk.")
+    def test_blanks_were_actually_skipped_not_just_theoretically(self):
+        """The real file has 54 data rows (31 with a gentype, 23 blank
+        category-level rows, e.g. classid=0 Meta, 1000 Static, 2220 SN-like
+        itself) — confirms the Day 2 blank-handling fix against real data,
+        not just the synthetic fixtures."""
+        import polars as pl
+
+        raw = pl.read_csv(str(self._PATH))
+        assert raw.height == 54
+        mapping = taxonomy.load_gentype_of_classid(str(self._PATH))
+        assert len(mapping) == 31
+
 
 class TestLoadClassidOfGentypeRealFile:
     _PATH = Path("data/raw/elasticc2/elasticc2_classidofgentype.csv")
 
     @pytest.mark.skipif(
         not _PATH.exists(),
-        reason=(
-            "elasticc2_classidofgentype.csv not present on disk yet (expected — "
-            "Day 0 downloads incomplete). Re-enable once the file lands."
-        ),
+        reason="elasticc2_classidofgentype.csv not present on disk (data/ is gitignored).",
     )
     def test_loads_mapping_from_real_file(self):
         mapping = taxonomy.load_classid_of_gentype(str(self._PATH))
@@ -175,12 +189,38 @@ class TestLoadClassidOfGentypeRealFile:
             for class_id in class_ids:
                 assert class_id in taxonomy._VALID_IDS  # noqa: SLF001 (internal check)
 
+    @pytest.mark.skipif(not _PATH.exists(), reason="elasticc2_classidofgentype.csv not present on disk.")
+    def test_ia_gentype_is_consistent_with_its_full_ancestor_chain(self):
+        mapping = taxonomy.load_classid_of_gentype(str(self._PATH))
+        assert mapping[10] == [2000, 2200, 2220, 2222]
+
+
+class TestGentypeLoadersAgreeOnRealData:
+    """Both real files should agree on the leaf classid for every gentype:
+    load_gentype_of_classid's single answer must be the last (most specific)
+    entry in load_classid_of_gentype's ancestor-chain answer for the same
+    gentype."""
+
+    _GENTYPE_PATH = Path("data/raw/elasticc2/elasticc2_gentypeofclassid.csv")
+    _CLASSID_PATH = Path("data/raw/elasticc2/elasticc2_classidofgentype.csv")
+
+    @pytest.mark.skipif(
+        not (_GENTYPE_PATH.exists() and _CLASSID_PATH.exists()),
+        reason="one or both real ELAsTiCC2 gentype CSVs not present on disk.",
+    )
+    def test_leaf_classid_agrees_across_both_files(self):
+        specific = taxonomy.load_gentype_of_classid(str(self._GENTYPE_PATH))
+        chains = taxonomy.load_classid_of_gentype(str(self._CLASSID_PATH))
+        assert set(specific) == set(chains)
+        for gentype, class_id in specific.items():
+            assert chains[gentype][-1] == class_id
+
 
 # ---------------------------------------------------------------------------
-# The functions above are unverified against the *real* CSVs (not on disk
-# yet), but the column-name contract the user confirmed ('gentype', 'classid')
-# and the documented blank-handling behavior can be tested now against
-# synthetic CSVs, independent of Day 3's data drop.
+# The real-file tests above now run (Day 2: the CSVs landed). These synthetic
+# tests stay too — they pin down edge-case behavior (missing columns, blank
+# clusters, duplicates) more precisely than the real files happen to exercise,
+# and keep passing in a fresh clone without data/ populated.
 # ---------------------------------------------------------------------------
 
 
