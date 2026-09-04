@@ -22,16 +22,24 @@ function of that single observation's own (flux, flux_err, lam_eff,
 is_detection) fields:
 
     flux_norm      = signed_log1p(flux / flux_err)
+    flux_abs_norm  = signed_log1p(flux)
     flux_err_norm  = log1p(flux_err)
     wavelength_norm = fixed linear map of lam_eff into [-1, 1], using the
                        global LAM_EFF constant range (schema.py) — not this
                        alert's own observed wavelengths.
     is_detection    passthrough, 0.0/1.0.
 
-`signed_log1p(x) = sign(x) * log1p(|x|)`.
+`signed_log1p(x) := sign(x) * log1p(|x|)`. Stated explicitly because it
+matters: a plain `log1p(x)` on a negative `x` (routine here — CLAUDE.md §2.2,
+difference-image flux is negative early and often) returns NaN. Extracting
+the sign first and taking `log1p` of the *magnitude* is what keeps this
+finite and defined for every real `x`, while staying odd/sign-preserving —
+`signed_log1p(-x) == -signed_log1p(x)` — so a formally negative flux still
+reads as formally negative after compression, not clipped or folded onto
+its positive counterpart.
 
-Why this, and not a running/causal per-object statistic (e.g. a running max
-of |flux| seen so far, updated incrementally):
+Why `flux_norm` (the ratio) and not a running/causal per-object statistic
+(e.g. a running max of |flux| seen so far, updated incrementally):
 
 1. flux_err > 0 is a schema invariant (`CanonicalAlert.validate()`), true
    for every single observation independent of any other observation. Using
@@ -65,22 +73,46 @@ of |flux| seen so far, updated incrementally):
    the live stream is running. A pointwise scheme has no such state to
    keep in sync between the two code paths at all.
 
-Tradeoff, stated explicitly rather than buried: this throws away literal
-absolute-flux-scale information (how bright the object is in an absolute
-sense) from the per-timestep tensor. That's intentional — absolute
-brightness/distance cues are host- and redshift-correlated and belong in
-`StaticContext` (host_photoz, host_mag_r, mw_ebv, ...), consumed by the
-*separate* static encoder (§6 step 8), not smuggled into the light-curve
-tensor via a leaky per-object normalization. `flux_err_norm = log1p(flux_err)`
-does still carry *some* absolute-scale information (deeper vs. shallower
-exposures have different characteristic error bars) — this is a real,
-NOT-yet-resolved caveat: if ZTF and LSST/ELAsTiCC2 calibrate flux_err on
-different absolute zeropoints, `flux_err_norm`'s characteristic range could
-differ by survey in a way that isn't automatically corrected the way the
-scale-invariant `flux/flux_err` ratio is. Flagging this now rather than
-inventing an unverified per-survey rescaling constant to "fix" it — revisit
-at Tier B fine-tuning (§6 step 9), where the actual cross-survey
-distributions are inspectable.
+Why `flux_abs_norm` was added on top of `flux_norm`, deliberately redundant:
+absolute peak brightness is real, physically meaningful signal for the
+Ia-vs-Ib/c boundary specifically (Ia peaks cluster tightly near M ≈ -19.3;
+Ib/c is fainter and more scattered) — CLAUDE.md's whole reason for treating
+Ib/c recall as the hard, expected-to-be-mediocre metric (§11). That
+information is technically recoverable from `flux_norm` and `flux_err_norm`
+together (`flux = (flux/flux_err) * flux_err`), but only as a **product** of
+two already-nonlinearly-compressed features. GRUs and MLPs are poor at
+learning multiplicative interactions between two of their own input
+channels — the information is present in an information-theoretic sense but
+practically inaccessible without extra depth/capacity spent reconstructing
+it. Feeding `signed_log1p(flux)` directly removes that burden. This adds no
+new leakage risk (still pointwise, still stateless, still uses no light-
+curve-derived statistic) and no new NaN/inf risk (same `signed_log1p`
+function, already proven finite everywhere above) — it's the same
+information already in the tensor, made directly accessible instead of
+implicit.
+
+`flux_abs_norm` and `flux_err_norm` are safe to compare/combine across
+surveys and tiers without any per-survey correction: CLAUDE.md §3 now fixes
+`flux` to the SNANA `FLUXCAL` convention (AB zeropoint 27.5) as a schema-
+level contract — every reader is responsible for converting its source's
+photometry to this scale before a `CanonicalAlert` is ever constructed, so
+by the time flux reaches this module, one consistent zeropoint is a
+guarantee, not an assumption this module has to hedge against. (An earlier
+version of this docstring flagged this as an unresolved, deferred cross-
+survey caveat on `flux_err_norm` — that was written against an underspecified
+prior version of §3 that only said "calibrated flux" without naming a
+zeropoint. §3 was amended to close that gap upstream, at the schema/reader
+boundary, rather than downstream in every consumer of flux. This module
+must never apply a per-survey correction of its own — CLAUDE.md §3 is
+explicit that only readers do that.)
+
+Tradeoff, stated explicitly rather than buried: `flux_norm`,
+`flux_abs_norm`, and `flux_err_norm` are all pointwise, so none of them can
+carry cross-observation context an object's own light-curve *shape* might
+suggest (e.g. "this is unusually bright relative to its own earlier
+points") — that kind of relative-to-history signal is left for the model
+itself to learn from the sequence of pointwise values, not precomputed
+here.
 
 No tension found with CLAUDE.md §2.3 (causal models only): this scheme
 doesn't touch model architecture at all, and being pointwise rather than
@@ -115,6 +147,7 @@ from src.schema import LAM_EFF, CanonicalAlert
 FEATURE_NAMES: tuple[str, ...] = (
     "delta_t_days",
     "flux_norm",
+    "flux_abs_norm",
     "flux_err_norm",
     "wavelength_norm",
     "is_detection",
@@ -217,10 +250,11 @@ def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
     delta_t, flux, flux_err, wavelength_norm, is_detection = raw.unbind(dim=1)
 
     flux_norm = _signed_log1p(flux / flux_err)
+    flux_abs_norm = _signed_log1p(flux)
     flux_err_norm = torch.log1p(flux_err)
 
     features = torch.stack(
-        [delta_t, flux_norm, flux_err_norm, wavelength_norm, is_detection], dim=1
+        [delta_t, flux_norm, flux_abs_norm, flux_err_norm, wavelength_norm, is_detection], dim=1
     ).to(torch.float32)
 
     return TensorizedAlert(object_id=alert.object_id, features=features, class_id=alert.class_id)

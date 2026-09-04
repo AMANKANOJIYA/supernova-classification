@@ -45,6 +45,35 @@ def _alert(observations, object_id="ZTF21abc", class_id=2222) -> CanonicalAlert:
 
 
 # ---------------------------------------------------------------------------
+# _signed_log1p itself: the exact definition matters (sign extraction, not a
+# plain log1p that would return NaN on a negative argument).
+# ---------------------------------------------------------------------------
+
+
+class TestSignedLog1p:
+    def test_negative_argument_does_not_produce_nan(self):
+        x = torch.tensor([-10.0])
+        result = tensorize._signed_log1p(x)
+        assert torch.isfinite(result).all()
+
+    def test_matches_sign_times_log1p_of_absolute_value(self):
+        for value in (-1000.0, -1.0, -0.001, 0.0, 0.001, 1.0, 1000.0):
+            x = torch.tensor([value])
+            expected = math.copysign(1.0, value) * math.log1p(abs(value)) if value != 0 else 0.0
+            assert tensorize._signed_log1p(x).item() == pytest.approx(expected, abs=1e-5)
+
+    def test_is_odd_sign_preserving(self):
+        x = torch.tensor([3.7, 250.0, 0.02])
+        assert torch.allclose(tensorize._signed_log1p(-x), -tensorize._signed_log1p(x))
+
+    def test_a_plain_log1p_would_have_produced_nan_here(self):
+        """Documents exactly the failure this function exists to avoid."""
+        x = torch.tensor([-10.0])
+        assert torch.isnan(torch.log1p(x)).all()
+        assert not torch.isnan(tensorize._signed_log1p(x)).any()
+
+
+# ---------------------------------------------------------------------------
 # Required fixtures
 # ---------------------------------------------------------------------------
 
@@ -114,6 +143,13 @@ class TestAllNegativeFlux:
         # signed_log1p(-10) = -log1p(10)
         assert flux_norm == pytest.approx(-math.log1p(10.0), abs=1e-5)
 
+    def test_flux_abs_norm_is_negative_and_matches_formula(self):
+        alert = _alert([_obs(60000.0, flux=-50.0, flux_err=5.0)])
+        result = tensorize.tensorize_alert(alert)
+        flux_abs_norm = result.features[0, 2].item()
+        assert flux_abs_norm < 0.0
+        assert flux_abs_norm == pytest.approx(-math.log1p(50.0), abs=1e-5)
+
 
 class TestOneBandEntirelyAbsent:
     def test_only_g_band_present_no_crash(self):
@@ -126,7 +162,7 @@ class TestOneBandEntirelyAbsent:
         )
         result = tensorize.tensorize_alert(alert)
         assert result.features.shape == (3, tensorize.NUM_FEATURES)
-        wavelength_col = result.features[:, 3]
+        wavelength_col = result.features[:, 4]
         expected = tensorize._wavelength_norm(LAM_EFF["ztf_g"])
         assert wavelength_col.tolist() == pytest.approx([expected] * 3, abs=1e-5)
 
@@ -160,6 +196,7 @@ class TestNearZeroAmplitude:
         alert = _alert([_obs(60000.0, flux=0.0, flux_err=5.0)])
         result = tensorize.tensorize_alert(alert)
         assert result.features[0, 1].item() == pytest.approx(0.0)
+        assert result.features[0, 2].item() == pytest.approx(0.0)  # flux_abs_norm too
 
 
 class TestEmptyOrUndetectedRaise:
