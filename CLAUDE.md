@@ -63,6 +63,23 @@ count and reason. Silent filtering is how a 14:1 class imbalance becomes 40:1.
 
 ---
 
+### 2.6 Two ELAsTiCC2 fields are banned as model inputs
+
+Neither may reach any encoder, feature, or label path:
+
+- **`SNTYPE`** — a type and that type plus 100 conventionally distinguishes the
+  spectroscopically-confirmed subset in SNANA (observed: 10 and 110 for
+  SNIa-SALT3).
+- **`REDSHIFT_HELIO`** — documented as zSpec if available, else zPhot.
+
+Both encode whether an object was spectroscopically confirmed. Spec confirmation
+is not random: it tracks brightness, which tracks class. Either field is
+therefore a partial shortcut to the label, and that selection effect is
+simulated into the data.
+
+Labels come from `SIM_TYPE_INDEX` only. Host redshift comes from
+`HOSTGAL_PHOTOZ` / `HOSTGAL_PHOTOZ_ERR` only.
+
 ## 3. The canonical schema
 
 Every data source converts into this. It is the contract that makes multi-survey
@@ -119,7 +136,7 @@ Rules:
 - `flux` is never clipped at zero.
 - `cutouts` is `None` for all simulated data. This is not a bug; see §5.1.
 - `class_id` uses the ELAsTiCC2 taxonomy in §4, never a local string label.
-- `flux` is on the SNANA `FLUXCAL` convention: AB zeropoint 27.5.\*\*
+- **`flux` is on the SNANA `FLUXCAL` convention: AB zeropoint 27.5.**
   Every reader is responsible for converting its source's photometry
   to this scale. `tensorize.py` and all models may assume a single
   consistent flux scale across all tiers and must never apply a
@@ -205,6 +222,10 @@ Alert
 
 ---
 
+- **`SNIIb` is class 2224 (II), not 2223 (Ib/c).** Verified empirically: gentype
+  37, read from `SIM_TYPE_INDEX` in the real HEAD file, and 37 sits in the II
+  group {30,31,32,35,36,37} rather than the Ib/c group {20,21,25,26,27}.
+
 ## 5. Data
 
 | Tier  | Source                                      | Bands        | Cutouts | Labels        | Role           |
@@ -261,6 +282,42 @@ standard FITS tables but the row-pointer convention linking HEAD to PHOT is not
 obvious. Do not guess it.
 
 ---
+
+**SNANA sentinel values — four different conventions, most undocumented.**
+Convert each to `None` by comparing a field against *its own* sentinel. Never
+infer missingness from `HOSTGAL_NMATCH`: an object with `HOSTGAL_NMATCH=0` was
+empirically observed still carrying real host values for a sub-threshold nearest
+candidate.
+
+| Sentinel | Fields | Documented? |
+|---|---|---|
+| `-9` | `HOSTGAL_PHOTOZ[_ERR]`, `HOSTGAL_SPECZ[_ERR]`, `HOSTGAL_SNSEP`, `HOSTGAL2_PHOTOZ`, `HOSTGAL2_SNSEP`, `REDSHIFT_HELIO[_ERR]` | yes |
+| `-999` | `HOSTGAL2_RA`, `HOSTGAL2_DEC` | partly |
+| `-9999` | `HOSTGAL_ELLIPTICITY`, `HOSTGAL2_ELLIPTICITY` | **no** |
+| `999` | `HOSTGAL_MAG_[band]`, `HOSTGAL2_MAG_[band]` | **no** |
+| `0` | `HOSTGAL2_OBJID` | no |
+
+`999` is the most dangerous: host magnitudes are legitimately 18–28, so an
+unconverted `999` reads as "very faint host" rather than "missing" and will
+train silently.
+
+**`PTROBS_MIN` / `PTROBS_MAX` are 1-indexed and inclusive on both ends.**
+`PTROBS_MAX - PTROBS_MIN + 1 == NOBS`; the correct slice is
+`phot[PTROBS_MIN-1 : PTROBS_MAX]`. An `MJD = -777` terminator row sits
+immediately after `PTROBS_MAX` and must never be included. This is not
+documented in `A_FORMAT.TXT`; it was derived empirically and cross-checked
+against `LSSTDESC/elasticc`'s own `lib_elasticc2/read_snana.py`.
+
+**Three unrelated numbering schemes coexist in these files** and were observed
+taking three different values for the same object: MERGE-list position (29),
+`SIM_MODEL_INDEX` (6), and `SIM_TYPE_INDEX` / gentype (10). Only
+`SIM_TYPE_INDEX` is the gentype.
+
+**File-count completeness must be asserted, not assumed.** Every model directory
+contains exactly 40 `_HEAD.FITS` and 40 `_PHOT.FITS` files. Readers
+log-and-continue on a corrupt file (a truncated download was observed), so a
+per-directory assertion of 40+40 is required, or a bad download silently removes
+~1/40 of a class without any row-level discard being recorded.
 
 ## 6. Build order
 
@@ -431,6 +488,11 @@ detection**, plus confusion matrices at fixed time cutoffs. Plain accuracy is no
 a reportable metric here — always-predict-Ia scores well and is useless.
 
 ---
+
+- Do **not** derive class weights from Tier A training-sample proportions and
+  assume they transfer. The ELAsTiCC training sets were deliberately not matched
+  in composition to the streamed data (§5.1), so the sample's class balance is
+  an artefact of the release, not an estimate of the real rate.
 
 ## 12. Working style
 
