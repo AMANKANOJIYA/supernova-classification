@@ -91,6 +91,12 @@ _TARGET_LEAF_OF: dict[int, TargetClass] = {
     2224: TargetClass.II,
 }
 
+# Public, ordered (Ia, Ib/c, II) tuple of the flat 3-class head's target ids
+# (CLAUDE.md §6 step 6). Single source of truth for "class index i corresponds
+# to which taxonomy id" -- training/eval code should index into this rather
+# than re-deriving or hardcoding the mapping locally.
+TARGET_CLASS_IDS: tuple[int, int, int] = (2222, 2223, 2224)
+
 
 def _check_valid(class_id: int) -> None:
     if class_id not in _VALID_IDS:

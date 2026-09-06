@@ -1,0 +1,14 @@
+# CLAUDE.md §6 step 7: "swap the head only, keep everything else" -- reuses
+# src.models.lc_encoder.LCEncoder completely unchanged; only num_classes
+# changes, from the flat model's 3 (Ia/Ib-c/II) to NUM_TAXONOMY_NODES (one
+# output slot per node in the full §4 taxonomy, including the anomaly-branch
+# nodes this specific 3-class dataset never populates -- see
+# src/models/whxe.py). src/train/pretrain_whxe.py asserts
+# num_classes == src.models.whxe.NUM_TAXONOMY_NODES at startup, mirroring how
+# pretrain.py asserts input_size == tensorize.NUM_FEATURES.
+_target_: src.models.lc_encoder.LCEncoder
+input_size: 6
+hidden_size: 128
+num_layers: 2
+dropout: 0.2
+num_classes: 30

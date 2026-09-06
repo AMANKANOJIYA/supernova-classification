@@ -1,0 +1,9 @@
+# CLAUDE.md §6 step 6: causal GRU LC encoder + flat 3-class head.
+# input_size must equal src.features.tensorize.NUM_FEATURES -- src/train/pretrain.py
+# asserts this at startup rather than letting a silent mismatch fail deep inside GRU.
+_target_: src.models.lc_encoder.LCEncoder
+input_size: 6
+hidden_size: 128
+num_layers: 2
+dropout: 0.2
+num_classes: 3

@@ -163,6 +163,63 @@ def per_class_pr_auc(y_true: np.ndarray, y_prob: np.ndarray, num_classes: int) -
     return ap
 
 
+def roc_auc(y_true: np.ndarray, y_prob: np.ndarray, num_classes: int) -> np.ndarray:
+    """One-vs-rest ROC-AUC (area under the receiver operating characteristic
+    curve) for each class. Added Day 6 (CLAUDE.md §2.1's Day-6 widening):
+    §11's Ia-vs-rest ceiling-check anchor (0.93-0.96) turned out to name
+    ROC-AUC, not macro-F1 or `per_class_pr_auc` (average precision) — neither
+    of which existed in this harness before.
+
+    Args:
+        y_true: `(N,)` integer array, true class index in `[0, num_classes)`.
+        y_prob: `(N, num_classes)` float array of predicted probabilities.
+        num_classes: number of classes `K`.
+
+    Returns:
+        `(K,)` array of ROC-AUC. A class with zero positive examples, or zero
+        negative examples (everything is that class), gets `nan` — undefined,
+        not 0.5 or 1.0 — same convention as `per_class_pr_auc`.
+
+    Computed via the Mann-Whitney U / rank-sum identity: ROC-AUC equals the
+    fraction of (positive, negative) score pairs where the positive example
+    outranks the negative one (ties count as half), which is exactly the area
+    under the ROC curve without sweeping thresholds explicitly. Tied scores
+    get the average rank of their tied block, the standard correction.
+    """
+    y_true = np.asarray(y_true)
+    y_prob = np.asarray(y_prob)
+    auc = np.full(num_classes, np.nan)
+
+    for k in range(num_classes):
+        labels = (y_true == k).astype(np.int64)
+        n_pos = int(labels.sum())
+        n_neg = len(labels) - n_pos
+        if n_pos == 0 or n_neg == 0:
+            continue
+
+        scores = y_prob[:, k]
+        order = np.argsort(scores, kind="stable")
+        sorted_scores = scores[order]
+
+        ranks_sorted = np.arange(1, len(scores) + 1, dtype=np.float64)
+        i = 0
+        while i < len(sorted_scores):
+            j = i
+            while j + 1 < len(sorted_scores) and sorted_scores[j + 1] == sorted_scores[i]:
+                j += 1
+            if j > i:
+                ranks_sorted[i : j + 1] = ranks_sorted[i : j + 1].mean()
+            i = j + 1
+
+        ranks = np.empty(len(scores))
+        ranks[order] = ranks_sorted
+
+        rank_sum_pos = float(ranks[labels == 1].sum())
+        auc[k] = (rank_sum_pos - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
+
+    return auc
+
+
 @dataclass(frozen=True)
 class CalibrationResult:
     """Output of `expected_calibration_error`, including reliability-diagram data.

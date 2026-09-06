@@ -1,11 +1,22 @@
 # Top-level Hydra composition root.
 #
-# Day 1 scaffolding only — defaults below point at placeholder groups because
-# src/models/ and src/train/ don't exist yet (CLAUDE.md §6 steps 6+). Nothing
-# currently consumes this file. Fill in `model:` and `train:` defaults when
-# those modules land; `eval:` is real today and safe to use.
+# `model`/`train` landed Day 5 (CLAUDE.md §6 step 6: causal GRU LC encoder +
+# flat 3-class head + training loop). `eval` has been real and wired up
+# since Day 1.
 defaults:
   - eval: default
+  - model: lc_encoder
+  - train: default
   - _self_
 
-seed: 42
+# Day 6: no top-level `seed` here -- src/train/pretrain.py reads cfg.train.seed
+# (configs/train/default.yaml) exclusively; a top-level seed key was dead
+# (never read anywhere) and only happened to agree with cfg.train.seed by
+# coincidence. Set the seed in configs/train/default.yaml.
+
+# Keep the invocation cwd (project root) instead of Hydra's default per-run
+# output-dir chdir -- src/train/pretrain.py's paths (data_parquet,
+# output_dir) are plain relative paths, not resolved via get_original_cwd().
+hydra:
+  job:
+    chdir: false

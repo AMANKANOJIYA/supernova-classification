@@ -30,6 +30,7 @@ from src.eval.metrics import (
     expected_calibration_error,
     per_class_pr_auc,
     per_class_precision_recall_f1,
+    roc_auc,
 )
 
 # Cutoff = days since first detection. None means "full" — no truncation, use
@@ -115,6 +116,7 @@ class PhaseCutoffResult:
     per_class: PerClassPRF1
     confusion: ConfusionMatrix
     pr_auc: np.ndarray
+    roc_auc: np.ndarray
     calibration: CalibrationResult
 
 
@@ -162,6 +164,7 @@ def evaluate_at_cutoffs(
             per_class=per_class_precision_recall_f1(y_true, y_pred, num_classes),
             confusion=confusion_matrix(y_true, y_pred, num_classes),
             pr_auc=per_class_pr_auc(y_true, y_prob, num_classes),
+            roc_auc=roc_auc(y_true, y_prob, num_classes),
             calibration=expected_calibration_error(y_true, y_prob, ece_num_bins)
             if selected
             else expected_calibration_error(

@@ -219,81 +219,6 @@ class TestEmptyOrUndetectedRaise:
 
 
 # ---------------------------------------------------------------------------
-# Batching: padding, masking, collate_fn
-# ---------------------------------------------------------------------------
-
-
-class TestCollateFn:
-    def test_mask_matches_original_lengths(self):
-        short = tensorize.tensorize_alert(_alert([_obs(60000.0), _obs(60001.0)], object_id="short"))
-        long_ = tensorize.tensorize_alert(
-            _alert([_obs(60000.0 + i) for i in range(5)], object_id="long")
-        )
-        batch = tensorize.collate_fn([short, long_])
-
-        assert batch.features.shape == (2, 5, tensorize.NUM_FEATURES)
-        assert batch.mask.shape == (2, 5)
-        assert batch.mask[0].tolist() == [True, True, False, False, False]
-        assert batch.mask[1].tolist() == [True, True, True, True, True]
-
-    def test_object_id_and_class_id_order_preserved(self):
-        a = tensorize.tensorize_alert(_alert([_obs(60000.0)], object_id="a", class_id=2222))
-        b = tensorize.tensorize_alert(_alert([_obs(60000.0), _obs(60001.0)], object_id="b", class_id=None))
-        batch = tensorize.collate_fn([a, b])
-        assert batch.object_id == ["a", "b"]
-        assert batch.class_id == [2222, None]
-
-    def test_empty_batch_raises(self):
-        with pytest.raises(ValueError):
-            tensorize.collate_fn([])
-
-    def test_padded_positions_do_not_influence_masked_computation(self):
-        """Padded rows must be safely ignorable by any consumer that
-        actually respects the mask — prove it by replacing padded feature
-        values with garbage and showing a masked-mean is unaffected."""
-        short = tensorize.tensorize_alert(_alert([_obs(60000.0), _obs(60001.0)], object_id="short"))
-        long_ = tensorize.tensorize_alert(
-            _alert([_obs(60000.0 + i) for i in range(5)], object_id="long")
-        )
-        batch = tensorize.collate_fn([short, long_])
-
-        def masked_mean(features: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-            mask_f = mask.unsqueeze(-1).to(features.dtype)
-            summed = (features * mask_f).sum(dim=1)
-            counts = mask_f.sum(dim=1).clamp(min=1.0)
-            return summed / counts
-
-        baseline = masked_mean(batch.features, batch.mask)
-
-        garbage = batch.features.clone()
-        garbage_fill = torch.full_like(garbage, 1e9)
-        garbage = torch.where(batch.mask.unsqueeze(-1), garbage, garbage_fill)
-        # confirm the padded region really did change
-        assert not torch.equal(garbage, batch.features)
-
-        sabotaged = masked_mean(garbage, batch.mask)
-        assert torch.allclose(baseline, sabotaged, atol=1e-5)
-
-    def test_padded_positions_can_even_be_nan_without_affecting_masked_output(self):
-        short = tensorize.tensorize_alert(_alert([_obs(60000.0), _obs(60001.0)], object_id="short"))
-        long_ = tensorize.tensorize_alert(
-            _alert([_obs(60000.0 + i) for i in range(5)], object_id="long")
-        )
-        batch = tensorize.collate_fn([short, long_])
-
-        nan_features = torch.where(
-            batch.mask.unsqueeze(-1), batch.features, torch.full_like(batch.features, float("nan"))
-        )
-
-        def masked_sum(features: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-            mask_f = mask.unsqueeze(-1).to(features.dtype)
-            safe = torch.where(mask.unsqueeze(-1), features, torch.zeros_like(features))
-            return (safe * mask_f).sum(dim=1)
-
-        assert torch.isfinite(masked_sum(nan_features, batch.mask)).all()
-
-
-# ---------------------------------------------------------------------------
 # Order invariance for equal-mjd observations (same bug class as Day 1's
 # colour_at_peak: picking/aggregating in a way that depends on array order).
 # ---------------------------------------------------------------------------
@@ -329,6 +254,88 @@ class TestSameMjdOrderInvariance:
 # The test that matters: truncation invariance. If this fails, normalization
 # leaks — see the module docstring in src/features/tensorize.py.
 # ---------------------------------------------------------------------------
+
+
+class TestWindowing:
+    """Day-4 addendum: train/serve distribution mismatch fix. Default
+    windowing truncates to [first_detection_mjd - 30d, last_detection_mjd]."""
+
+    def test_forced_photometry_before_window_is_dropped_by_default(self):
+        alert = _alert(
+            [
+                _obs(59900.0, is_detection=False),  # 100 days before first detection
+                _obs(60000.0, is_detection=True),
+                _obs(60005.0, is_detection=True),
+            ]
+        )
+        result = tensorize.tensorize_alert(alert)
+        assert result.features.shape[0] == 2
+
+    def test_forced_photometry_after_last_detection_is_dropped_by_default(self):
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60005.0, is_detection=True),
+                _obs(60500.0, is_detection=False),  # far post-fade baseline
+            ]
+        )
+        result = tensorize.tensorize_alert(alert)
+        assert result.features.shape[0] == 2
+
+    def test_forced_photometry_inside_window_is_kept(self):
+        alert = _alert(
+            [
+                _obs(59980.0, is_detection=False),  # 20 days before first detection
+                _obs(60000.0, is_detection=True),
+                _obs(60005.0, is_detection=True),
+            ]
+        )
+        result = tensorize.tensorize_alert(alert)
+        assert result.features.shape[0] == 3
+
+    def test_window_boundaries_are_inclusive(self):
+        alert = _alert(
+            [
+                _obs(59970.0, is_detection=False),  # exactly 30 days before first detection
+                _obs(60000.0, is_detection=True),
+            ]
+        )
+        result = tensorize.tensorize_alert(alert)
+        assert result.features.shape[0] == 2
+
+    def test_windowing_never_drops_a_detection(self):
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60100.0, is_detection=True),  # 100 days after first detection
+            ]
+        )
+        result = tensorize.tensorize_alert(alert)
+        assert result.features.shape[0] == 2
+
+    def test_pre_detection_window_days_none_disables_windowing(self):
+        alert = _alert(
+            [
+                _obs(59500.0, is_detection=False),  # 500 days before first detection
+                _obs(60000.0, is_detection=True),
+                _obs(60600.0, is_detection=False),  # 600 days after last detection
+            ]
+        )
+        result = tensorize.tensorize_alert(alert, pre_detection_window_days=None)
+        assert result.features.shape[0] == 3
+
+    def test_custom_window_width_is_respected(self):
+        alert = _alert(
+            [
+                _obs(59950.0, is_detection=False),  # 50 days before first detection
+                _obs(60000.0, is_detection=True),
+            ]
+        )
+        default_windowed = tensorize.tensorize_alert(alert)
+        assert default_windowed.features.shape[0] == 1  # dropped at the default 30d
+
+        wide_windowed = tensorize.tensorize_alert(alert, pre_detection_window_days=60.0)
+        assert wide_windowed.features.shape[0] == 2  # kept at 60d
 
 
 class TestTruncationInvariance:

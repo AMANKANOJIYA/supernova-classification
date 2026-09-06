@@ -55,6 +55,7 @@ def _result_to_dict(result: PhaseCutoffResult) -> dict:
             "normalized": _sanitize(result.confusion.normalized),
         },
         "pr_auc": _sanitize(result.pr_auc),
+        "roc_auc": _sanitize(result.roc_auc),
         "calibration": {
             "ece": _sanitize(result.calibration.ece),
             "bin_edges": _sanitize(result.calibration.bin_edges),

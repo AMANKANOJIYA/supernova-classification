@@ -88,6 +88,68 @@ class TestFindHeadPhotPairs:
         assert len(pairs) == 1
 
 
+class TestAssertDirectoryComplete:
+    """CLAUDE.md §5.1: "File-count completeness must be asserted, not
+    assumed" -- the exact guard for a truncated download silently removing
+    ~1/40 of a class. Synthetic `ReadStats`, no real FITS files needed: this
+    function only ever inspects the counts on the object it's handed."""
+
+    def _stats(self, **overrides):
+        base = dict(
+            n_objects_read=100,
+            n_objects_discarded=0,
+            discard_reasons={},
+            n_head_files_found=40,
+            n_phot_files_found=40,
+            n_pairs_read_ok=40,
+        )
+        base.update(overrides)
+        return elasticc2.ReadStats(**base)
+
+    def test_passes_when_all_counts_match_expected(self):
+        elasticc2.assert_directory_complete("fake_dir", self._stats(), expected_files=40)
+
+    def test_raises_on_missing_head_file(self):
+        stats = self._stats(n_head_files_found=39)
+        with pytest.raises(RuntimeError, match="incomplete directory"):
+            elasticc2.assert_directory_complete("fake_dir", stats, expected_files=40)
+
+    def test_raises_on_missing_phot_file(self):
+        stats = self._stats(n_phot_files_found=39)
+        with pytest.raises(RuntimeError, match="incomplete directory"):
+            elasticc2.assert_directory_complete("fake_dir", stats, expected_files=40)
+
+    def test_raises_when_a_pair_failed_to_read_despite_files_present_on_disk(self):
+        """The exact truncated-download scenario CLAUDE.md §5.1 names: both
+        files are on disk (found=40/40) but one raised during read, so only
+        39 pairs were actually read -- object-level discard counts alone
+        (n_objects_discarded=1) would hugely understate this as "one bad
+        row," not "one entire missing file"."""
+        stats = self._stats(
+            n_pairs_read_ok=39,
+            n_objects_discarded=1,
+            discard_reasons={"file read error (EOFError)": 1},
+        )
+        with pytest.raises(RuntimeError, match="incomplete directory"):
+            elasticc2.assert_directory_complete("fake_dir", stats, expected_files=40)
+
+    def test_raises_on_more_files_than_expected_too(self):
+        """Not just a floor -- an unexpected extra file (e.g. a stray
+        duplicate download) should also be caught, not silently accepted."""
+        stats = self._stats(n_head_files_found=41, n_phot_files_found=41, n_pairs_read_ok=41)
+        with pytest.raises(RuntimeError, match="incomplete directory"):
+            elasticc2.assert_directory_complete("fake_dir", stats, expected_files=40)
+
+    def test_error_message_includes_discard_reasons(self):
+        stats = self._stats(
+            n_pairs_read_ok=39,
+            n_objects_discarded=1,
+            discard_reasons={"file read error (OSError)": 1},
+        )
+        with pytest.raises(RuntimeError, match="file read error"):
+            elasticc2.assert_directory_complete("fake_dir", stats, expected_files=40)
+
+
 class TestReadModelDirectoryResilience:
     """One corrupt/unreadable file pair must not take down the whole
     directory read -- encountered for real this session (a truncated gzip

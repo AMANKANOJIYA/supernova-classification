@@ -135,14 +135,67 @@ same number. CLAUDE.md §5.1's note that forced photometry can reach back
 before first detection is exactly why this can be negative for some rows —
 matches the negative-cutoff convention already used in
 `src/eval/phase_curves.py`.
+
+-----------------------------------------------------------------------------
+WINDOWING — train/serve distribution mismatch (Day 4 addendum).
+-----------------------------------------------------------------------------
+The archived ELAsTiCC2 SNANA training dump and the live LSST/ZTF alert stream
+are different artifacts with different schemas, not just different volumes of
+the same thing: the training dump is each object's *complete* simulated
+observation history (verified this session — real objects show up to
+~1100-day time spans, spanning multiple observing seasons before and after
+the actual transient), while a live alert packet only ever carries forced
+photometry reaching back a bounded window before first detection (CLAUDE.md
+§5.1's 30-day clause — which describes the alert packet, not the archived
+dump). At a measured mean of 7.9 detections against 139.2 forced-photometry
+points per object, ~95% of every unwindowed training sequence is baseline a
+live stream would never produce — including entire pre-explosion seasons. A
+causal GRU trained on that distribution meets a materially different one at
+serving time, and CLAUDE.md §2.3's causality test (Gate B) does not catch
+this: that test checks the *model* (does truncating at t change the
+prediction at t), not the *input distribution* the model was trained on.
+
+The fix lives here, in tensorize, not in `src/readers/elasticc2.py`: the
+reader's job is a faithful parse of what's actually in the file (CLAUDE.md
+§2.5), and keeping windowing here means it stays an ablatable preprocessing
+choice — pass `pre_detection_window_days=None` to recover the full,
+unwindowed archived history (e.g. for comparison experiments, or for a future
+long-timescale anomaly class like TDE/SLSN where the pre-explosion baseline
+itself may be informative) without touching the parse.
+
+`tensorize_alert` truncates to `[first_detection_mjd - pre_detection_window_days,
+last_detection_mjd]` — approximating what a live/replay stream produces
+*cumulatively* as of the object's own last real detection. Both endpoints are
+properties of the observations actually being tensorized (not of some global
+future the alert wouldn't have seen yet), so this composes correctly with
+per-timestep truncation: tensorizing `alert.observations[:t]` recomputes its
+own first/last detection from that prefix and windows against those, exactly
+mirroring what a live pipeline would compute incrementally at each new alert.
+`TestTruncationInvariance` (tests/test_tensorize.py) already covers this
+composition — windowing does not need a separate causality-style test in
+addition to the leak-free-normalization one it already passes.
+
+This can never remove a detection: `first_detection_mjd` is by definition the
+minimum, and `last_detection_mjd` the maximum, of `obs.mjd` over
+`is_detection=True` rows, so every detection's own `mjd` already lies in
+`[first_detection_mjd - pre_detection_window_days, last_detection_mjd]`
+(the window only ever *widens* past a detection, via the pre-detection
+margin). Only excess forced photometry outside that range is dropped.
 """
 
 from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import Optional
 
 import torch
 
 from src.schema import LAM_EFF, CanonicalAlert
+
+# Default pre-first-detection lookback window, days — matches CLAUDE.md
+# §5.1's documented alert-packet convention ("forced photometry reaching back
+# to 30 days before first detection"). A named, overridable config parameter
+# (see `tensorize_alert`'s `pre_detection_window_days`), never a constant
+# hardcoded inline in the truncation logic itself.
+DEFAULT_PRE_DETECTION_WINDOW_DAYS: float = 30.0
 
 FEATURE_NAMES: tuple[str, ...] = (
     "delta_t_days",
@@ -192,7 +245,10 @@ class TensorizedAlert:
     class_id: Optional[int]
 
 
-def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
+def tensorize_alert(
+    alert: CanonicalAlert,
+    pre_detection_window_days: Optional[float] = DEFAULT_PRE_DETECTION_WINDOW_DAYS,
+) -> TensorizedAlert:
     """Convert one `CanonicalAlert` into a `(T, NUM_FEATURES)` tensor.
 
     Assumes `alert` satisfies the invariants `CanonicalAlert.validate()`
@@ -202,12 +258,20 @@ def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
 
     Args:
         alert: the object to tensorize.
+        pre_detection_window_days: if not `None` (the default — see module
+            docstring, "WINDOWING"), observations outside
+            `[first_detection_mjd - pre_detection_window_days,
+            last_detection_mjd]` are dropped before tensorizing, to match
+            what a live alert stream would actually have accumulated as of
+            this object's own last detection. Pass `None` to tensorize the
+            full, unwindowed observation list exactly as the reader parsed
+            it.
 
     Returns:
-        `TensorizedAlert` with one feature row per observation, in input
-        order (see module docstring for why row order among equal-mjd
-        observations cannot change any individual row's own feature
-        values).
+        `TensorizedAlert` with one feature row per surviving observation (all
+        of them, if `pre_detection_window_days` is `None`), in input order
+        (see module docstring for why row order among equal-mjd observations
+        cannot change any individual row's own feature values).
 
     Raises:
         ValueError: if `alert.observations` is empty, or contains no
@@ -226,6 +290,15 @@ def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
         )
     first_detection_mjd = min(detection_mjds)
 
+    if pre_detection_window_days is None:
+        observations = alert.observations
+    else:
+        last_detection_mjd = max(detection_mjds)
+        window_start = first_detection_mjd - pre_detection_window_days
+        observations = [
+            obs for obs in alert.observations if window_start <= obs.mjd <= last_detection_mjd
+        ]
+
     # Δt computed in plain Python float (float64) arithmetic *before* any
     # tensor is built, and only from the already-small (mjd - reference)
     # difference — never from the raw ~60000-magnitude MJD value itself.
@@ -243,7 +316,7 @@ def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
             _wavelength_norm(obs.lam_eff),
             1.0 if obs.is_detection else 0.0,
         )
-        for obs in alert.observations
+        for obs in observations
     ]
 
     raw = torch.tensor(rows, dtype=torch.float64)
@@ -260,54 +333,12 @@ def tensorize_alert(alert: CanonicalAlert) -> TensorizedAlert:
     return TensorizedAlert(object_id=alert.object_id, features=features, class_id=alert.class_id)
 
 
-@dataclass(frozen=True)
-class Batch:
-    """A padded, masked batch, ready for a model.
-
-    Attributes:
-        object_id: length `B`.
-        features: `(B, T_max, NUM_FEATURES)` float32, zero-padded.
-        mask: `(B, T_max)` bool; `True` = real observation, `False` =
-            padding. Padded feature rows happen to be `0.0`, but nothing
-            downstream may rely on that — consumers MUST gate on `mask`,
-            not on padded values happening to already be zero (see
-            `tests/test_tensorize.py`, which asserts padded rows can hold
-            arbitrary garbage without changing a properly masked
-            computation's result).
-        class_id: length `B`, passthrough (may contain `None`).
-    """
-
-    object_id: list[str]
-    features: torch.Tensor
-    mask: torch.Tensor
-    class_id: list[Optional[int]]
-
-
-def collate_fn(items: Sequence[TensorizedAlert]) -> Batch:
-    """`DataLoader`-compatible collate function: pads every item in `items`
-    to this batch's max length and builds the corresponding boolean mask.
-
-    Raises:
-        ValueError: if `items` is empty.
-    """
-    if not items:
-        raise ValueError("collate_fn: empty batch")
-
-    lengths = [item.features.shape[0] for item in items]
-    t_max = max(lengths)
-    batch_size = len(items)
-
-    features = torch.zeros((batch_size, t_max, NUM_FEATURES), dtype=torch.float32)
-    mask = torch.zeros((batch_size, t_max), dtype=torch.bool)
-
-    for i, item in enumerate(items):
-        t = item.features.shape[0]
-        features[i, :t] = item.features
-        mask[i, :t] = True
-
-    return Batch(
-        object_id=[item.object_id for item in items],
-        features=features,
-        mask=mask,
-        class_id=[item.class_id for item in items],
-    )
+# Day 6: the padded/masked-batch collate step lives only in
+# `src.train.dataset.collate_examples`/`TrainBatch` (the one actually used in
+# production) -- this module used to carry its own independent
+# `collate_fn`/`Batch` that nothing imported, a second implementation that
+# could silently drift from the one actually in use. Deleted rather than
+# kept as untested-but-parallel code (CLAUDE.md §12: "prefer deleting code to
+# adding flags"). `TensorizedAlert` above is still what
+# `dataset.LightCurveDataset.__getitem__` returns per-object; batching is
+# `dataset.collate_examples`'s job.

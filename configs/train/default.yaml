@@ -1,0 +1,32 @@
+# CLAUDE.md §6 step 6: "simplest thing that trains". Everything here is a
+# real, live config -- nothing in src/train/pretrain.py hardcodes these.
+seed: 42
+
+data_parquet: data/interim/elasticc2/train_02_full_3class.parquet
+
+# src.features.tensorize.tensorize_alert's pre_detection_window_days
+# (CLAUDE.md Day-4: train/serve distribution mismatch fix). null disables
+# windowing entirely, for ablation.
+pre_detection_window_days: 30.0
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+  # test_frac is implied (1 - train_frac - val_frac); test is touched once, at the end.
+
+batch_size: 256
+num_workers: 0
+
+num_epochs: 15
+learning_rate: 1.0e-3
+weight_decay: 1.0e-2
+# AdamW + cosine schedule (CLAUDE.md Day-5 spec) -- T_max defaults to num_epochs
+# in src/train/pretrain.py unless overridden here.
+cosine_t_max: null
+
+# CLAUDE.md §11 Day-4 recorded decision: natural ELAsTiCC composition, no
+# oversampling. Class weighting in the loss is permitted and reported on,
+# not assumed to help.
+class_weighting: true
+
+output_dir: outputs/train

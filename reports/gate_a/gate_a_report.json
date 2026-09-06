@@ -1,0 +1,299 @@
+{
+  "per_directory": {
+    "SNII+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 79991,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3564531163327977,
+      "class_counts_by_object": {
+        "2224": 79991
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.008700978860121764,
+        "host_photoz_err": 0.008700978860121764,
+        "host_offset_arcsec": 0.008700978860121764,
+        "host_ellipticity": 0.008700978860121764,
+        "host_mag_r": 0.008700978860121764,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNII-NMF": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 80875,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3959050495925529,
+      "class_counts_by_object": {
+        "2224": 80875
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.006231839258114374,
+        "host_photoz_err": 0.006231839258114374,
+        "host_offset_arcsec": 0.006231839258114374,
+        "host_ellipticity": 0.006231839258114374,
+        "host_mag_r": 0.006231839258114374,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNII-Templates": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 78491,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3618315284590223,
+      "class_counts_by_object": {
+        "2224": 78491
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.006344676459721497,
+        "host_photoz_err": 0.006344676459721497,
+        "host_offset_arcsec": 0.006344676459721497,
+        "host_ellipticity": 0.006344676459721497,
+        "host_mag_r": 0.006344676459721497,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIIb+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 78028,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3559923069176247,
+      "class_counts_by_object": {
+        "2224": 78028
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.003780694109806736,
+        "host_photoz_err": 0.003780694109806736,
+        "host_offset_arcsec": 0.003780694109806736,
+        "host_ellipticity": 0.003780694109806736,
+        "host_mag_r": 0.003780694109806736,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIIn+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 89138,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3743575751515201,
+      "class_counts_by_object": {
+        "2224": 89138
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.04574928762144091,
+        "host_photoz_err": 0.04574928762144091,
+        "host_offset_arcsec": 0.04574928762144091,
+        "host_ellipticity": 0.04574928762144091,
+        "host_mag_r": 0.04574928762144091,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIIn-MOSFIT": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 24251,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.38082134949471297,
+      "class_counts_by_object": {
+        "2224": 24251
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.02193723970145561,
+        "host_photoz_err": 0.02193723970145561,
+        "host_offset_arcsec": 0.02193723970145561,
+        "host_ellipticity": 0.02193723970145561,
+        "host_mag_r": 0.02193723970145561,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIa-SALT3": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 172484,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3743249492354915,
+      "class_counts_by_object": {
+        "2222": 172484
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.00620347394540943,
+        "host_photoz_err": 0.00620347394540943,
+        "host_offset_arcsec": 0.00620347394540943,
+        "host_ellipticity": 0.00620347394540943,
+        "host_mag_r": 0.00620347394540943,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIb+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 79907,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3422212306767957,
+      "class_counts_by_object": {
+        "2223": 79907
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.0035416171299135243,
+        "host_photoz_err": 0.0035416171299135243,
+        "host_offset_arcsec": 0.0035416171299135243,
+        "host_ellipticity": 0.0035416171299135243,
+        "host_mag_r": 0.0035416171299135243,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIb-Templates": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 29113,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.373297761302942,
+      "class_counts_by_object": {
+        "2223": 29113
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.0005839315769587469,
+        "host_photoz_err": 0.0005839315769587469,
+        "host_offset_arcsec": 0.0005839315769587469,
+        "host_ellipticity": 0.0005839315769587469,
+        "host_mag_r": 0.0005839315769587469,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIc+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 81712,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3380217280627845,
+      "class_counts_by_object": {
+        "2223": 81712
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.0005507147053064422,
+        "host_photoz_err": 0.0005507147053064422,
+        "host_offset_arcsec": 0.0005507147053064422,
+        "host_ellipticity": 0.0005507147053064422,
+        "host_mag_r": 0.0005507147053064422,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIc-Templates": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 15188,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.37028747697343767,
+      "class_counts_by_object": {
+        "2223": 15188
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.0003292072688964972,
+        "host_photoz_err": 0.0003292072688964972,
+        "host_offset_arcsec": 0.0003292072688964972,
+        "host_ellipticity": 0.0003292072688964972,
+        "host_mag_r": 0.0003292072688964972,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    },
+    "SNIcBL+HostXT_V19": {
+      "n_head_files_found": 40,
+      "n_phot_files_found": 40,
+      "n_pairs_read_ok": 40,
+      "n_objects_read": 34439,
+      "n_objects_discarded": 0,
+      "negative_flux_fraction": 0.3876085129329942,
+      "class_counts_by_object": {
+        "2223": 34439
+      },
+      "static_field_none_fraction": {
+        "host_photoz": 0.010656523127849241,
+        "host_photoz_err": 0.010656523127849241,
+        "host_offset_arcsec": 0.010656523127849241,
+        "host_ellipticity": 0.010656523127849241,
+        "host_mag_r": 0.010656523127849241,
+        "mw_ebv": 0.0,
+        "gal_lat": 0.0,
+        "real_bogus_score": 1.0
+      }
+    }
+  },
+  "aggregated": {
+    "n_objects": 843617,
+    "negative_flux_fraction": 0.3663154666726844,
+    "class_counts_by_object": {
+      "2224": 430774,
+      "2222": 172484,
+      "2223": 240359
+    },
+    "observations_per_band": {
+      "z": 24515287,
+      "y": 25865564,
+      "i": 28113412,
+      "r": 27082247,
+      "g": 10731508,
+      "u": 7770382
+    },
+    "static_field_none_fraction": {
+      "host_photoz": 0.00994527137314682,
+      "host_photoz_err": 0.00994527137314682,
+      "host_offset_arcsec": 0.00994527137314682,
+      "host_ellipticity": 0.00994527137314682,
+      "host_mag_r": 0.00994527137314682,
+      "mw_ebv": 0.0,
+      "gal_lat": 0.0,
+      "real_bogus_score": 1.0
+    },
+    "detections_per_object_summary": {
+      "min": 1,
+      "max": 181,
+      "mean": 7.857131850116819
+    },
+    "forced_photometry_per_object_summary": {
+      "min": 0,
+      "max": 394,
+      "mean": 139.22193364998571
+    },
+    "time_span_days_summary": {
+      "min": 9.065300000002026,
+      "max": 1103.985799999995,
+      "mean": 425.6576143201239
+    }
+  },
+  "class_mismatches": {}
+}

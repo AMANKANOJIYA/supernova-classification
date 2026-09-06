@@ -1,0 +1,13 @@
+# Hydra composition root for the WHXE comparison run (CLAUDE.md §6 step 7,
+# Day 6). Sibling of configs/config.yaml (the flat model's root), not a
+# variant of it, so the flat model's own config can never accidentally
+# change when this one is tuned later.
+defaults:
+  - eval: default
+  - model: whxe_head
+  - train: whxe
+  - _self_
+
+hydra:
+  job:
+    chdir: false

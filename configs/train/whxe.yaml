@@ -1,0 +1,30 @@
+# CLAUDE.md §6 step 7, Day 6: "same encoder, same data, same split, same
+# seed, same class weighting -- this must be a controlled comparison against
+# 0.698." Every value below is identical to configs/train/default.yaml
+# (the flat model's config) except output_dir -- a deliberate copy, not a
+# shared file, so the flat model's config can never accidentally drift when
+# this one is tuned later.
+seed: 42
+
+data_parquet: data/interim/elasticc2/train_02_full_3class.parquet
+
+pre_detection_window_days: 30.0
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+
+batch_size: 256
+num_workers: 0
+
+num_epochs: 15
+learning_rate: 1.0e-3
+weight_decay: 1.0e-2
+cosine_t_max: null
+
+# Same class_weighting flag as the flat model -- see src.models.whxe's
+# compute_node_class_weights for what this means for a hierarchical head
+# (per-node W(c), not per-flat-class sqrt-dampened weights).
+class_weighting: true
+
+output_dir: outputs/train_whxe

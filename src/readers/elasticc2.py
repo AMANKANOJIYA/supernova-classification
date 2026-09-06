@@ -143,11 +143,23 @@ class ReadStats:
     """Per-file or per-directory read summary. CLAUDE.md §2.5: every
     discarded row/object must be logged with a count and a reason — this is
     that count, returned to the caller rather than only logged, so a
-    pipeline script can assert on it (e.g. in CI) without scraping logs."""
+    pipeline script can assert on it (e.g. in CI) without scraping logs.
+
+    `n_head_files_found`/`n_phot_files_found`/`n_pairs_read_ok` are
+    directory-level file counts (default 0; only `read_model_directory`
+    populates them) — object-level `n_objects_discarded` is row-level and
+    cannot by itself distinguish "one row was bad" from "one whole file
+    silently failed to read", which is exactly the gap that let a truncated
+    download pass as a handful of discarded objects instead of ~1/40 of a
+    class going missing. See `assert_directory_complete`.
+    """
 
     n_objects_read: int
     n_objects_discarded: int
     discard_reasons: dict[str, int]
+    n_head_files_found: int = 0
+    n_phot_files_found: int = 0
+    n_pairs_read_ok: int = 0
 
     def __add__(self, other: "ReadStats") -> "ReadStats":
         merged_reasons = dict(self.discard_reasons)
@@ -157,6 +169,45 @@ class ReadStats:
             n_objects_read=self.n_objects_read + other.n_objects_read,
             n_objects_discarded=self.n_objects_discarded + other.n_objects_discarded,
             discard_reasons=merged_reasons,
+            n_head_files_found=self.n_head_files_found + other.n_head_files_found,
+            n_phot_files_found=self.n_phot_files_found + other.n_phot_files_found,
+            n_pairs_read_ok=self.n_pairs_read_ok + other.n_pairs_read_ok,
+        )
+
+
+def assert_directory_complete(
+    model_dir: str, stats: ReadStats, expected_files: int = 40
+) -> None:
+    """Fail loudly if `model_dir` did not yield exactly `expected_files`
+    HEAD.FITS and `expected_files` PHOT.FITS files, all successfully read.
+
+    Added per Day-3 CLAUDE.md amendment: `read_model_directory`'s existing
+    per-file log-and-continue (needed so one corrupt download doesn't crash
+    the whole batch — see TestReadModelDirectoryResilience) reports discards
+    at the object level, via `n_objects_discarded`/`discard_reasons`. That is
+    exactly the wrong granularity for a whole missing/corrupt *file*: a
+    truncated download that fails to open contributes only "1 discarded
+    object" (one exception, logged once) to those counters, not "~1/40th of
+    this class's objects are gone." This function checks the file-level
+    counts `read_model_directory` also now tracks and raises instead of
+    warning, since a warning is exactly what would keep letting this pass
+    silently.
+
+    Raises:
+        RuntimeError: if fewer (or more) than `expected_files` HEAD files,
+            PHOT files, or successfully-read pairs were found.
+    """
+    if (
+        stats.n_head_files_found != expected_files
+        or stats.n_phot_files_found != expected_files
+        or stats.n_pairs_read_ok != expected_files
+    ):
+        raise RuntimeError(
+            f"{model_dir}: incomplete directory — expected exactly "
+            f"{expected_files} HEAD.FITS and {expected_files} PHOT.FITS files, all "
+            f"successfully read. Found {stats.n_head_files_found} HEAD file(s), "
+            f"{stats.n_phot_files_found} PHOT file(s) on disk; {stats.n_pairs_read_ok} "
+            f"pair(s) successfully read. discard_reasons={stats.discard_reasons or 'none'}"
         )
 
 
@@ -342,6 +393,7 @@ def read_model_directory(
     """
     all_alerts: list[CanonicalAlert] = []
     total_stats = ReadStats(n_objects_read=0, n_objects_discarded=0, discard_reasons={})
+    n_pairs_read_ok = 0
 
     for head_path, phot_path in _find_head_phot_pairs(model_dir):
         try:
@@ -351,7 +403,13 @@ def read_model_directory(
             # session — a truncated gzip mid-download) must not take down the
             # whole directory's read. Logged individually with the file path
             # and full error, counted in aggregate under the exception type
-            # per CLAUDE.md §2.5.
+            # per CLAUDE.md §2.5. This is deliberately still a per-*object*
+            # discard count (1, not NOBS-many) — file-level loss is tracked
+            # separately below via n_head_files_found/n_phot_files_found/
+            # n_pairs_read_ok, and must be checked with
+            # `assert_directory_complete`, since this counter alone cannot
+            # distinguish "a handful of bad rows" from "an entire file
+            # silently vanished."
             reason = f"file read error ({type(exc).__name__})"
             total_stats = total_stats + ReadStats(
                 n_objects_read=0, n_objects_discarded=1, discard_reasons={reason: 1}
@@ -364,15 +422,29 @@ def read_model_directory(
                 exc,
             )
             continue
+        n_pairs_read_ok += 1
         all_alerts.extend(alerts)
         total_stats = total_stats + stats
 
+    total_stats = ReadStats(
+        n_objects_read=total_stats.n_objects_read,
+        n_objects_discarded=total_stats.n_objects_discarded,
+        discard_reasons=total_stats.discard_reasons,
+        n_head_files_found=len(glob.glob(os.path.join(model_dir, "*_HEAD.FITS*"))),
+        n_phot_files_found=len(glob.glob(os.path.join(model_dir, "*_PHOT.FITS*"))),
+        n_pairs_read_ok=n_pairs_read_ok,
+    )
+
     logger.info(
-        "elasticc2 reader: %s -> %d objects read, %d discarded (%s)",
+        "elasticc2 reader: %s -> %d objects read, %d discarded (%s); "
+        "%d HEAD files found, %d PHOT files found, %d pairs read ok",
         model_dir,
         total_stats.n_objects_read,
         total_stats.n_objects_discarded,
         total_stats.discard_reasons or "no discards",
+        total_stats.n_head_files_found,
+        total_stats.n_phot_files_found,
+        total_stats.n_pairs_read_ok,
     )
     return all_alerts, total_stats
 

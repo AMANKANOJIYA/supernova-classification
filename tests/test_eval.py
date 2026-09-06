@@ -125,6 +125,55 @@ class TestPerClassPrAuc:
         assert math.isnan(ap[1])
 
 
+class TestRocAuc:
+    """Added Day 6: CLAUDE.md §11's Ia-vs-rest ceiling-check anchor names
+    ROC-AUC, which didn't exist in this harness. See §2.1's Day-6 widening."""
+
+    def test_perfect_separation_gives_one(self):
+        y_true = np.array([0, 0, 1, 1])
+        y_prob = np.array([[0.9, 0.1], [0.8, 0.2], [0.1, 0.9], [0.2, 0.8]])
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert auc[0] == pytest.approx(1.0)
+        assert auc[1] == pytest.approx(1.0)
+
+    def test_random_scores_give_approximately_half(self):
+        rng = np.random.RandomState(0)
+        n = 2000
+        y_true = rng.randint(0, 2, size=n)
+        y_prob_pos = rng.uniform(size=n)  # scores independent of the label
+        y_prob = np.stack([1 - y_prob_pos, y_prob_pos], axis=1)
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert auc[1] == pytest.approx(0.5, abs=0.03)
+
+    def test_hand_worked_example_with_a_tie(self):
+        # class-1 scores: [0.9(pos), 0.6(neg), 0.6(pos), 0.2(neg)]
+        # 4 (pos, neg) pairs: (0.9,0.6)win, (0.9,0.2)win, (0.6,0.6)tie->0.5, (0.6,0.2)win
+        # AUC = (1 + 1 + 0.5 + 1) / 4 = 0.875
+        y_true = np.array([1, 0, 1, 0])
+        y_prob = np.array([[0.1, 0.9], [0.4, 0.6], [0.4, 0.6], [0.8, 0.2]])
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert auc[1] == pytest.approx(0.875)
+
+    def test_worst_case_ranking_gives_zero(self):
+        # the single positive is ranked strictly last -> no (pos, neg) pair won
+        y_true = np.array([0, 0, 0, 1])
+        y_prob = np.array([[0.9, 0.1], [0.8, 0.2], [0.7, 0.3], [0.99, 0.01]])
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert auc[1] == pytest.approx(0.0)
+
+    def test_zero_positives_gives_nan(self):
+        y_true = np.array([0, 0, 0])
+        y_prob = np.array([[0.5, 0.5]] * 3)
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert math.isnan(auc[1])
+
+    def test_zero_negatives_gives_nan(self):
+        y_true = np.array([1, 1, 1])
+        y_prob = np.array([[0.5, 0.5]] * 3)
+        auc = metrics.roc_auc(y_true, y_prob, num_classes=2)
+        assert math.isnan(auc[1])
+
+
 class TestExpectedCalibrationError:
     def test_perfectly_calibrated_gives_zero_ece(self):
         # 10 predictions at confidence 0.7, exactly 7 correct -> accuracy == confidence in the one populated bin.
