@@ -1,0 +1,12 @@
+# Hydra composition root for the Day 10 photo-z ablation run. Sibling of
+# configs/config_static.yaml, not a variant of it -- same reasoning that
+# file's own header gives for being a sibling of configs/config.yaml.
+defaults:
+  - eval: default
+  - model: lc_static_fusion_no_photoz
+  - train: static_no_photoz
+  - _self_
+
+hydra:
+  job:
+    chdir: false

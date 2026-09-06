@@ -1,0 +1,15 @@
+# Day 10 diagnostic: identical to configs/model/lc_static_fusion.yaml except
+# num_static_fields=5 (host_photoz/host_photoz_err removed -- see
+# src.models.static_encoder.ABLATION_NO_PHOTOZ_FIELDS and
+# src/train/pretrain_static_ablation.py). A deliberate copy, not a shared
+# file with an override flag, same rationale configs/train/whxe.yaml and
+# configs/train/static.yaml already give for their own copies.
+_target_: src.models.fusion.LCStaticFusionModel
+lc_input_size: 6
+lc_hidden_size: 128
+lc_num_layers: 2
+lc_dropout: 0.2
+static_hidden_size: 32
+static_output_size: 16
+num_classes: 3
+num_static_fields: 5

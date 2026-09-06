@@ -22,7 +22,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
-from src.models.static_encoder import StaticEncoder
+from src.models.static_encoder import NUM_STATIC_FIELDS, StaticEncoder
 
 
 class LCStaticFusionModel(nn.Module):
@@ -51,6 +51,7 @@ class LCStaticFusionModel(nn.Module):
         static_hidden_size: int = 32,
         static_output_size: int = 16,
         num_classes: int = 3,
+        num_static_fields: int = NUM_STATIC_FIELDS,
     ) -> None:
         super().__init__()
         self.gru = nn.GRU(
@@ -65,7 +66,10 @@ class LCStaticFusionModel(nn.Module):
         self.dropout = nn.Dropout(lc_dropout)
 
         self.static_encoder = StaticEncoder(
-            output_size=static_output_size, hidden_size=static_hidden_size, dropout=lc_dropout
+            output_size=static_output_size,
+            hidden_size=static_hidden_size,
+            dropout=lc_dropout,
+            num_static_fields=num_static_fields,
         )
         self.head = nn.Linear(lc_hidden_size + static_output_size, num_classes)
 
@@ -79,7 +83,7 @@ class LCStaticFusionModel(nn.Module):
         Args:
             features: `(B, T, lc_input_size)`, zero-padded.
             lengths: `(B,)` real (unpadded) sequence length per item.
-            static_features: `(B, 2*NUM_STATIC_FIELDS)`, constant per object
+            static_features: `(B, 2*num_static_fields)`, constant per object
                 (the same vector is implicitly broadcast to every timestep
                 below -- host context doesn't vary with light-curve phase).
 

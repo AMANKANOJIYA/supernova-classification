@@ -1,0 +1,410 @@
+{
+  "breakdown": {
+    "short_sparse": 1,
+    "artifact_like": 36,
+    "genuine_anomaly": 13,
+    "not_found": 0
+  },
+  "objects": [
+    {
+      "object_id": "ZTF19aakiygv",
+      "combined": 8.74241931746973,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 35
+    },
+    {
+      "object_id": "ZTF19abrougq",
+      "combined": 8.315607380708508,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 12
+    },
+    {
+      "object_id": "ZTF17aaaocpq",
+      "combined": 7.953065610009732,
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 24
+    },
+    {
+      "object_id": "ZTF18abvoyen",
+      "combined": 7.275102060818083,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 39
+    },
+    {
+      "object_id": "ZTF19aaodojg",
+      "combined": 7.166118824711138,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 42
+    },
+    {
+      "object_id": "ZTF18abvarea",
+      "combined": 7.011638916080968,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 36
+    },
+    {
+      "object_id": "ZTF18abhdxwz",
+      "combined": 6.883619128808744,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 11
+    },
+    {
+      "object_id": "ZTF19aauptux",
+      "combined": 6.846985480576648,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 23
+    },
+    {
+      "object_id": "ZTF18acxwtbe",
+      "combined": 6.722167106522662,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 16
+    },
+    {
+      "object_id": "ZTF19aavajub",
+      "combined": 6.4500376356827305,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 30
+    },
+    {
+      "object_id": "ZTF17aaaikab",
+      "combined": 6.432734942500868,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 36
+    },
+    {
+      "object_id": "ZTF19aabyoce",
+      "combined": 6.391453774054222,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 33
+    },
+    {
+      "object_id": "ZTF19aatwljq",
+      "combined": 6.353796538310569,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 8
+    },
+    {
+      "object_id": "ZTF19abzwbxy",
+      "combined": 6.266984545813248,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 15
+    },
+    {
+      "object_id": "ZTF19aaytisr",
+      "combined": 6.217024352333175,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 47
+    },
+    {
+      "object_id": "ZTF19abpwygn",
+      "combined": 6.2119846532948015,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 21
+    },
+    {
+      "object_id": "ZTF19aanepuf",
+      "combined": 5.997994178070995,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 24
+    },
+    {
+      "object_id": "ZTF18ablvazp",
+      "combined": 5.954028876210587,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 67
+    },
+    {
+      "object_id": "ZTF18abwjzpq",
+      "combined": 5.879707769508192,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 57
+    },
+    {
+      "object_id": "ZTF18aczygck",
+      "combined": 5.86615449152663,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 25
+    },
+    {
+      "object_id": "ZTF18abzpxel",
+      "combined": 5.808413879909724,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 68
+    },
+    {
+      "object_id": "ZTF18abthvpk",
+      "combined": 5.755321874416498,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 62
+    },
+    {
+      "object_id": "ZTF20aaewhin",
+      "combined": 5.744786490044563,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 13
+    },
+    {
+      "object_id": "ZTF18acbvmhq",
+      "combined": 5.743392725403854,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 55
+    },
+    {
+      "object_id": "ZTF18abvnsmh",
+      "combined": 5.711300195822577,
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 46
+    },
+    {
+      "object_id": "ZTF18acaptmo",
+      "combined": 5.674874721343695,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 29
+    },
+    {
+      "object_id": "ZTF19abagewd",
+      "combined": 5.668043105073026,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 18
+    },
+    {
+      "object_id": "ZTF21abibafp",
+      "combined": 5.665835634561308,
+      "source": "weird",
+      "label": "91bg",
+      "category": "short_sparse",
+      "n_obs": 6
+    },
+    {
+      "object_id": "ZTF18acawxza",
+      "combined": 5.657003915453288,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 33
+    },
+    {
+      "object_id": "ZTF18acbxphq",
+      "combined": 5.637695623268936,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 24
+    },
+    {
+      "object_id": "ZTF18actwrnh",
+      "combined": 5.619612055846756,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 26
+    },
+    {
+      "object_id": "ZTF18abnouoo",
+      "combined": 5.576721806368402,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 37
+    },
+    {
+      "object_id": "ZTF18absxczg",
+      "combined": 5.5762721220543865,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 29
+    },
+    {
+      "object_id": "ZTF19acyexee",
+      "combined": 5.552138507561897,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 29
+    },
+    {
+      "object_id": "ZTF18aaixulp",
+      "combined": 5.543785370060381,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 33
+    },
+    {
+      "object_id": "ZTF18aczfdlm",
+      "combined": 5.541017948769707,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 16
+    },
+    {
+      "object_id": "ZTF18abtrvrj",
+      "combined": 5.540596253099599,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 53
+    },
+    {
+      "object_id": "ZTF18abxxngn",
+      "combined": 5.524655996618693,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 34
+    },
+    {
+      "object_id": "ZTF19aavantx",
+      "combined": 5.457421028602399,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 32
+    },
+    {
+      "object_id": "ZTF18abznndg",
+      "combined": 5.456975709355622,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 77
+    },
+    {
+      "object_id": "ZTF18abotthj",
+      "combined": 5.454820152562295,
+      "source": "weird",
+      "label": "AGN",
+      "category": "artifact_like",
+      "n_obs": 96
+    },
+    {
+      "object_id": "ZTF19acymuht",
+      "combined": 5.454038260494793,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 32
+    },
+    {
+      "object_id": "ZTF18abvlgyt",
+      "combined": 5.420426978930722,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 18
+    },
+    {
+      "object_id": "ZTF18abyzdoo",
+      "combined": 5.381897963700721,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 94
+    },
+    {
+      "object_id": "ZTF19abqivge",
+      "combined": 5.354664715391441,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 55
+    },
+    {
+      "object_id": "ZTF18abtvlxd",
+      "combined": 5.32705885722512,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 23
+    },
+    {
+      "object_id": "ZTF19aaticbv",
+      "combined": 5.321916621173042,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 39
+    },
+    {
+      "object_id": "ZTF19acpmpvh",
+      "combined": 5.311737828308695,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 26
+    },
+    {
+      "object_id": "ZTF18absmoql",
+      "combined": 5.2816947053914385,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 40
+    },
+    {
+      "object_id": "ZTF18abehrdw",
+      "combined": 5.257220110290938,
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 37
+    }
+  ]
+}

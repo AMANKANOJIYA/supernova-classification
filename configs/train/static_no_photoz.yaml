@@ -1,0 +1,24 @@
+# Day 10 photo-z ablation: identical to configs/train/static.yaml (same
+# seed/data/split/batch_size/epochs/lr/class_weighting -- the only variable
+# under test is which static fields reach the encoder) except output_dir.
+seed: 42
+
+data_parquet: data/interim/elasticc2/train_02_full_3class.parquet
+
+pre_detection_window_days: 30.0
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+
+batch_size: 256
+num_workers: 0
+
+num_epochs: 15
+learning_rate: 1.0e-3
+weight_decay: 1.0e-2
+cosine_t_max: null
+
+class_weighting: true
+
+output_dir: outputs/train_static_no_photoz

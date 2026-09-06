@@ -41,6 +41,16 @@ STATIC_FIELDS: tuple[str, ...] = (
 )
 NUM_STATIC_FIELDS: int = len(STATIC_FIELDS)
 
+# Day 10 diagnostic (CLAUDE.md instruction): test whether host_photoz/_err
+# drove Day 7's +0.0189 LC+static gain, since both are structurally absent
+# at Tier B (§5.1's "three of the static branch's 7 inputs are permanently
+# missing-flagged at Tier B"). Every function below takes an optional
+# `fields` argument (default `STATIC_FIELDS`) so this ablation reuses the
+# exact same normalizer/vector-building code path rather than a forked copy.
+ABLATION_NO_PHOTOZ_FIELDS: tuple[str, ...] = tuple(
+    f for f in STATIC_FIELDS if f not in ("host_photoz", "host_photoz_err")
+)
+
 # CLAUDE.md's Day-6 audit: the reader (src/readers/elasticc2.py) converts
 # these raw SNANA sentinels to None before a StaticContext is ever
 # constructed. A raw sentinel surviving into this module's input would mean
@@ -50,18 +60,20 @@ NUM_STATIC_FIELDS: int = len(STATIC_FIELDS)
 _KNOWN_SENTINELS: tuple[float, ...] = (-9.0, -9999.0, 999.0)
 
 
-def _raw_static_row(static: StaticContext) -> np.ndarray:
-    """`(NUM_STATIC_FIELDS,)` float64, `NaN` where `None`."""
+def _raw_static_row(static: StaticContext, fields: Sequence[str] = STATIC_FIELDS) -> np.ndarray:
+    """`(len(fields),)` float64, `NaN` where `None`."""
     return np.array(
         [
             getattr(static, field) if getattr(static, field) is not None else np.nan
-            for field in STATIC_FIELDS
+            for field in fields
         ],
         dtype=np.float64,
     )
 
 
-def assert_no_sentinel_values(alerts: Sequence[CanonicalAlert]) -> None:
+def assert_no_sentinel_values(
+    alerts: Sequence[CanonicalAlert], fields: Sequence[str] = STATIC_FIELDS
+) -> None:
     """Raise if any non-missing static field value in `alerts` equals one of
     the raw SNANA sentinels the reader is supposed to have already converted
     to `None`. CLAUDE.md Day-7 instruction: "verify no sentinel values
@@ -69,8 +81,8 @@ def assert_no_sentinel_values(alerts: Sequence[CanonicalAlert]) -> None:
     """
     offending: list[tuple[str, str, float]] = []
     for alert in alerts:
-        row = _raw_static_row(alert.static)
-        for field, value in zip(STATIC_FIELDS, row):
+        row = _raw_static_row(alert.static, fields)
+        for field, value in zip(fields, row):
             if not np.isnan(value) and float(value) in _KNOWN_SENTINELS:
                 offending.append((alert.object_id, field, float(value)))
     if offending:
@@ -93,12 +105,14 @@ class StaticFeatureNormalizer:
     the two are solving different problems, not the same one two ways).
     """
 
-    mean: np.ndarray  # (NUM_STATIC_FIELDS,)
-    std: np.ndarray  # (NUM_STATIC_FIELDS,), never 0
+    mean: np.ndarray  # (len(fields),)
+    std: np.ndarray  # (len(fields),), never 0
 
     @classmethod
-    def fit(cls, alerts: Sequence[CanonicalAlert]) -> "StaticFeatureNormalizer":
-        rows = np.stack([_raw_static_row(a.static) for a in alerts])
+    def fit(
+        cls, alerts: Sequence[CanonicalAlert], fields: Sequence[str] = STATIC_FIELDS
+    ) -> "StaticFeatureNormalizer":
+        rows = np.stack([_raw_static_row(a.static, fields) for a in alerts])
         mean = np.nanmean(rows, axis=0)
         std = np.nanstd(rows, axis=0)
         std = np.where(std > 0, std, 1.0)  # guard: a degenerate zero-variance field
@@ -109,13 +123,16 @@ class StaticFeatureNormalizer:
 
 
 def build_static_vector(
-    static: StaticContext, normalizer: StaticFeatureNormalizer
+    static: StaticContext,
+    normalizer: StaticFeatureNormalizer,
+    fields: Sequence[str] = STATIC_FIELDS,
 ) -> np.ndarray:
-    """`(2 * NUM_STATIC_FIELDS,)` float32: z-scored values (0.0 where
+    """`(2 * len(fields),)` float32: z-scored values (0.0 where
     missing) concatenated with per-field missingness indicators (1.0 =
     missing). See module docstring for why zero-fill, not a learned fill.
+    `fields` must match whatever `normalizer` was fit on (same order/count).
     """
-    raw = _raw_static_row(static)
+    raw = _raw_static_row(static, fields)
     is_missing = np.isnan(raw)
     normalized = normalizer.transform(raw)
     filled = np.where(is_missing, 0.0, normalized)
@@ -126,10 +143,16 @@ class StaticEncoder(nn.Module):
     """MLP over `[values; missingness indicators]`, `2*NUM_STATIC_FIELDS`
     input width."""
 
-    def __init__(self, output_size: int, hidden_size: int = 32, dropout: float = 0.2) -> None:
+    def __init__(
+        self,
+        output_size: int,
+        hidden_size: int = 32,
+        dropout: float = 0.2,
+        num_static_fields: int = NUM_STATIC_FIELDS,
+    ) -> None:
         super().__init__()
         self.mlp = nn.Sequential(
-            nn.Linear(2 * NUM_STATIC_FIELDS, hidden_size),
+            nn.Linear(2 * num_static_fields, hidden_size),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, output_size),

@@ -310,10 +310,19 @@ exactly the early-time regime we care most about.
 the streamed dataset.** This was intentional, to mimic the fact that brokers will
 not have perfectly matched training data. Treat it as a feature.
 
-**Held-out anomaly classes come free.** SNANA gentypes 71–74 (strongly lensed SN
-Ia / II / Ib / Ic) and gentype 98 were deliberately excluded from the ELAsTiCC
-training set. Use them as a genuinely unseen evaluation set for the anomaly
-branch. Do not let them leak into training.
+**Held-out anomaly classes do NOT come free — corrected Day 10.** This
+section previously claimed gentypes 71–74 (strongly lensed SN Ia/II/Ib/Ic)
+and gentype 98 were sitting in already-downloaded data, excluded from
+training, ready to use. **False, checked directly Day 10**: no object with
+these gentypes exists in any of the 30 downloadable
+`ELASTICC2_TRAINING_SAMPLE_2` model directories (12 SN + 18 exotic), nor in
+any DUMP file's GENTYPE column across them. They belong to a separate,
+not-currently-accessible ELAsTiCC2 test-sample release, not this training
+sample. **Substituted Day 10**: the 18 exotic model directories (TDE, SLSN-I
+×2, CART, ILOT, PISN, KN×2, CLAGN, Cepheid, RRL, EB, d-Sct, dwarf-nova,
+Mdwarf-flare, uLens×3) served as the Tier A anomaly held-out set instead —
+see §11's Day 10 anomaly-branch entry for which of these were actually
+scored and why 6 were not.
 
 **BTSbot public data is partial.** The Zenodo release covers ZTF public
 (`programid=1`) alerts only, while the production BTSbot also trained on ZTF
@@ -538,6 +547,61 @@ bogus light curves from subtraction artifacts and blending. If our top 50 is
 _not_ artifact-heavy, real-bogus filtering is over-aggressive and is suppressing
 real signal too.
 
+**Day 10 verdict: DEFERRED, not passed or failed.** This gate's own premise
+did not apply to what was run, and that is itself the finding -- there is no
+pass/fail reading available from this pass, only a different, useful result
+(below). The published 68%-artifact anchor is about IMAGE-level subtraction
+artifacts. This pipeline has no cutout pixel data anywhere (§5.1: none in
+ELAsTiCC2 by construction; BTSbot's `images_v10` never loaded, and the image
+encoder, step 10, was explicitly skipped this session in favor of the
+anomaly branch -- §10's Day-10 reorder note) -- so the top 50 could only be
+inspected photometrically (light-curve shape/cadence), never visually. Worse:
+Tier B's `weird` eval population (`src.train.train_anomaly.load_tier_b_weird`)
+is built entirely from BTS Sample Explorer's spectroscopically-CONFIRMED
+categories (`mapped_other_leaf` / `no_tree_node` / `excluded_csm_interacting`
+-- see `src/readers/bts_labels.py`'s own docstring: each is "a confirmed,
+unambiguous real class"), never from unclassified/candidate/reject objects.
+Every one of the top 50 is therefore, by construction, a real astrophysical
+object with a real spectroscopic label -- there was no bogus/artifact
+candidate population in the eval set for the ranking to have found in the
+first place. Gate D's actual question ("does real-bogus filtering suppress
+real signal") cannot be answered by this pass; a real Gate D needs the full,
+unfiltered alert stream (including rejects/candidates), which is Tier C
+(serving), not built yet.
+
+What the top 50 actually showed is the detector working, read correctly:
+46/50 objects were `no_tree_node` (CV/nova/LBV/LRN), 3/50 AGN, 1/50 91bg --
+all "weird"-sourced, ZERO from the normal-class test population, and zero
+artifacts (there were none to find, see above). Ranking real,
+astrophysically distinct objects (eruptive variable stars, AGN flickering)
+above ordinary Ia/Ib-c/II every single time, with no false positives from
+the normal population leaking into the top 50, is exactly what a working
+anomaly ranker should do on a population that contains no bogus candidates.
+A cheap photometric heuristic (`src/train/gate_d_inspection.py`,
+single-point-outlier-vs-neighbors) additionally tagged 36/50 "artifact_like"
+-- but since every object is spectroscopically confirmed real, visual
+inspection of the saved light-curve plots (`reports/gate_d/light_curves/`)
+showed these are genuine multi-night eruption/decline sequences (nova-like
+outbursts), not artifacts. The heuristic's "artifact_like" label is a real
+limitation of a proxy built without pixel data, not evidence of actual
+artifacts -- stated here so a future session doesn't take that bucket's
+name at face value.
+
+This compounds with, rather than duplicates, §5.1's `isdiffpos` finding.
+That finding is about the input POPULATION: BTS pre-filters to brightening
+subtractions before a candidate ever reaches `metadata_v10`, so Tier B is
+already a cleaner slice than a live Fink stream (Tier C) at the data-source
+level, before any ranking happens. This session's finding is about the EVAL
+SET this Gate D pass was built from specifically: `weird` draws only from
+BTS's spectroscopically-CONFIRMED categories, a second, independent
+filtering step on top of `isdiffpos` that removes candidates/rejects
+entirely, not just fading ones. Both point the same direction for the same
+reason (Tier B is pre-cleaned relative to what production will see) but at
+different pipeline stages -- `isdiffpos` at ingestion, this session's
+category choice at eval-set construction. Consequence for Day 12: an
+artifact-rate check against the real 68% published anchor needs a Tier-C-
+style unfiltered stream, not Tier B under either filter.
+
 ---
 
 ## 8. Stack
@@ -619,6 +683,25 @@ cut first | 10. review UI + AAD loop
 
 Items 9 and 10 depend on things outside our control (credential turnaround, a
 human available to label). Treat them as bonus.
+
+**Day 10 reorder, not a descope.** §6's build order lists step 10 (image
+encoder) before step 11 (anomaly branch); this ladder lists item 6 (anomaly
+branch) above item 8 (image encoder) already, so the two documents did not
+even agree on relative priority. Built anomaly branch first, image encoder
+skipped for now. Reasoning: (1) the anomaly branch is the second half of
+this project's own problem statement (§1: "rank anomalies nightly with a
+human feedback loop"), while the image encoder is an input modality, not a
+deliverable in itself; (2) this ladder already ranks anomaly branch (6)
+above image encoder (8) -- cutting from the bottom up, image encoder goes
+before anomaly branch would if anything have to go first; (3) §5.1: "the
+image encoder can only be trained during Tier B fine-tuning" -- it has a
+hard prerequisite (Tier B images, `images_v10`, still not loaded -- CLAUDE.md
+§9's repo layout note, "images deferred to Day 10" -- deferred again) that
+the anomaly branch does not share; (4) the anomaly branch's held-out
+negatives (§5.1's gentype 71-74/98 note; the newly-downloaded exotic model
+directories; Tier B's confirmed non-SN/AGN/SLSN/TDE/CSM-interacting objects)
+all exist and are usable today, with or without an image encoder. Image
+encoder remains descoped-from-here (§10 ladder item 8), not abandoned.
 
 ---
 
@@ -777,6 +860,177 @@ a reportable metric here — always-predict-Ia scores well and is useless.
     A and Tier B curves rise monotonically with more data; the sim-to-real
     gap is widest at `cutoff=0` (0.546 vs 0.284) and narrows toward `full`
     (0.717 vs 0.634) — see `reports/gate_c/phase_curve_comparison.png`.
+
+- **Day 10: photo-z ablation -- REFUTES the standard-candle hypothesis; the
+  Tier B static inversion remains an open question with no confirmed
+  cause.** Day 9 proposed that `host_photoz`/`host_photoz_err` -- absent at
+  Tier B (§5.1) -- drove most of Day 7's Tier A LC+static gain (Ia are
+  standard candles; comparing apparent brightness against M ≈ −19.3 needs a
+  distance), which would explain why the static branch went net-negative on
+  Tier B. Tested directly: retrained Tier A LC+static with those two fields
+  removed (5 fields instead of 7), same data/split/seed/architecture/
+  class-weighting as Day 7 (`src/train/pretrain_static_ablation.py`,
+  `outputs/train_static_no_photoz/`). Result: full-cutoff macro-F1 0.7108,
+  vs LC-only's 0.6981 and the original 7-field run's 0.7169 -- gain +0.0127
+  without photo-z vs +0.0189 with it. **67% of the gain survives removing
+  photo-z; only 33% is attributable to it.** The hypothesis is refuted, not
+  confirmed: photo-z is a real but minority contributor, not "most of the
+  gain." This does NOT hand the Tier B inversion a substitute explanation --
+  Day 9's small-sample-overfitting story is still just a plausible,
+  unverified alternative, not a confirmed cause. **The Tier B static
+  inversion has no confirmed explanation as of Day 10.** Do not let either
+  story stand in for that gap in a future session. (`host_ellipticity`,
+  also missing-flagged at Tier B, was not removed here -- this ablation
+  targeted the standard-candle mechanism specifically, per instruction, not
+  the full three-field Tier-B-missing set.)
+
+- **Day 10: anomaly branch built (step 11), ahead of the image encoder --
+  see §10's reorder note.** GRU-encoder-hidden-state reconstruction decoder
+  (`src/anomaly/decoder.py`) + classifier entropy + Mahalanobis distance in
+  latent space + PineForest (`coniferest`, §8) over
+  `[latent ‖ engineered features]`, combined by equal-weighted z-score
+  average (`src/anomaly/scoring.py`, `src/train/train_anomaly.py`). Built on
+  the **Tier A LC-only encoder** (`outputs/train/checkpoint.pt`,
+  `LCEncoder`, not the LC+static fusion model) -- stated assumption: the
+  decoder reconstructs light curves only, and `LCEncoder` is literally the
+  encoder as opposed to a wrapper around one. The decoder predicts each
+  timestep's flux features from the encoder's hidden state as of the
+  *previous* timestep (never the same timestep, which would already contain
+  the answer and make reconstruction trivial) -- causal by construction,
+  same spirit as §2.3.
+
+  Decoder trained on 60,000 objects subsampled from Tier A train (3 normal
+  classes only), 5 epochs -- a time-boxing decision; every EVALUATION
+  population below is used in full, uncapped.
+
+  **Held-out gentypes 71-74/98 did not come free -- §5.1 corrected.**
+  Checked directly: no strongly-lensed-SN or gentype-98 objects exist in
+  any downloadable TRAIN_02 model directory. Substituted the 18
+  newly-downloaded exotic directories instead.
+
+  **Scope cut -- corrected Day 10, own earlier cost claim was wrong.** Of
+  the 18 exotic directories, 6 (Cepheid, RRL, EB, d-Sct, dwarf-nova,
+  Mdwarf-flare -- Recurring/Periodic + Recurring/Fast) were excluded from
+  scoring. The exclusion decision stands, but the ORIGINAL justification
+  for it ("EB took ~2 hours vs TDE's ~3 minutes, ~40x slower, measured
+  empirically") was **wrong -- a contention artifact, not a genuine
+  per-class cost difference.** That measurement happened concurrently with
+  the photo-z ablation's own anomalously slow epoch 10 (10,038.8s vs a
+  normal ~400-500s, logged at the identical wall-clock window). A clean,
+  uncontended re-test this session: `elasticc2.read_model_directory` on the
+  full 40-file EB directory took 182.4s (94,934 objects) vs TDE's 164.0s
+  (94,285 objects) -- 11% slower, not 40x. **The real issue is
+  representation, not reader cost.** Checked directly via HEAD-file
+  `MJD_DETECT_FIRST`/`MJD_DETECT_LAST`: TDE's mean detection span is 40.9
+  days (median 34.0, a bounded transient event); EB's is 705.3 days (median
+  828.9); CLAGN's is 792.8 days (median 864.8) -- both ~17-20x longer than
+  TDE, and NOBS/object is only ~1.5x higher (256 vs 173), so it isn't that
+  periodic/recurring objects are More Numerous per timestep, it's that their
+  detections are sparse across a MUCH longer real-time baseline.
+  `tensorize_alert`'s window (§5.1/tensorize.py) is
+  `[first_detection - pre_detection_window_days, last_detection]` -- it
+  bounds the LEFT edge only. For a fading transient, `last_detection` sits
+  naturally close to `first_detection` (the object fades below threshold),
+  so the window is effectively bounded on both sides in practice. For a
+  periodic/continuously-variable source, nothing fades, so `last_detection`
+  sits wherever the survey simulation happened to end -- the window's right
+  edge is UNBOUNDED in practice, and the tensorized sequence spans however
+  much of the survey the object was ever re-observed across. **This is a
+  windowing/representation mismatch, not a fundamental architectural one**
+  -- the causal GRU itself has no trouble with a ~250-timestep sequence
+  regardless of what real-time span it covers; the problem is that this
+  span is far outside anything the Tier A encoder was ever trained on (SN
+  training objects fade within roughly a season), so the model meets a
+  genuinely out-of-training-distribution input, not a malformed one.
+
+  **This is a live problem today, not just in the excluded classes --
+  CLAGN (kept, not excluded) has the identical pathology** (792.8-day mean
+  span, worse than EB's 705.3) and was scored anyway. See the entropy
+  finding below for the direct, measured consequence. **Day 12 flag:** a
+  live/replay serving pipeline scoring "as of now" for a long-lived
+  recurring source (periodic variable OR AGN) will see its alert history
+  grow unboundedly over the object's lifetime in the survey unless the
+  windowing policy also bounds the RIGHT edge (a fixed recent-window cap,
+  not "since first detection") -- this needs to be decided before Day 12's
+  serving layer is built, not discovered by it.
+
+  Kept and scored: TDE, SLSN-I (both variants), CART, ILOT, PISN, KN (both
+  variants), CLAGN, uLens (all three variants) -- 442,303 objects, all read
+  cleanly with zero discards.
+
+  **ROC-AUC (normal test vs. anomalous), per component and combined:**
+
+  | Component             | Tier A exotics (n=126,542 vs 442,303) | Tier B weird (n=658 vs 1,045) |
+  | ---------------------- | -------------------------------------: | -----------------------------: |
+  | Reconstruction error   | 0.5643                                  | **0.8382**                     |
+  | Classifier entropy     | 0.2578 (worse than random)              | 0.4203 (worse than random)     |
+  | Mahalanobis distance    | 0.7860                                  | 0.5236 (~chance)               |
+  | Isolation forest (PineForest) | **0.8428**                       | 0.6400                         |
+  | Combined (equal-weight, w/ entropy) | 0.7644                     | 0.7418                          |
+  | **Combined (entropy dropped)** | **0.8146**                      | **0.7622**                     |
+
+  **Headline finding: both latent-space methods collapse toward chance
+  under domain shift; reconstruction error inverts.** Isoforest goes
+  0.843→0.640 and Mahalanobis goes 0.786→0.524 (Tier A → Tier B) -- both
+  operate on the Tier A encoder's OWN latent space, and that geometry
+  simply does not transfer to real ZTF data the encoder never saw a shred
+  of during training. Reconstruction error goes the other way, 0.564→0.838
+  -- it measures a decoder's ability to predict raw flux features from
+  recent history, closer to the actual physical signal than to any
+  learned-geometry artifact of Tier A specifically. Reading: a CV or nova
+  genuinely does not look like a supernova light curve, in flux-vs-time
+  terms, regardless of what the Tier A latent space thinks its neighbors
+  look like -- that's a property of the raw signal, which is why it
+  survives the domain shift that breaks the two latent-space methods.
+
+  **The combination should be read as robustness under domain shift, not as
+  the best detector -- it is beaten on both individual sets.** Isoforest
+  alone beats the combination on Tier A (0.843 vs 0.764); reconstruction
+  error alone beats it on Tier B (0.838 vs 0.742). No single component
+  clears ~0.74 on both sets except the combination. That is the actual,
+  honest case for combining four components that specialize differently
+  under sim-to-real shift -- not "produces the top score," which it does
+  not, on either set.
+
+  **Classifier entropy: INVERTED, not weak -- confirmed mechanism, not
+  speculation.** Recomputed directly from saved latents
+  (`encoder.head(latent)` → softmax; verified bit-for-bit against the saved
+  entropy values, max diff 0.0):
+
+  | Population | mean entropy | mean max-softmax-prob |
+  | --- | ---: | ---: |
+  | Tier A normal test | 0.5737 | 0.7100 |
+  | Tier A exotic | 0.2600 | 0.8730 |
+  | Tier B normal test | 0.4577 | 0.7847 |
+  | Tier B weird | 0.3695 | 0.8125 |
+
+  Confirms "confidently wrong, not uncertain" directly: exotic/weird
+  objects show HIGHER max-softmax-probability than their tier's own normal
+  population, in both tiers, same direction. The 0.258-vs-0.420 asymmetry
+  is explained by MAGNITUDE, not direction: the confidence gap (exotic mean
+  max-prob minus normal mean max-prob) is 0.1630 on Tier A vs only 0.0278 on
+  Tier B -- about 6x smaller. Per-exotic-class breakdown makes the Tier A
+  driver concrete: CLAGN (mean entropy 0.082, the single largest exotic
+  class at 108,939/442,303 objects, and the class with the LONGEST
+  detection span per the finding above) is by far the most confidently-wrong
+  subset; KN (mean entropy 0.786, actually genuinely fast/short like an
+  ordinary transient) shows no inversion at all. The mechanism is therefore
+  tied directly to the windowing/representation finding above, not a
+  separate phenomenon: objects whose tensorized span sits far outside
+  training range get pushed toward a confident, wrong extreme rather than
+  toward genuine indecision, and CLAGN -- kept despite sharing EB's
+  windowing pathology -- is the demonstrated case of this happening.
+
+  **Decision: entropy is dropped from the practical combined score.**
+  Dropping it (3-component equal-weight z-score average instead of 4)
+  IMPROVES the combination on both sets: 0.7644→0.8146 on Tier A (+0.0502),
+  0.7418→0.7622 on Tier B (+0.0204). Entropy was not neutral in the
+  4-component average -- its partial, asymmetric inversion was actively
+  hurting the combination, not just failing to help. The 3-component
+  combined score above (bold) is the one to treat as this branch's actual
+  output going forward.
+
+  **Gate D (top 50, Tier B): see §7's Gate D entry above.**
 
 ## 12. Working style
 

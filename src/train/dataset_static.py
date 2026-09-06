@@ -12,7 +12,7 @@ untouched. The GRU-facing fields (`features`/`mask`/`lengths`/
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import torch
@@ -20,7 +20,7 @@ from torch.utils.data import Dataset
 
 from src import taxonomy
 from src.features import tensorize
-from src.models.static_encoder import StaticFeatureNormalizer, build_static_vector
+from src.models.static_encoder import STATIC_FIELDS, StaticFeatureNormalizer, build_static_vector
 from src.schema import CanonicalAlert
 
 _CLASS_ID_TO_INDEX: dict[int, int] = {
@@ -50,6 +50,7 @@ class LightCurveStaticDataset(Dataset):
         object_ids: frozenset[str],
         pre_detection_window_days: Optional[float],
         normalizer: StaticFeatureNormalizer,
+        static_fields: Sequence[str] = STATIC_FIELDS,
     ) -> None:
         self._examples: list[StaticExample] = []
         for alert in alerts:
@@ -58,7 +59,7 @@ class LightCurveStaticDataset(Dataset):
             if alert.class_id not in _CLASS_ID_TO_INDEX:
                 continue
             t = tensorize.tensorize_alert(alert, pre_detection_window_days=pre_detection_window_days)
-            static_vec = build_static_vector(alert.static, normalizer)
+            static_vec = build_static_vector(alert.static, normalizer, static_fields)
             self._examples.append(
                 StaticExample(
                     object_id=alert.object_id,
