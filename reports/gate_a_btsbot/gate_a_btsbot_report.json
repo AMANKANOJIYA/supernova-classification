@@ -1,0 +1,53 @@
+{
+  "n_objects": {
+    "train": 15804,
+    "val": 1713,
+    "test": 1994
+  },
+  "read_stats_discard_reasons": {
+    "train": {
+      "every row discarded (missing magzpsci and/or non-positive sigmapsf)": 30
+    },
+    "val": {
+      "every row discarded (missing magzpsci and/or non-positive sigmapsf)": 1
+    },
+    "test": {
+      "every row discarded (missing magzpsci and/or non-positive sigmapsf)": 5
+    }
+  },
+  "negative_flux_fraction": 0.0,
+  "category_counts_bts_join": {
+    "mapped": 7142,
+    "unclassified": 2029,
+    "no_bts_row_at_all": 9565,
+    "no_tree_node": 549,
+    "uncertain": 166,
+    "ambiguous": 60
+  },
+  "class_id_counts_bts_join": {
+    "2222": 5024,
+    "2224": 1287,
+    "2332": 304,
+    "2242": 71,
+    "2226": 40,
+    "2223": 364,
+    "2243": 36,
+    "2225": 13,
+    "2244": 3
+  },
+  "static_field_none_fraction": {
+    "host_photoz": 1.0,
+    "host_photoz_err": 1.0,
+    "host_offset_arcsec": 0.0,
+    "host_ellipticity": 1.0,
+    "host_mag_r": 0.12372507816103737,
+    "mw_ebv": 0.0,
+    "gal_lat": 0.0,
+    "real_bogus_score": 0.04920301368458818
+  },
+  "observations_per_band": {
+    "ztf_r": 228788,
+    "ztf_g": 178923
+  },
+  "tensorize_windowing_identical_fraction": 1.0
+}

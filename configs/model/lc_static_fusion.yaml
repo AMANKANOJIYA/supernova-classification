@@ -1,0 +1,15 @@
+# CLAUDE.md §6 step 8, Day 7: "flat head, same encoder... controlled
+# comparison against 0.6981." lc_hidden_size/lc_num_layers/lc_dropout match
+# configs/model/lc_encoder.yaml exactly. static_hidden_size/static_output_size
+# are new (StaticEncoder's MLP) -- one run, no hyperparameter search, so
+# these are reasonable defaults (output_size=16 is a modest fraction of the
+# GRU's 128-dim trunk output, hidden_size=32 is a small MLP for a 14-dim
+# input), not tuned.
+_target_: src.models.fusion.LCStaticFusionModel
+lc_input_size: 6
+lc_hidden_size: 128
+lc_num_layers: 2
+lc_dropout: 0.2
+static_hidden_size: 32
+static_output_size: 16
+num_classes: 3

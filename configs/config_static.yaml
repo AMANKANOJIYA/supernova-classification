@@ -1,0 +1,13 @@
+# Hydra composition root for the LC+static comparison run (CLAUDE.md §6
+# step 8, Day 7). Sibling of configs/config.yaml and configs/config_whxe.yaml,
+# not a variant of either -- each step's config can never accidentally
+# change when a later one is tuned.
+defaults:
+  - eval: default
+  - model: lc_static_fusion
+  - train: static
+  - _self_
+
+hydra:
+  job:
+    chdir: false

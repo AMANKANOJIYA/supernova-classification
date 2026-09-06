@@ -20,7 +20,9 @@ from torch.utils.data import DataLoader
 from src.eval.metrics import macro_f1, roc_auc
 from src.eval.phase_curves import select_at_cutoff
 from src.features import tensorize
+from src.models.fusion import LCStaticFusionModel
 from src.models.lc_encoder import LCEncoder
+from src.models.static_encoder import StaticFeatureNormalizer
 from src.schema import CanonicalAlert, Observation, StaticContext, Survey
 from src.train.dataset import (
     LightCurveDataset,
@@ -29,15 +31,20 @@ from src.train.dataset import (
     load_object_class_ids,
     split_by_object_id,
 )
+from src.train.dataset_static import LightCurveStaticDataset
 from src.train.pretrain import (
     collect_phase_predictions,
     compute_class_weights,
     masked_cross_entropy,
 )
+from src.train.pretrain_static import collect_phase_predictions_static
 
 PARQUET = Path("data/interim/elasticc2/train_02_full_3class.parquet")
-CHECKPOINT = Path("outputs/train/checkpoint.pt")
-METRICS_JSON = Path("outputs/train/eval/metrics.json")
+# Day 7: Gate B's ceiling check now targets the current (step-8, LC+static)
+# checkpoint rather than the step-6 flat baseline -- Gate B gates the most
+# advanced model at any point, not a permanently frozen step-6 snapshot.
+CHECKPOINT = Path("outputs/train_static/checkpoint.pt")
+METRICS_JSON = Path("outputs/train_static/eval/metrics.json")
 
 _pytestmark_parquet = pytest.mark.skipif(
     not PARQUET.exists(),
@@ -272,30 +279,40 @@ CEILING_ROC_AUC_STEP8 = (0.93, 0.96)  # with static features -- the RAPID/SuperN
 
 @pytest.mark.skipif(
     not (CHECKPOINT.exists() and METRICS_JSON.exists()),
-    reason="production checkpoint/eval report not present (run `python -m src.train.pretrain` first)",
+    reason="production checkpoint/eval report not present (run `python -m src.train.pretrain_static` first)",
 )
 class TestCeilingCheck:
-    """CLAUDE.md §7 Gate B #3, Day-6 corrected: Ia-vs-rest ROC-AUC (not
-    macro-F1) should land in CEILING_ROC_AUC_STEP6 at this stage. Uses the
-    real production checkpoint's test split (same seed/config, reloaded from
-    the checkpoint itself so this can never silently drift from what was
-    actually trained), reconstructed via the fast id-filtered path (Day 6:
-    loading the full 843,617-object corpus just to use its 126,542-object
-    test slice made this suite impractical to run to completion)."""
+    """CLAUDE.md §7 Gate B #3, Day-7 corrected: Ia-vs-rest ROC-AUC should
+    land in CEILING_ROC_AUC_STEP8 now that static/host features exist
+    (step 8) -- the first live test of the literature anchor itself,
+    reported whatever it is, not tuned to reach it. Uses the real
+    production (LC+static) checkpoint's test split (same seed/config,
+    reloaded from the checkpoint itself so this can never silently drift
+    from what was actually trained), reconstructed via the fast
+    id-filtered path (Day 6: loading the full 843,617-object corpus just to
+    use its 126,542-object test slice made this suite impractical to run to
+    completion)."""
 
     def test_ia_vs_rest_roc_auc_in_expected_range(self):
         checkpoint = torch.load(CHECKPOINT, map_location="cpu", weights_only=False)
         cfg = checkpoint["config"]
 
-        model = LCEncoder(
-            input_size=cfg["model"]["input_size"],
-            hidden_size=cfg["model"]["hidden_size"],
-            num_layers=cfg["model"]["num_layers"],
-            dropout=cfg["model"]["dropout"],
+        model = LCStaticFusionModel(
+            lc_input_size=cfg["model"]["lc_input_size"],
+            lc_hidden_size=cfg["model"]["lc_hidden_size"],
+            lc_num_layers=cfg["model"]["lc_num_layers"],
+            lc_dropout=cfg["model"]["lc_dropout"],
+            static_hidden_size=cfg["model"]["static_hidden_size"],
+            static_output_size=cfg["model"]["static_output_size"],
             num_classes=cfg["model"]["num_classes"],
         )
         model.load_state_dict(checkpoint["model_state_dict"])
         model.eval()
+
+        normalizer = StaticFeatureNormalizer(
+            mean=np.array(checkpoint["static_normalizer_mean"]),
+            std=np.array(checkpoint["static_normalizer_std"]),
+        )
 
         lightweight = load_object_class_ids(cfg["train"]["data_parquet"])
         split = split_by_object_id(
@@ -305,19 +322,22 @@ class TestCeilingCheck:
             val_frac=cfg["train"]["split"]["val_frac"],
         )
         test_alerts = load_alerts(cfg["train"]["data_parquet"], object_ids=split.test)
-        test_ds = LightCurveDataset(
-            test_alerts, split.test, pre_detection_window_days=cfg["train"]["pre_detection_window_days"]
+        test_ds = LightCurveStaticDataset(
+            test_alerts,
+            split.test,
+            pre_detection_window_days=cfg["train"]["pre_detection_window_days"],
+            normalizer=normalizer,
         )
 
-        predictions = collect_phase_predictions(model, test_ds, torch.device("cpu"))
+        predictions = collect_phase_predictions_static(model, test_ds, torch.device("cpu"))
         selected, _ = select_at_cutoff(predictions, cutoff=None)
         y_true = np.array([p.true_class for p in selected])
         y_prob = np.stack([p.probs for p in selected])
 
         # class index 0 == Ia (src.taxonomy.TARGET_CLASS_IDS[0] == 2222).
         score = roc_auc(y_true, y_prob, num_classes=3)[0]
-        lo, hi = CEILING_ROC_AUC_STEP6
+        lo, hi = CEILING_ROC_AUC_STEP8
         assert lo <= score <= hi, (
-            f"Ia-vs-rest ROC-AUC={score:.4f}, expected [{lo},{hi}] at this stage "
-            f"-- no static features yet ({CEILING_ROC_AUC_STEP8} applies from step 8)"
+            f"Ia-vs-rest ROC-AUC={score:.4f}, expected [{lo},{hi}] "
+            "(literature anchor, first live test at step 8 -- not tuned to reach it)"
         )

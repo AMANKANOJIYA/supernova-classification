@@ -1,0 +1,26 @@
+# CLAUDE.md §6 step 8, Day 7: "same encoder, same data, same split, same
+# seed, same class weighting -- controlled comparison against 0.6981."
+# Every value below is identical to configs/train/default.yaml (the flat
+# model's config) except output_dir -- a deliberate copy, not a shared file,
+# same rationale as configs/train/whxe.yaml.
+seed: 42
+
+data_parquet: data/interim/elasticc2/train_02_full_3class.parquet
+
+pre_detection_window_days: 30.0
+
+split:
+  train_frac: 0.7
+  val_frac: 0.15
+
+batch_size: 256
+num_workers: 0
+
+num_epochs: 15
+learning_rate: 1.0e-3
+weight_decay: 1.0e-2
+cosine_t_max: null
+
+class_weighting: true
+
+output_dir: outputs/train_static

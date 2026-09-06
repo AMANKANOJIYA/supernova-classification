@@ -320,6 +320,58 @@ branch. Do not let them leak into training.
 partnership data. We therefore cannot exactly reproduce their published numbers,
 and should not claim to.
 
+**Tier B has no pre-detection data — Day 8 finding.** Every one of the
+409,107 `metadata_v10` rows is a real ZTF alert-stream detection; there is no
+forced-photometry row type in this table at all (contrast ELAsTiCC2's PHOT
+files, which carry ~30 days of forced photometry per object). Consequence:
+`tensorize.tensorize_alert`'s pre-detection windowing is a no-op on Tier B —
+there is nothing before day 0 to window. Gate C's phase curve (§7, §11) is
+therefore only evaluable from the `cutoff=0` slice onward on Tier B; the
+`-5` cutoff must be dropped from that comparison, not reported as a
+(meaningless) number. This matters because Day 7's static-encoder gain was
+concentrated exactly in the pre-detection regime (+10.8% relative macro-F1
+at `-5d`, decaying to +2.7% at full cutoff) — a regime Tier B cannot
+represent at all. **"The model degrades on real data" and "the model was
+evaluated on an easier phase slice" are different claims and must not be
+conflated**: a Tier A→Tier B macro-F1 comparison at matched cutoffs (`≥0`
+only) isolates the first; comparing Tier A's full phase curve (which
+includes `-5`) against Tier B's necessarily-truncated one would silently
+smuggle in the second and make the sim-to-real gap look larger or smaller
+than it actually is for reasons that have nothing to do with sim-to-real
+generalization.
+
+**`isdiffpos` is true for all 409,107 Tier B rows — Day 8 finding.** BTS
+pre-filters its public sample to brightening subtractions before a candidate
+ever reaches `metadata_v10`, so fading candidates and negative subtractions
+never enter Tier B at all (this is also why every reconstructed Tier B flux
+is positive — see Gate A check #2 and `src/readers/btsbot.py`'s module
+docstring). A live Fink stream (Tier C) does no such filtering. Tier B is
+therefore a systematically cleaner slice than Tier C, not a representative
+sample of it — same class of problem as the Day 4 ELAsTiCC2-training-vs-
+streamed-composition mismatch (§5.1 above). Consequence for Day 12 serving:
+a model fine-tuned only on Tier B meets negative-flux inputs for the first
+time in production, on Tier C, having never seen one since Tier A
+pretraining. Record this as a known Tier B → Tier C divergence to revisit
+at the serving step, not something Day 9's fine-tune can fix by itself.
+
+**Dustmaps SFD data — fetched from a mirror, Day 8.** `dustmaps`' documented
+default fetch source (Harvard Dataverse) returned HTTP 403 in this
+environment, so the two SFD FITS files (`SFD_dust_4096_ngp.fits`,
+`SFD_dust_4096_sgp.fits`, placed at `data/raw/dustmaps/sfd/`) were fetched
+from an unofficial mirror instead. An unofficial mirror is a reproducibility
+liability even when the values verify correctly, so both files' checksums
+are recorded here for future verification against whatever source is used
+next time:
+
+| File                      | SHA-256                                                            |
+| ------------------------- | ------------------------------------------------------------------- |
+| `SFD_dust_4096_ngp.fits`  | `50b6aaad0b880762d0fd081177802dcc17c39d7044a410dd5649e2dfd0503e97` |
+| `SFD_dust_4096_sgp.fits`  | `84891a59054adab44a7be54051e4dcf0e66e3f13eee0d845ce3739242f553b83` |
+
+**The exact mirror URL used for this fetch was not recorded at fetch time and
+is not otherwise reconstructable this session — needs the user to supply it
+so this table can be completed with provenance, not just checksums.**
+
 **Read `data/raw/elasticc2/A_FORMAT.TXT` before writing the SNANA reader.** It is
 the format spec. SNANA ships HEAD and PHOT FITS file pairs; they are readable as
 standard FITS tables but the row-pointer convention linking HEAD to PHOT is not
@@ -595,6 +647,40 @@ literature anchor (`CEILING_ROC_AUC_STEP8`) applies from step 8 once static
 features exist to explain it. `src/eval/metrics.py::roc_auc`, added Day 6
 under §2.1's widened frozen-file rule — see that section.
 
+**WHXE decision (Day 6), for the record, provisional.** Step 7's controlled
+comparison (same encoder, data, split, seed, class weighting as the step-6
+flat model) landed leaf macro-F1 at 0.6823 vs. the flat head's 0.6981
+(−0.0158), with per-class F1 worse across all three classes and Ia-vs-rest
+ROC-AUC essentially unchanged (0.9183 vs. 0.9185). 2220 (SN-like) node
+accuracy measured 1.000, but that number is not evidence of anything: every
+object in this dataset is SN-like, so there is no non-SN-like branch for the
+hierarchy to correctly reject, and no flat-model equivalent to compare it
+against. The mechanism explains the cost: WHXE pulls probability mass up to
+the shared 2220 parent and redistributes it toward Ia (Ia recall
+0.719→0.819, precision 0.632→0.545), a real error-pattern shift with nowhere
+useful to spend it on a single-populated-branch dataset. **Decision: keep
+the flat head as the default for now.** This is provisional, not a rejection
+of WHXE on merit — its sole justification, graceful degradation under real
+ambiguity, is structurally untestable until a non-SN-like branch exists in
+the data. Revisit at step 9 (Tier B fine-tuning introduces real non-SN
+contaminants) and step 11 (the anomaly branch's held-out exotic classes) —
+the first points where 2220-node confidence means anything. `whxe.py` and
+its tests stay in the repo; a future session should not re-litigate this
+decision from the numbers alone without reading this note, and should not
+assume WHXE was rejected on merit.
+
+**Day 9 confirmation, not yet acted on.** Step 9's Tier B join produced the
+non-SN-like population this note anticipated: 549 objects confirmed
+non-SN-like (AGN/SLSN/TDE/CaRT/91bg/Iax and friends, "mapped_other_leaf" in
+the join stats) plus 442+ objects with a confirmed real class outside §4's
+tree entirely (CV/nova/LBV/LRN — `no_tree_node`) and 22+ excluded
+CSM-interacting Ibn/Icn, across a dataset that also has genuine SN-like
+objects (Ia/Ib-c/II). 2220-node accuracy is therefore now a meaningful
+measurement for the first time — there is finally a non-SN-like branch for
+the hierarchy to be right or wrong about. Per this note's own plan, that
+means WHXE is revisitable at step 11, not now: this session did not retrain
+or re-evaluate WHXE, and nothing above should be read as doing so.
+
 Published state of the art for context: ATAT reports macro-F1 82.9 ± 0.4 over 20
 ELAsTiCC classes; ATCAT reports 71.8% F1 light-curve-only and 89.8% with
 metadata. Both ORACLE and ATAT report SN subtypes as their weak spot. **A model
@@ -642,6 +728,55 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   objects) instead of this sample's 28.5% (168,251 objects) — the 0.40–0.60
   band was calibrated against that real rarity, not against a sample where
   Ib/c is nearly a third of the data.
+
+- **Gate C: Tier B fine-tune results (Day 9), for the record.** Full
+  methodology, LR/freezing schedule, and per-variant numbers live in
+  `src/train/finetune_bts.py`'s module docstring and
+  `reports/gate_c/gate_c_report.json`; headline numbers only, here:
+  - **Sim-to-real gap**: Tier A test macro-F1 0.7169 → Tier B test
+    (fine-tuned, LC+static) macro-F1 0.6343, a 0.0826 drop — the expected
+    direction per §7 Gate C. Zero-shot (Tier A weights, no fine-tuning) on
+    Tier B test macro-F1 0.4483 — fine-tuning bought +0.186 macro-F1.
+  - **Ib/c**: F1 0.411 on 35 test objects (13.9:1 Ia:Ib/c at test) — inside
+    the §11 0.40–0.60 band, as expected, not a surprise needing
+    investigation.
+  - **Host-fields ablation — surprising, investigated, not tuned away.**
+    This session's own prediction ("most of the static gain likely doesn't
+    survive, since photo-z was probably doing the heavy lifting") undershot
+    what actually happened: the LC-only fine-tune (macro-F1 0.6716) beat the
+    LC+static fine-tune (0.6343) outright — static features were net
+    *negative* on Tier B, not merely non-additive. Plausible mechanism, not
+    fully verified: 3 of the static branch's 7 inputs (`host_photoz`,
+    `host_photoz_err`, `host_ellipticity`) are permanently missing-flagged
+    at Tier B (§5.1), so the branch carries real information from only 4
+    fields into a fine-tune with just 5,407 labeled training objects —
+    small enough that an extra 32-unit MLP branch competing for the same
+    downstream head plausibly overfits or crowds out trunk adaptation
+    rather than helping. Not chased further with an ablation-of-the-
+    ablation (e.g. retraining the static branch alone at a different LR) —
+    time-boxed per the 14-day timeline (§1); flagged here for a future
+    session rather than quietly averaged away.
+  - **`real_bogus_score`, populated at Tier B — did not help.** The
+    LC+static+DRB variant (macro-F1 0.5812, Ib/c F1 0.15) underperformed
+    both LC+static (0.6343) and LC-only (0.6716). Given the static branch
+    was already net-negative at this sample size, adding a second small,
+    freshly-initialized branch (`drb_branch`, never warm-started — see
+    `src.models.fusion.LCStaticDRBFusionModel`) most likely compounds the
+    same small-sample overfitting rather than testing `real_bogus_score`'s
+    information content in isolation. Answer to "does it help": not in this
+    experiment, but the experiment cannot cleanly separate "this feature is
+    uninformative" from "any added branch overfits at this sample size" —
+    stated as a limitation, not resolved.
+  - **Normalizer**: refit on Tier B train (not reused from Tier A) for
+    every fine-tuned variant — stated assumption (§12): the static encoder
+    is being adapted to Tier B's real host distribution, so its input
+    normalization should match what it is actually fed, unlike the
+    zero-shot condition (which deliberately keeps Tier A's own normalizer,
+    since it is testing Tier A weights completely unmodified).
+  - Phase curve (`>=0` cutoffs only, per §5.1's Tier B finding): both Tier
+    A and Tier B curves rise monotonically with more data; the sim-to-real
+    gap is widest at `cutoff=0` (0.546 vs 0.284) and narrows toward `full`
+    (0.717 vs 0.634) — see `reports/gate_c/phase_curve_comparison.png`.
 
 ## 12. Working style
 
