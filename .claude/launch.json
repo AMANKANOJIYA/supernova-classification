@@ -6,6 +6,12 @@
       "runtimeExecutable": "/Users/akaza/Desktop/Test/Supernova detection/.venv/bin/python",
       "runtimeArgs": ["-m", "uvicorn", "src.serve.api:app", "--host", "0.0.0.0", "--port", "8010"],
       "port": 8010
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 3000
     }
   ]
 }

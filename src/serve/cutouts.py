@@ -20,6 +20,7 @@ history.
 import base64
 import io
 import json
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
@@ -28,6 +29,14 @@ from PIL import Image
 
 CUTOUT_KEY_PREFIX = "sn:cutouts:"
 PLANE_NAMES = ("science", "template", "difference")
+
+# Precomputed BTSbot Tier-B cutouts (src.serve.extract_btsbot_cutouts), one
+# JSON triplet per object -- the images_v10.zip archive itself is ~18GB
+# compressed and cannot be decoded per-request in a live server, so this is
+# a one-time-extracted, disk-backed store, not Redis. Checked as a fallback
+# after Redis (live-Fink objects) in `load_cutouts` below, never the reverse:
+# a live object's own just-ingested cutout should win if somehow both exist.
+PRECOMPUTED_BTSBOT_DIR = Path("data/interim/btsbot_cutouts")
 
 
 def redis_key(object_id: str) -> str:
@@ -68,6 +77,30 @@ def _zscale_plane_to_png_bytes(plane: np.ndarray) -> bytes:
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def load_precomputed_btsbot(object_id: str, split: str = "test") -> Optional[dict[str, str]]:
+    """Already-rendered `{"science": ..., ...}` base64-PNG triplet for a
+    Tier-B object, if `src.serve.extract_btsbot_cutouts` was run for this
+    `split` and this object was one of the ~1,999 kept (the latest-`jd` row
+    per object -- see that module's docstring)."""
+    path = PRECOMPUTED_BTSBOT_DIR / split / f"{object_id}.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)["images"]
+
+
+def load_cutout_images(redis_client, object_id: str) -> Optional[dict[str, str]]:
+    """The one entry point the API needs: a live-Fink cutout (Redis, raw
+    array -> rendered here) takes priority over a precomputed Tier-B one
+    (already rendered) -- a live object's own just-ingested cutout should
+    never be shadowed by a stale precomputed file that happens to share its
+    object_id."""
+    arr = load_cutouts(redis_client, object_id)
+    if arr is not None:
+        return cutouts_to_png_triplet(arr)
+    return load_precomputed_btsbot(object_id)
 
 
 def cutouts_to_png_triplet(cutouts: np.ndarray) -> dict[str, str]:

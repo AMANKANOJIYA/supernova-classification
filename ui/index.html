@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Transient Supernova Classifier — Results &amp; Live</title>
+<title>Transient Supernova Classifier</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
 <style>
   :root {
     --bg: #0b0e14; --panel: #12161f; --panel2: #171c27; --border: #262c3a;
@@ -11,172 +13,331 @@
     --warn: #f5b942; --bad: #f16565; --mono: 'SF Mono', Consolas, monospace;
   }
   * { box-sizing: border-box; }
+  html, body { background: var(--bg); }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
+    margin: 0; color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 14px;
+    font-size: 15px; line-height: 1.55;
   }
   header {
     padding: 14px 20px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: baseline; gap: 12px; position: sticky; top: 0;
-    background: var(--bg); z-index: 10;
+    display: flex; align-items: center; gap: 18px; position: sticky; top: 0;
+    background: var(--bg); z-index: 30; flex-wrap: wrap;
   }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-  header .sub { color: var(--muted); font-size: 12px; }
-  .layout {
-    display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px;
-    padding: 16px; align-items: start;
+  header h1 { font-size: 17px; margin: 0; font-weight: 700; white-space: nowrap; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button {
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    padding: 7px 14px; border-radius: 8px; font-size: 14px; cursor: pointer;
+    font-weight: 500;
   }
-  @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
-  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .panel-title {
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); margin: 4px 0 0 2px;
-  }
-  .card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; min-width: 0;
-  }
-  .card h2 { font-size: 13px; margin: 0 0 10px 0; font-weight: 600; color: var(--text); }
-  .card h2 .hint { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 6px; }
-  .gate-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-  .gate-pill {
-    display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-    font-size: 12px; border: 1px solid var(--border); background: var(--panel2);
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .dot.pass { background: var(--good); } .dot.deferred { background: var(--warn); }
-  .gate-detail { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 4px; }
-  table { border-collapse: collapse; width: 100%; font-size: 12px; }
-  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-  th { color: var(--muted); font-weight: 500; }
-  td.num, th.num { text-align: right; font-family: var(--mono); }
-  .muted { color: var(--muted); }
-  .good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
-  img.fig { width: 100%; border-radius: 6px; border: 1px solid var(--border); background: #fff; margin-top: 6px; }
-  .figcap { color: var(--muted); font-size: 11px; margin-top: 4px; }
-  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
-  .stat { background: var(--panel2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
-  .stat .v { font-size: 20px; font-weight: 600; font-family: var(--mono); }
-  .stat .l { color: var(--muted); font-size: 11px; margin-top: 2px; }
-  .row-click { cursor: pointer; } .row-click:hover td { background: var(--panel2); }
-  .badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--panel2); border: 1px solid var(--border); color: var(--muted); }
-  #liveDot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 4px; }
+  nav button:hover { background: var(--panel2); color: var(--text); }
+  nav button.active { background: var(--panel2); color: var(--text); border-color: var(--border); }
+  .spacer { flex: 1; }
+  #liveDot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 6px; }
   #liveDot.on { background: var(--good); box-shadow: 0 0 6px var(--good); }
-  .cutout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
-  .cutout-grid figure { margin: 0; text-align: center; }
-  .cutout-grid img { width: 100%; border-radius: 4px; background: #000; image-rendering: pixelated; }
-  .cutout-grid figcaption { font-size: 10px; color: var(--muted); margin-top: 2px; }
-  .empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+  #liveBadge { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  main { padding: 20px; max-width: 1320px; margin: 0 auto; }
+  .view[hidden] { display: none; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; min-width: 0;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 12px 0; font-weight: 700; color: var(--text); }
+  .card h2 .hint { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .card h3 { font-size: 13px; margin: 0 0 8px 0; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+  .muted { color: var(--muted); } .good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  img.fig { width: 100%; border-radius: 8px; border: 1px solid var(--border); background: #fff; margin-top: 6px; }
+  .figcap { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  .figcap code { color: var(--accent); }
+  .stat { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .stat .v { font-size: 24px; font-weight: 700; font-family: var(--mono); line-height: 1.2; }
+  .stat .l { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .row-click { cursor: pointer; } .row-click:hover td { background: var(--panel2); }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 5px; background: var(--panel2); border: 1px solid var(--border); color: var(--muted); display: inline-block; }
+  .badge.good { color: var(--good); border-color: var(--good); }
+  .badge.bad { color: var(--bad); border-color: var(--bad); }
+  .badge.accent { color: var(--accent); border-color: var(--accent); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .dot.pass { background: var(--good); } .dot.deferred { background: var(--warn); } .dot.fail { background: var(--bad); }
+  .gate-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--border); background: var(--panel2); margin: 0 8px 8px 0; }
+  select, input[type=text], input[type=search] {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 10px; border-radius: 7px; font-size: 13px; font-family: inherit;
+  }
+  input[type=range] { accent-color: var(--accent); }
+  button.btn {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 12px; border-radius: 7px; font-size: 13px; cursor: pointer;
+  }
+  button.btn:hover { border-color: var(--accent); }
+  button.btn:disabled { opacity: .4; cursor: default; }
+  .empty { color: var(--muted); font-size: 13px; padding: 14px 4px; text-align: center; }
+  .loading { color: var(--muted); font-size: 13px; padding: 14px 4px; }
+  .loading::after { content: '…'; }
   a { color: var(--accent); }
-  .flex-between { display: flex; justify-content: space-between; align-items: baseline; }
+  .cutout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .cutout-grid figure { margin: 0; text-align: center; }
+  .cutout-grid img { width: 100%; border-radius: 6px; background: #000; image-rendering: pixelated; border: 1px solid var(--border); }
+  .cutout-grid figcaption { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: capitalize; }
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .scrollx { overflow-x: auto; }
+  .sn-type-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .sn-type-card h4 { margin: 0 0 6px 0; font-size: 14px; }
 </style>
 </head>
 <body>
+
 <header>
-  <h1>Transient Supernova Classifier</h1>
-  <span class="sub">multi-survey SN Ia / Ib-c / II classifier — results &amp; live monitor</span>
+  <h1>🔭 Transient Supernova Classifier</h1>
+  <nav id="nav">
+    <button data-tab="overview">Overview</button>
+    <button data-tab="live">Live</button>
+    <button data-tab="object">Object detail</button>
+    <button data-tab="results">Results</button>
+    <button data-tab="about">About</button>
+  </nav>
+  <div class="spacer"></div>
+  <span id="liveBadge"><span id="liveDot"></span><span id="liveBadgeText">connecting…</span></span>
 </header>
 
-<div class="layout">
-  <!-- ================= RESULTS ================= -->
-  <div class="col">
-    <div class="panel-title">Results</div>
+<main>
 
+<!-- ============================================================= OVERVIEW -->
+<section id="view-overview" class="view" hidden>
+  <div class="card mb-4">
+    <p style="margin:0 0 8px 0; font-size:15px;">
+      This system classifies transient astronomical alerts — sudden brightenings detected by sky
+      surveys — into three supernova types (<b>Ia</b>, <b>Ib/c</b>, <b>II</b>) from their light
+      curves alone, using a causal (no-future-peeking) neural encoder pretrained on 843,617
+      simulated LSST objects and fine-tuned on real ZTF supernovae with spectroscopic labels.
+    </p>
+    <p style="margin:0; font-size:15px; color:var(--muted);">
+      A second branch ranks every incoming alert for how <i>un</i>like an ordinary supernova it
+      looks, to surface rare or artifact-driven objects for human review. Everything below is
+      read live from this project's own evaluation reports — nothing here is recomputed.
+    </p>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 my-4" id="ovStats"></div>
+
+  <div class="card mb-4">
+    <h2>Gate status</h2>
+    <div id="ovGates"></div>
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
     <div class="card">
-      <h2>Gate status</h2>
-      <div class="gate-row">
-        <span class="gate-pill"><span class="dot pass"></span>Gate A — readers</span>
-        <span class="gate-pill"><span class="dot pass"></span>Gate B — causal model</span>
-        <span class="gate-pill"><span class="dot pass"></span>Gate C — fine-tune</span>
-        <span class="gate-pill"><span class="dot deferred"></span>Gate D — anomaly inspection</span>
+      <h2>Serving throughput &amp; latency <span class="hint">live, from /stats</span></h2>
+      <div class="grid grid-cols-2 gap-3" id="ovLatency"></div>
+      <div class="figcap">Single-node, commodity hardware. Bottleneck is unbatched per-alert Redis/Postgres round trips, not the model (ONNX inference alone: 0.3–0.5ms/alert).</div>
+    </div>
+    <div class="card">
+      <h2>What's in this build <span class="hint">RESULTS.md / GUIDE.md</span></h2>
+      <ul style="margin:0; padding-left:18px; font-size:13.5px; color:var(--muted); line-height:1.7;">
+        <li>Readers: ELAsTiCC2 (Tier A, sim), BTSbot (Tier B, real ZTF + spec labels), live Fink (Tier C, ZTF connected / LSST unverified)</li>
+        <li>Causal GRU light-curve encoder + optional static/host branch</li>
+        <li>Anomaly branch: reconstruction error + Mahalanobis + isolation forest</li>
+        <li>Serving: Kafka → Redis → ONNX classifier → Postgres, replay &amp; live modes</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= LIVE -->
+<section id="view-live" class="view" hidden>
+  <div class="grid lg:grid-cols-3 gap-4 mb-4">
+    <div class="card lg:col-span-2">
+      <div class="flex items-center justify-between mb-2">
+        <h2 style="margin:0;">Alerts per minute</h2>
+        <span class="badge" id="liveRateBadge">—</span>
       </div>
-      <div class="gate-detail">
-        A/B/C passed on their own stated criteria (negative fluxes present, shuffled-label
-        collapse, causal truncation-invariance, ROC-AUC ceiling; sim-to-real drop observed as
-        expected). D is <b>deferred, not failed</b>: the eval population available before Task 1
-        (Tier B "weird" objects) is spectroscopically-confirmed real objects only — there was no
-        bogus/artifact candidate in the pool for the ranker to have found. See below for what
-        Tier C (this session's live, unfiltered alert stream) adds to that picture.
+      <div id="sparkline" style="height:120px;"></div>
+    </div>
+    <div class="card">
+      <h2>Serving stats</h2>
+      <div class="grid grid-cols-2 gap-2" id="liveStats"></div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+      <h2 style="margin:0;">Recent alerts <span class="hint">newest first</span></h2>
+      <div class="spacer"></div>
+      <select id="liveSurveyFilter"><option value="">all surveys</option></select>
+      <select id="liveClassFilter">
+        <option value="">all classes</option>
+        <option value="Ia">Ia</option><option value="Ib/c">Ib/c</option><option value="II">II</option>
+      </select>
+    </div>
+    <div id="liveTableWrap" class="scrollx" style="max-height:420px; overflow-y:auto;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Selected object <span class="hint" id="liveSelectedId"></span></h2>
+    <div id="liveObjectDetail"><div class="empty">Click a row above to inspect its light curve, prediction, and cutouts.</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ OBJECT ---->
+<section id="view-object" class="view" hidden>
+  <div class="card mb-4">
+    <div class="flex flex-wrap items-center gap-3 mb-3">
+      <h2 style="margin:0;">Browse objects <span class="hint">every alert this session has scored</span></h2>
+      <div class="spacer"></div>
+      <input type="search" id="objSearch" placeholder="search object id…" style="width:160px;">
+      <select id="objSurveyFilter"><option value="">all surveys</option></select>
+      <select id="objClassFilter">
+        <option value="">all predicted classes</option>
+        <option value="Ia">Ia</option><option value="Ib/c">Ib/c</option><option value="II">II</option>
+      </select>
+      <select id="objLabelFilter">
+        <option value="">any label status</option>
+        <option value="labeled">has true label</option>
+        <option value="correct">correct</option>
+        <option value="incorrect">incorrect</option>
+        <option value="unlabeled">no true label</option>
+      </select>
+    </div>
+    <div id="objTableWrap" class="scrollx"></div>
+    <div class="flex items-center justify-between mt-2">
+      <span class="muted" id="objPageInfo" style="font-size:12px;"></span>
+      <div class="flex gap-2">
+        <button class="btn" id="objPrev">← prev</button>
+        <button class="btn" id="objNext">next →</button>
       </div>
     </div>
+  </div>
 
-    <div class="card">
-      <h2>Sim-to-real gap <span class="hint">reports/gate_c/gate_c_report.json</span></h2>
-      <table id="gateCTable"><thead>
-        <tr><th>variant</th><th class="num">Tier B macro-F1</th><th class="num">Ia-vs-rest ROC-AUC</th><th class="num">Ib/c F1</th></tr>
-      </thead><tbody></tbody></table>
-      <div class="figcap" id="gateCGapLine"></div>
-      <img class="fig" src="/static/reports/gate_c/phase_curve_comparison.png" alt="Tier A vs Tier B phase curve" loading="lazy">
-      <div class="figcap">Tier A vs Tier B macro-F1 by phase cutoff (≥0 only — Tier B has no pre-detection data, §5.1).</div>
+  <div class="card">
+    <h2>Object detail <span class="hint" id="objSelectedId"></span></h2>
+    <div id="objDetailPane"><div class="empty">Click an object above to inspect it.</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ RESULTS -->
+<section id="view-results" class="view" hidden>
+  <div class="card mb-4">
+    <h2>Phase curve — macro-F1 vs. days since first detection <span class="hint">outputs/train_static/eval/metrics.json, outputs/finetune_bts/lc_only/eval/metrics.json</span></h2>
+    <div id="phaseCurveChart" style="height:340px;"></div>
+    <div class="figcap">Tier B has no <code>-5</code> point — it has no pre-detection forced photometry at all (§5.1). Click a legend entry to toggle a series.</div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <h2 style="margin:0;">Confusion matrix — deployed model (Tier B, LC-only fine-tune) <span class="hint">outputs/finetune_bts/lc_only/eval/metrics.json</span></h2>
+      <div class="flex items-center gap-2">
+        <span class="muted" style="font-size:12px;">cutoff:</span>
+        <input type="range" id="cmSlider" min="0" max="4" step="1" value="4" style="width:160px;">
+        <span class="badge" id="cmLabel">full</span>
+      </div>
     </div>
+    <div id="confusionChart" style="height:360px;"></div>
+  </div>
 
+  <div class="grid lg:grid-cols-2 gap-4 mb-4">
     <div class="card">
-      <h2>Confusion matrix <span class="hint">deployed model: Tier B LC-only fine-tune</span></h2>
-      <img class="fig" src="/static/outputs/finetune_bts/lc_only/eval/confusion_matrices.png" alt="confusion matrices">
+      <h2>Anomaly branch — component ROC-AUC, Tier A vs. Tier B <span class="hint">outputs/anomaly/anomaly_results.json</span></h2>
+      <div id="anomalyChart" style="height:280px;"></div>
+      <div class="figcap">Isoforest/Mahalanobis collapse toward chance under domain shift (sim→real); reconstruction error moves the <i>other</i> way — the flip this project's own write-up calls out (CLAUDE.md §11, Day 10).</div>
     </div>
-
     <div class="card">
-      <h2>Anomaly branch — component ROC-AUC <span class="hint">outputs/anomaly/anomaly_results.json</span></h2>
-      <table id="anomalyTable"><thead>
-        <tr><th>component</th><th class="num">Tier A</th><th class="num">Tier B</th></tr>
-      </thead><tbody></tbody></table>
+      <h2>Combined scores <span class="hint">outputs/anomaly/persisted_scorers_meta.json</span></h2>
+      <table id="anomalyTable"><thead><tr><th>combination</th><th class="num">Tier A</th><th class="num">Tier B</th></tr></thead><tbody></tbody></table>
       <div class="figcap" id="anomalyNote"></div>
     </div>
+  </div>
 
-    <div class="card">
-      <h2>Serving throughput &amp; latency</h2>
-      <div class="stat-grid">
-        <div class="stat"><div class="v">730/s</div><div class="l">peak (Day 12 benchmark)</div></div>
-        <div class="stat"><div class="v">~63M/day</div><div class="l">vs LSST ~7M/night</div></div>
-        <div class="stat" id="statP50"><div class="v">—</div><div class="l">p50 latency (live)</div></div>
-        <div class="stat" id="statP99"><div class="v">—</div><div class="l">p99 latency (live)</div></div>
-      </div>
-      <div class="figcap">
-        Single-node, commodity hardware; bottleneck is unbatched per-alert Redis/Postgres round
-        trips, not the model (ONNX classifier inference: 0.3–0.5ms/alert). Live figures above
-        update from <code>/stats</code> and include every alert scored this session (replay +
-        live Fink), not just the original benchmark.
-      </div>
+  <div class="card">
+    <h2>Sim-to-real gap <span class="hint">reports/gate_c/gate_c_report.json</span></h2>
+    <div id="gateCTableWrap" class="scrollx"></div>
+    <div class="figcap" id="gateCGapLine"></div>
+  </div>
+</section>
+
+<!-- ============================================================== ABOUT -->
+<section id="view-about" class="view" hidden>
+  <div class="card mb-4">
+    <h2>What this is</h2>
+    <p style="font-size:14.5px;">
+      A <b>supernova</b> is a star that explodes, briefly outshining its entire host galaxy.
+      Different progenitor physics produce different explosion types, and the definitive way to
+      tell them apart is <b>spectroscopy</b> — splitting the light into a spectrum with a prism.
+      Spectroscopy is precise but scarce: it needs a large telescope and dedicated time per
+      object, while sky surveys detect millions of transients a night. What every survey
+      <i>does</i> produce automatically is a <b>light curve</b>: brightness (calibrated flux,
+      never plain magnitude — flux can be negative on a noisy non-detection, magnitude can't)
+      measured over time in a few wavelength filters. This project asks how much of the
+      spectroscopic answer can be recovered from a light curve's shape alone, early enough to
+      tell a human "point a spectrograph at this one" — and, separately, which alerts don't look
+      like any known supernova type at all and deserve a closer look.
+    </p>
+  </div>
+
+  <div class="card mb-4">
+    <h2>The three supernova types</h2>
+    <div class="grid md:grid-cols-3 gap-3">
+      <div class="sn-type-card"><h4 style="color:var(--warn);">Type Ia</h4>A white dwarf that detonates after accreting matter from a companion, or two white dwarfs merging. No hydrogen in the spectrum. Physically similar to each other, so their true brightness is predictable — the "standard candles" used to measure the universe's expansion.</div>
+      <div class="sn-type-card"><h4 style="color:var(--accent);">Type Ib/c</h4>A massive star that already blew off its outer hydrogen (and, for Ic, helium) envelope before core collapse. Ib and Ic are merged into one class here — separating them needs spectroscopy this pipeline doesn't have.</div>
+      <div class="sn-type-card"><h4 style="color:var(--good);">Type II</h4>A massive star that still has its hydrogen envelope when it collapses. The most common type in the real sky, and the class this classifier is best at.</div>
     </div>
   </div>
 
-  <!-- ================= LIVE ================= -->
-  <div class="col">
-    <div class="panel-title"><span id="liveDot"></span>Live</div>
-
-    <div class="card">
-      <div class="flex-between">
-        <h2>Serving stats</h2>
-        <span class="badge" id="lastUpdated">—</span>
-      </div>
-      <div class="stat-grid">
-        <div class="stat"><div class="v" id="statObjects">—</div><div class="l">objects seen</div></div>
-        <div class="stat"><div class="v" id="statPreds">—</div><div class="l">predictions</div></div>
-        <div class="stat"><div class="v" id="statIa">—</div><div class="l">Ia</div></div>
-        <div class="stat"><div class="v" id="statIbc">—</div><div class="l">Ib/c</div></div>
-        <div class="stat"><div class="v" id="statII">—</div><div class="l">II</div></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Tonight's top anomalies <span class="hint">click a row for cutouts</span></h2>
-      <table id="anomalyLiveTable"><thead>
-        <tr><th>object</th><th>survey</th><th>pred</th><th class="num">score</th></tr>
-      </thead><tbody></tbody></table>
-      <div id="anomalyEmpty" class="empty" style="display:none">No predictions yet — start replay or live_fink to populate.</div>
-    </div>
-
-    <div class="card">
-      <h2>Selected object <span class="hint" id="selectedObjectId"></span></h2>
-      <div id="objectDetail" class="empty">Click an object above to inspect its light curve, prediction, and cutouts.</div>
-      <div class="cutout-grid" id="cutoutGrid"></div>
-    </div>
+  <div class="card mb-4">
+    <h2>The three data tiers</h2>
+    <div id="tiersTableWrap" class="scrollx"></div>
   </div>
-</div>
+
+  <div class="card">
+    <h2>What's still unresolved <span class="hint">GUIDE.md §9, full detail</span></h2>
+    <ol style="padding-left:20px; font-size:13.5px; color:var(--muted); line-height:1.8;">
+      <li><b class="text-white">Tier B static-encoder inversion.</b> Host/static features help on Tier A but make Tier B fine-tuning measurably worse (0.6716 LC-only vs. 0.6343 LC+static). The leading hypothesis (missing photo-z) was tested and refuted — only 33% of the Tier A gain traces to it. No alternative was isolated with its own ablation.</li>
+      <li><b class="text-white">Gate D's real question is still unasked.</b> Every population built so far (Tier B "weird", live Fink ingestion) excludes bogus/artifact candidates by construction. Closing it needs an unfiltered Fink stream or reject/candidate topics.</li>
+      <li><b class="text-white"><code>avro_lsst.py</code> is unverified against real traffic.</b> Every LSST topic returned zero currently-queued messages at both checks this project made, despite offsets in the hundreds of thousands proving real production — two lulls, cause undiagnosed.</li>
+      <li><b class="text-white">Class-distribution skew, cause resolved, residual isn't.</b> Live predictions skewed toward II/Ib-c; dividing out the ELAsTiCC training prior moves Ib/c back into the real-rate band, confirming this is expected prior-mismatch behavior. A smaller residual (Ia still under, II still slightly over) remains unexplained — likely a calibration question, never directly checked.</li>
+      <li><b class="text-white">Smaller open items:</b> <code>fink-client</code> installed (11.0) vs. locked (12.1.0); the SFD dustmaps mirror URL was never recorded; <code>real_bogus_score</code> didn't help but the experiment can't isolate why; WHXE was never re-tested against Tier B's non-SN-like population; the image encoder is cut, not deferred.</li>
+    </ol>
+  </div>
+</section>
+
+</main>
 
 <script>
 const $ = (id) => document.getElementById(id);
+const CLASS_NAMES = ['Ia', 'Ib/c', 'II'];
+const CLASS_COLORS = { 'Ia': '#f5b942', 'Ib/c': '#5b9dff', 'II': '#3ecf8e' };
+const PLOTLY_FONT = { color: '#e6e9ef', size: 12 };
+const PLOTLY_GRID = '#262c3a';
+const PLOTLY_BASE_LAYOUT = {
+  paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+  font: PLOTLY_FONT, margin: { t: 24, r: 16, b: 40, l: 48 },
+  xaxis: { gridcolor: PLOTLY_GRID, zerolinecolor: PLOTLY_GRID, linecolor: PLOTLY_GRID },
+  yaxis: { gridcolor: PLOTLY_GRID, zerolinecolor: PLOTLY_GRID, linecolor: PLOTLY_GRID },
+  legend: { font: PLOTLY_FONT },
+};
+const PLOTLY_CONFIG = { displaylogo: false, responsive: true, modeBarButtonsToRemove: ['lasso2d', 'select2d'] };
+
+const BANDS = [
+  { name: 'LSST u', lam: 368.6, color: '#8b5cf6' },
+  { name: 'LSST g', lam: 480.3, color: '#22c55e' },
+  { name: 'LSST r', lam: 622.2, color: '#ef4444' },
+  { name: 'LSST i', lam: 754.5, color: '#b91c1c' },
+  { name: 'LSST z', lam: 869.1, color: '#78350f' },
+  { name: 'LSST y', lam: 971.0, color: '#6b7280' },
+  { name: 'ZTF g', lam: 472.3, color: '#16a34a' },
+  { name: 'ZTF r', lam: 633.9, color: '#f97316' },
+  { name: 'ZTF i', lam: 788.6, color: '#991b1b' },
+];
+function bandFor(lam) {
+  let best = BANDS[0], bd = Infinity;
+  for (const b of BANDS) { const d = Math.abs(b.lam - lam); if (d < bd) { bd = d; best = b; } }
+  return best;
+}
 
 async function fetchJson(url) {
   try {
@@ -185,131 +346,531 @@ async function fetchJson(url) {
     return await r.json();
   } catch (e) { return null; }
 }
+function fmt(v, d = 4) { return (v === null || v === undefined || Number.isNaN(v)) ? '—' : Number(v).toFixed(d); }
+function fmtMs(v) { return (v === null || v === undefined) ? '—' : Number(v).toFixed(1) + 'ms'; }
+function fmtTime(iso) { try { return new Date(iso).toLocaleTimeString(); } catch (e) { return iso; } }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-function fmtMs(v) { return (v === null || v === undefined) ? '—' : v.toFixed(1) + 'ms'; }
+// ============================================================== ROUTING ===
+const TABS = ['overview', 'live', 'object', 'results', 'about'];
+let currentTab = 'overview';
 
-async function loadGateC() {
-  const d = await fetchJson('/static/reports/gate_c/gate_c_report.json');
-  if (!d) return;
-  const rows = [
-    ['zero-shot (no fine-tune)', d.zero_shot],
-    ['LC-only fine-tune (deployed)', d.lc_only],
-    ['LC + static fine-tune', d.with_static],
-  ];
-  const tbody = document.querySelector('#gateCTable tbody');
-  tbody.innerHTML = rows.map(([name, v]) => v ? `
-    <tr><td>${name}</td>
-      <td class="num">${v.macro_f1_full.toFixed(4)}</td>
-      <td class="num">${v.ia_vs_rest_roc_auc.toFixed(4)}</td>
-      <td class="num">${v.per_class_f1_full[1].toFixed(3)}</td>
-    </tr>` : '').join('');
-  $('gateCGapLine').textContent =
-    `Tier A test macro-F1 ${d.tier_a_test_macro_f1_full?.toFixed(4)} → Tier B (LC-only) ` +
-    `${d.lc_only.macro_f1_full.toFixed(4)}, a ${d.sim_to_real_gap?.toFixed(4)} drop — expected direction (§7 Gate C).`;
-}
-
-async function loadAnomaly() {
-  const prior = await fetchJson('/static/outputs/anomaly/anomaly_results.json');
-  const persisted = await fetchJson('/static/outputs/anomaly/persisted_scorers_meta.json');
-  const tbody = document.querySelector('#anomalyTable tbody');
-  if (!prior) { tbody.innerHTML = '<tr><td colspan="3" class="empty">not available</td></tr>'; return; }
-  const rows = [];
-  for (const key of ['reconstruction_error', 'entropy', 'mahalanobis', 'isoforest']) {
-    rows.push([key, prior.tier_a_roc_auc[key], prior.tier_b_roc_auc[key]]);
+function showTab(tab, opts = {}) {
+  if (!TABS.includes(tab)) tab = 'overview';
+  currentTab = tab;
+  for (const t of TABS) $('view-' + t).hidden = (t !== tab);
+  for (const btn of document.querySelectorAll('#nav button')) {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
   }
-  rows.push(['combined (4-component, w/ entropy)', prior.tier_a_roc_auc.combined, prior.tier_b_roc_auc.combined]);
-  if (persisted) {
-    const tb3 = persisted.verification_tier_b_roc_auc?.combined_3component;
-    rows.push(['<b>combined (3-component, entropy dropped — served)</b>', null, tb3]);
+  liveTabActive = (tab === 'live');
+  if (tab === 'overview') loadOverview();
+  if (tab === 'live') loadLiveTab();
+  if (tab === 'object') loadObjectTab(opts);
+  if (tab === 'results') loadResultsTab();
+}
+
+function onHashChange() {
+  const raw = location.hash.replace(/^#/, '');
+  const [tab, arg] = raw.split('/');
+  showTab(tab || 'overview', { objectId: arg });
+  // Skip the fetch-by-search round trip when a click handler (selectObjRow /
+  // selectLiveRow) already rendered this exact object directly -- only a
+  // deep link (page load, back/forward) needs this fallback path.
+  if (tab === 'object' && arg && $('objDetailPane').dataset.objectId !== arg) {
+    selectObjectDetail(arg, $('objDetailPane'), $('objSelectedId'));
   }
-  tbody.innerHTML = rows.map(([name, a, b]) => `
-    <tr><td>${name}</td>
-      <td class="num">${a === null || a === undefined ? '<span class="muted">not recomputed</span>' : a.toFixed(4)}</td>
-      <td class="num">${b === null || b === undefined ? '—' : b.toFixed(4)}</td></tr>
-  `).join('');
-  $('anomalyNote').textContent = persisted
-    ? 'Mahalanobis + PineForest scorers persisted this session (src/train/persist_anomaly_scorers.py) — serving now uses the full 3-component combination. Tier B\'s 3-component ROC-AUC was fully recomputed (small eval set); Tier A\'s (442K-object exotic set) was not, to keep the verification pass cheap — see that script\'s module docstring.'
-    : 'Serving currently uses reconstruction-error only (Mahalanobis/PineForest scorers not yet persisted) — see src/serve/model.py docstring.';
 }
+window.addEventListener('hashchange', onHashChange);
 
-async function loadStats() {
-  const s = await fetchJson('/stats');
-  $('liveDot').classList.toggle('on', !!s);
-  if (!s) return;
-  $('statObjects').textContent = s.n_objects ?? '—';
-  $('statPreds').textContent = s.n_predictions ?? '—';
-  const cd = s.class_distribution || {};
-  $('statIa').textContent = cd['Ia'] ?? 0;
-  $('statIbc').textContent = cd['Ib/c'] ?? 0;
-  $('statII').textContent = cd['II'] ?? 0;
-  const lat = s.inference_latency_ms || {};
-  document.querySelector('#statP50 .v').textContent = fmtMs(lat.p50_ms);
-  document.querySelector('#statP99 .v').textContent = fmtMs(lat.p99_ms);
-  $('lastUpdated').textContent = new Date().toLocaleTimeString();
-}
+document.querySelectorAll('#nav button').forEach(btn => {
+  btn.addEventListener('click', () => { location.hash = btn.dataset.tab; });
+});
 
-async function loadTopAnomalies() {
-  const d = await fetchJson('/top-anomalies?limit=25');
-  const tbody = document.querySelector('#anomalyLiveTable tbody');
-  const empty = $('anomalyEmpty');
-  if (!d || !d.results || d.results.length === 0) {
-    tbody.innerHTML = ''; empty.style.display = 'block';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = d.results.map(r => `
-    <tr class="row-click" onclick="selectObject('${r.object_id}')">
-      <td>${r.object_id}</td>
-      <td class="muted">${r.survey}</td>
-      <td>${r.predicted_class}</td>
-      <td class="num">${r.anomaly_score.toFixed(3)}</td>
-    </tr>
-  `).join('');
-}
-
-async function selectObject(objectId) {
-  $('selectedObjectId').textContent = objectId;
-  const [obj, cut] = await Promise.all([
-    fetchJson(`/object/${objectId}`),
-    fetchJson(`/cutouts/${objectId}`),
+// ============================================================ OVERVIEW ===
+async function loadOverview() {
+  const [tierA, tierB, gateC, anomalyMeta, persistedMeta, stats] = await Promise.all([
+    fetchJson('/static/outputs/train_static/eval/metrics.json'),
+    fetchJson('/static/outputs/finetune_bts/lc_only/eval/metrics.json'),
+    fetchJson('/static/reports/gate_c/gate_c_report.json'),
+    fetchJson('/static/outputs/anomaly/anomaly_results.json'),
+    fetchJson('/static/outputs/anomaly/persisted_scorers_meta.json'),
+    fetchJson('/stats'),
   ]);
-  const detail = $('objectDetail');
-  if (!obj) {
-    detail.innerHTML = '<span class="empty">no stored history for this object</span>';
-  } else {
-    const p = obj.latest_prediction;
-    detail.innerHTML = `
-      <table>
-        <tr><th>survey</th><td>${obj.survey}</td></tr>
-        <tr><th>observations</th><td>${obj.n_observations}</td></tr>
-        <tr><th>latest prediction</th><td>${p ? p.predicted_class : '—'}</td></tr>
-        <tr><th>P(Ia / Ib-c / II)</th><td>${p ? `${p.prob_ia.toFixed(2)} / ${p.prob_ibc.toFixed(2)} / ${p.prob_ii.toFixed(2)}` : '—'}</td></tr>
-        <tr><th>anomaly score</th><td>${p ? p.anomaly_score.toFixed(3) : '—'}</td></tr>
-        <tr><th>seq length</th><td>${p ? p.seq_length : '—'}</td></tr>
-      </table>`;
-  }
-  const grid = $('cutoutGrid');
-  if (cut && cut.images) {
-    grid.innerHTML = ['science', 'template', 'difference'].map(name => `
-      <figure>
-        <img src="data:image/png;base64,${cut.images[name]}" alt="${name}">
-        <figcaption>${name}</figcaption>
-      </figure>`).join('');
-  } else {
-    grid.innerHTML = '';
+
+  const tierAF1 = tierA?.full?.macro_f1;
+  const tierBF1 = tierB?.full?.macro_f1;
+  const gap = (tierAF1 != null && tierBF1 != null) ? (tierAF1 - tierBF1) : null;
+  const anomalyA = anomalyMeta?.tier_a_roc_auc?.combined;
+  const anomalyB = persistedMeta?.verification_tier_b_roc_auc?.combined_3component ?? anomalyMeta?.tier_b_roc_auc?.combined;
+  const throughput = stats?.inference_latency_ms;
+
+  const cards = [
+    ['Tier A macro-F1', fmt(tierAF1), 'LC+static, full cutoff'],
+    ['Tier B macro-F1', fmt(tierBF1), 'LC-only, deployed model'],
+    ['Sim-to-real gap', gap != null ? '−' + fmt(gap) : '—', 'Tier A → Tier B, deployed'],
+    ['Anomaly ROC-AUC', `${fmt(anomalyA, 3)} / ${fmt(anomalyB, 3)}`, 'Tier A / Tier B, combined'],
+    ['Ib/c F1', fmt(gateC?.lc_only?.per_class_f1_full?.[1], 3), '35 Tier B test objects'],
+    ['Peak throughput', '730/s', '≈63M/day vs. LSST ≈7M/night'],
+  ];
+  $('ovStats').innerHTML = cards.map(([l, v, sub]) => `
+    <div class="stat"><div class="v">${v}</div><div class="l">${l}</div><div class="l" style="opacity:.7">${sub}</div></div>
+  `).join('');
+
+  $('ovGates').innerHTML = `
+    <span class="gate-pill"><span class="dot pass"></span>Gate A — readers</span>
+    <span class="gate-pill"><span class="dot pass"></span>Gate B — causal model</span>
+    <span class="gate-pill"><span class="dot pass"></span>Gate C — fine-tune</span>
+    <span class="gate-pill"><span class="dot deferred"></span>Gate D — anomaly inspection (deferred)</span>
+    <p class="figcap" style="margin-top:10px;">A/B/C passed on their own stated criteria (negative fluxes present, shuffled-label
+      collapse, causal truncation-invariance, ROC-AUC ceiling; sim-to-real drop observed as expected). D is
+      <b>deferred, not failed</b>: every eval population built so far (Tier B "weird", live Fink) excludes
+      bogus/artifact candidates by construction — there was nothing for the ranker to have found either way.</p>
+  `;
+
+  const lat = stats?.inference_latency_ms;
+  $('ovLatency').innerHTML = `
+    <div class="stat"><div class="v">${lat ? fmtMs(lat.p50_ms) : '—'}</div><div class="l">p50 latency</div></div>
+    <div class="stat"><div class="v">${lat ? fmtMs(lat.p99_ms) : '—'}</div><div class="l">p99 latency</div></div>
+    <div class="stat"><div class="v">${stats?.n_predictions ?? '—'}</div><div class="l">predictions scored</div></div>
+    <div class="stat"><div class="v">${stats?.n_objects ?? '—'}</div><div class="l">distinct objects</div></div>
+  `;
+}
+
+// =============================================================== LIVE =====
+let liveTabActive = false;
+let livePollHandle = null;
+
+async function loadLiveTab() {
+  liveTabActive = true;
+  await populateSurveyFilters('liveSurveyFilter');
+  tickLive();
+  if (!livePollHandle) livePollHandle = setInterval(() => { if (liveTabActive) tickLive(); }, 4000);
+}
+
+async function populateSurveyFilters(selectId) {
+  const sel = $(selectId);
+  if (sel.dataset.populated) return;
+  sel.dataset.populated = '1';
+  for (const s of ['ztf', 'lsst', 'elasticc']) {
+    const opt = document.createElement('option'); opt.value = s; opt.textContent = s.toUpperCase(); sel.appendChild(opt);
   }
 }
-window.selectObject = selectObject;
 
-function startPolling() {
-  const tick = () => { loadStats(); loadTopAnomalies(); };
-  tick();
-  setInterval(tick, 4000);
+async function tickLive() {
+  const [rate, recent, stats] = await Promise.all([
+    fetchJson('/alerts/rate?minutes=20'),
+    fetchJson(`/alerts/recent?limit=100${qsExtra('liveSurveyFilter', 'survey')}${qsExtra('liveClassFilter', 'predicted_class')}`),
+    fetchJson('/stats'),
+  ]);
+  renderLiveStatus(recent);
+  renderSparkline(rate);
+  renderLiveStats(stats);
+  renderLiveTable(recent);
 }
 
-loadGateC();
-loadAnomaly();
-startPolling();
+function qsExtra(selectId, param) {
+  const v = $(selectId)?.value;
+  return v ? `&${param}=${encodeURIComponent(v)}` : '';
+}
+
+function renderLiveStatus(recent) {
+  const rows = recent?.results || [];
+  const latest = rows[0];
+  const ageMs = latest ? (Date.now() - new Date(latest.scored_at_utc).getTime()) : Infinity;
+  const isActive = ageMs < 3 * 60 * 1000;
+  $('liveDot').classList.toggle('on', isActive);
+  $('liveBadgeText').textContent = isActive ? `live · last alert ${fmtTime(latest.scored_at_utc)}` : 'no active stream';
+}
+
+function renderSparkline(rate) {
+  const buckets = rate?.buckets || [];
+  $('liveRateBadge').textContent = buckets.length ? `${buckets[buckets.length - 1].n} in the last minute` : 'no data';
+  const x = buckets.map(b => b.minute);
+  const y = buckets.map(b => b.n);
+  Plotly.react('sparkline', [{
+    x, y, type: 'scatter', mode: 'lines', fill: 'tozeroy',
+    line: { color: '#5b9dff', width: 2 }, fillcolor: 'rgba(91,157,255,0.15)',
+  }], {
+    ...PLOTLY_BASE_LAYOUT, height: 120,
+    xaxis: { ...PLOTLY_BASE_LAYOUT.xaxis, showticklabels: buckets.length > 0 },
+    yaxis: { ...PLOTLY_BASE_LAYOUT.yaxis, title: 'alerts/min', type: 'linear' },
+  }, PLOTLY_CONFIG);
+}
+
+function renderLiveStats(stats) {
+  if (!stats) { $('liveStats').innerHTML = '<div class="empty">unavailable</div>'; return; }
+  const cd = stats.class_distribution || {};
+  $('liveStats').innerHTML = `
+    <div class="stat"><div class="v">${stats.n_objects ?? '—'}</div><div class="l">objects</div></div>
+    <div class="stat"><div class="v">${stats.n_predictions ?? '—'}</div><div class="l">predictions</div></div>
+    <div class="stat"><div class="v" style="color:${CLASS_COLORS['Ia']}">${cd['Ia'] ?? 0}</div><div class="l">Ia</div></div>
+    <div class="stat"><div class="v" style="color:${CLASS_COLORS['Ib/c']}">${cd['Ib/c'] ?? 0}</div><div class="l">Ib/c</div></div>
+  `;
+}
+
+function renderLiveTable(recent) {
+  const wrap = $('liveTableWrap');
+  const rows = recent?.results || [];
+  if (!rows.length) { wrap.innerHTML = '<div class="empty">No active stream — start replay with <code>make replay</code> (needs <code>make infra-up</code> and <code>make worker</code> running).</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr>
+    <th>object</th><th>survey</th><th>arrived</th><th>predicted</th><th class="num">confidence</th><th class="num">anomaly</th><th>true label</th>
+  </tr></thead><tbody>${rows.map(r => rowHtml(r)).join('')}</tbody></table>`;
+}
+
+function rowHtml(r) {
+  const conf = Math.max(r.prob_ia, r.prob_ibc, r.prob_ii);
+  const labelBadge = r.true_class_name
+    ? `<span class="badge ${r.correct ? 'good' : 'bad'}">${r.true_class_name} ${r.correct ? '✓' : '✗'}</span>`
+    : '<span class="muted">—</span>';
+  return `<tr class="row-click" onclick='selectLiveRow(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+    <td>${escapeHtml(r.object_id)}</td>
+    <td class="muted">${escapeHtml(r.survey)}</td>
+    <td class="muted" title="${r.scored_at_utc}">${fmtTime(r.scored_at_utc)}</td>
+    <td><span class="badge accent">${escapeHtml(r.predicted_class)}</span></td>
+    <td class="num">${fmt(conf, 2)}</td>
+    <td class="num">${fmt(r.anomaly_score, 3)}</td>
+    <td>${labelBadge}</td>
+  </tr>`;
+}
+
+function selectLiveRow(row) {
+  $('liveSelectedId').textContent = row.object_id;
+  renderObjectDetail($('liveObjectDetail'), row);
+}
+window.selectLiveRow = selectLiveRow;
+
+$('liveSurveyFilter').addEventListener('change', tickLive);
+$('liveClassFilter').addEventListener('change', tickLive);
+
+// ============================================================= OBJECT =====
+let objPage = { offset: 0, limit: 25, total: 0 };
+
+async function loadObjectTab(opts) {
+  await populateSurveyFilters('objSurveyFilter');
+  await refreshObjectList();
+  if (opts?.objectId) {
+    $('objSelectedId').textContent = opts.objectId;
+    selectObjectDetail(opts.objectId, $('objDetailPane'), $('objSelectedId'));
+  }
+}
+
+async function refreshObjectList() {
+  const params = new URLSearchParams();
+  if ($('objSearch').value) params.set('search', $('objSearch').value);
+  if ($('objSurveyFilter').value) params.set('survey', $('objSurveyFilter').value);
+  if ($('objClassFilter').value) params.set('predicted_class', $('objClassFilter').value);
+  if ($('objLabelFilter').value) params.set('label', $('objLabelFilter').value);
+  params.set('limit', objPage.limit);
+  params.set('offset', objPage.offset);
+
+  $('objTableWrap').innerHTML = '<div class="loading">loading</div>';
+  const d = await fetchJson(`/objects?${params.toString()}`);
+  if (!d) { $('objTableWrap').innerHTML = '<div class="empty">could not load objects</div>'; return; }
+  objPage.total = d.total;
+
+  if (!d.results.length) {
+    $('objTableWrap').innerHTML = '<div class="empty">no objects match these filters</div>';
+  } else {
+    $('objTableWrap').innerHTML = `<table><thead><tr>
+      <th>object</th><th>survey</th><th>predicted</th><th class="num">confidence</th><th class="num">anomaly</th><th>true label</th>
+    </tr></thead><tbody>${d.results.map(r => objRowHtml(r)).join('')}</tbody></table>`;
+  }
+  const shown = d.results.length;
+  $('objPageInfo').textContent = shown ? `${objPage.offset + 1}–${objPage.offset + shown} of ${objPage.total}` : `0 of ${objPage.total}`;
+  $('objPrev').disabled = objPage.offset <= 0;
+  $('objNext').disabled = objPage.offset + shown >= objPage.total;
+}
+
+function objRowHtml(r) {
+  const conf = Math.max(r.prob_ia, r.prob_ibc, r.prob_ii);
+  const labelBadge = r.true_class_name
+    ? `<span class="badge ${r.correct ? 'good' : 'bad'}">${r.true_class_name} ${r.correct ? '✓' : '✗'}</span>`
+    : '<span class="muted">—</span>';
+  return `<tr class="row-click" onclick='selectObjRow(${JSON.stringify(r).replace(/'/g, "&apos;")})'>
+    <td>${escapeHtml(r.object_id)}</td>
+    <td class="muted">${escapeHtml(r.survey)}</td>
+    <td><span class="badge accent">${escapeHtml(r.predicted_class)}</span></td>
+    <td class="num">${fmt(conf, 2)}</td>
+    <td class="num">${fmt(r.anomaly_score, 3)}</td>
+    <td>${labelBadge}</td>
+  </tr>`;
+}
+
+function selectObjRow(row) {
+  location.hash = `object/${row.object_id}`;
+  $('objSelectedId').textContent = row.object_id;
+  renderObjectDetail($('objDetailPane'), row);
+}
+window.selectObjRow = selectObjRow;
+
+async function selectObjectDetail(objectId, container, labelEl) {
+  // Bump odCounter immediately (before the write below) so any
+  // renderObjectDetail call already in flight for this same container --
+  // e.g. selectObjRow's direct call, racing this hashchange-triggered one --
+  // sees its guard fail and never touches the DOM we're about to replace.
+  const myId = ++odCounter;
+  labelEl.textContent = objectId;
+  container.innerHTML = '<div class="loading">loading</div>';
+  // We may not have this object's full prediction row handy (deep link /
+  // page reload) -- fetch it from /objects by search as a best-effort, else
+  // fall back to whatever /object/{id} + /cutouts/{id} can provide alone.
+  const search = await fetchJson(`/objects?search=${encodeURIComponent(objectId)}&limit=5`);
+  if (myId !== odCounter) return; // a newer selection started while we were fetching
+  const row = search?.results?.find(r => r.object_id === objectId) || { object_id: objectId };
+  renderObjectDetail(container, row);
+}
+
+$('objSearch').addEventListener('input', debounce(() => { objPage.offset = 0; refreshObjectList(); }, 300));
+$('objSurveyFilter').addEventListener('change', () => { objPage.offset = 0; refreshObjectList(); });
+$('objClassFilter').addEventListener('change', () => { objPage.offset = 0; refreshObjectList(); });
+$('objLabelFilter').addEventListener('change', () => { objPage.offset = 0; refreshObjectList(); });
+$('objPrev').addEventListener('click', () => { objPage.offset = Math.max(0, objPage.offset - objPage.limit); refreshObjectList(); });
+$('objNext').addEventListener('click', () => { objPage.offset += objPage.limit; refreshObjectList(); });
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ------------------------------------------------- shared object-detail ---
+let odCounter = 0;
+async function renderObjectDetail(container, row) {
+  const myId = ++odCounter;
+  const objectId = row.object_id;
+  const probs = row.prob_ia != null ? [row.prob_ia, row.prob_ibc, row.prob_ii] : null;
+  container.dataset.objectId = objectId;
+
+  container.innerHTML = `
+    <div class="grid lg:grid-cols-2 gap-4">
+      <div>
+        <h3>Light curve</h3>
+        <div id="od-lc-${myId}" style="height:280px;"><div class="loading">loading</div></div>
+      </div>
+      <div>
+        <h3>Class probabilities</h3>
+        <div id="od-probs-${myId}" style="height:140px;"></div>
+        <h3 style="margin-top:14px;">Anomaly score</h3>
+        <div id="od-anomaly-${myId}"><div class="loading">loading</div></div>
+        <h3 style="margin-top:14px;">Truth</h3>
+        <div id="od-truth-${myId}"></div>
+      </div>
+    </div>
+    <h3 style="margin-top:16px;">Cutouts</h3>
+    <div id="od-cutouts-${myId}"><div class="loading">loading</div></div>
+  `;
+
+  // Truth badge -- immediate, from the row we already have.
+  $(`od-truth-${myId}`).innerHTML = row.true_class_name
+    ? `<span class="badge ${row.correct ? 'good' : 'bad'}" style="font-size:13px;">true: ${row.true_class_name} — prediction ${row.correct ? 'correct ✓' : 'incorrect ✗'}</span>`
+    : `<span class="muted">no spectroscopic label for this object (unclassified, or a simulated Tier A object)</span>`;
+
+  // Probability bar -- immediate if we have it, else wait for /object/{id}.
+  if (probs) renderProbBar(`od-probs-${myId}`, probs, row.predicted_class);
+
+  // Async-enhance: full history (light curve, richer anomaly detail), cutouts.
+  const [obj, cutouts] = await Promise.all([
+    fetchJson(`/object/${encodeURIComponent(objectId)}`),
+    fetchJson(`/cutouts/${encodeURIComponent(objectId)}`),
+  ]);
+  if (myId !== odCounter) return; // a newer selection has since started rendering
+
+  if (obj) {
+    renderLightCurve(`od-lc-${myId}`, obj.observations);
+    if (!probs && obj.latest_prediction) {
+      renderProbBar(`od-probs-${myId}`, [obj.latest_prediction.prob_ia, obj.latest_prediction.prob_ibc, obj.latest_prediction.prob_ii], obj.latest_prediction.predicted_class);
+    }
+    if (!row.true_class_name && obj.true_class_name) {
+      $(`od-truth-${myId}`).innerHTML = `<span class="badge ${obj.correct ? 'good' : 'bad'}" style="font-size:13px;">true: ${obj.true_class_name} — prediction ${obj.correct ? 'correct ✓' : 'incorrect ✗'}</span>`;
+    }
+  } else {
+    $(`od-lc-${myId}`).innerHTML = '<div class="empty">no cached light-curve history for this object (its Redis state was likely cleared since it was last scored)</div>';
+  }
+
+  const combinedScore = row.anomaly_score ?? obj?.latest_prediction?.anomaly_score;
+  const anomaly = obj ? await fetchJson(`/object/${encodeURIComponent(objectId)}/anomaly`) : null;
+  if (myId !== odCounter) return;
+  renderAnomalyPanel(`od-anomaly-${myId}`, combinedScore, anomaly);
+
+  if (cutouts?.images) {
+    $(`od-cutouts-${myId}`).innerHTML = `
+      <div class="cutout-grid">${['science', 'template', 'difference'].map(name => `
+        <figure><img src="data:image/png;base64,${cutouts.images[name]}" alt="${name}"><figcaption>${name}</figcaption></figure>
+      `).join('')}</div>
+      <div class="figcap">Difference subtracts a reference template from the new science exposure, so only what changed — the transient itself, or an instrument artifact — remains visible.</div>
+    `;
+  } else {
+    $(`od-cutouts-${myId}`).innerHTML = '<div class="empty">no cutout available — ELAsTiCC2 (Tier A) has no pixel data by construction, and this object either isn\'t a Tier B/C object with a stored cutout or hasn\'t been ingested through live Fink.</div>';
+  }
+}
+
+function renderProbBar(elId, probs, predictedClass) {
+  Plotly.react(elId, [{
+    x: probs, y: CLASS_NAMES, type: 'bar', orientation: 'h',
+    marker: { color: CLASS_NAMES.map(c => c === predictedClass ? CLASS_COLORS[c] : '#3a4152') },
+    text: probs.map(p => (p * 100).toFixed(1) + '%'), textposition: 'auto',
+  }], {
+    ...PLOTLY_BASE_LAYOUT, height: 140, margin: { t: 8, r: 16, b: 24, l: 40 },
+    xaxis: { ...PLOTLY_BASE_LAYOUT.xaxis, type: 'linear', range: [0, 1], tickformat: '.0%' },
+  }, PLOTLY_CONFIG);
+}
+
+function renderLightCurve(elId, observations) {
+  if (!observations || !observations.length) { $(elId).innerHTML = '<div class="empty">no observations</div>'; return; }
+  const byBand = {};
+  for (const o of observations) {
+    const b = bandFor(o.lam_eff);
+    if (!byBand[b.name]) byBand[b.name] = { color: b.color, det: { x: [], y: [], err: [] }, fp: { x: [], y: [], err: [] } };
+    const bucket = o.is_detection ? byBand[b.name].det : byBand[b.name].fp;
+    bucket.x.push(o.mjd); bucket.y.push(o.flux); bucket.err.push(o.flux_err);
+  }
+  const traces = [];
+  for (const [name, d] of Object.entries(byBand)) {
+    if (d.det.x.length) traces.push({
+      x: d.det.x, y: d.det.y, name: `${name} (detection)`, mode: 'markers',
+      marker: { color: d.color, size: 6, symbol: 'circle' },
+      error_y: { type: 'data', array: d.det.err, color: d.color, thickness: 1, width: 0 },
+      hovertemplate: 'MJD %{x:.2f}<br>flux %{y:.1f}<extra>' + name + '</extra>',
+    });
+    if (d.fp.x.length) traces.push({
+      x: d.fp.x, y: d.fp.y, name: `${name} (forced/non-det.)`, mode: 'markers',
+      marker: { color: d.color, size: 5, symbol: 'circle-open' },
+      error_y: { type: 'data', array: d.fp.err, color: d.color, thickness: 1, width: 0 },
+      hovertemplate: 'MJD %{x:.2f}<br>flux %{y:.1f}<extra>' + name + '</extra>',
+    });
+  }
+  Plotly.react(elId, traces, {
+    ...PLOTLY_BASE_LAYOUT, height: 280,
+    xaxis: { ...PLOTLY_BASE_LAYOUT.xaxis, title: 'MJD', type: 'linear' },
+    yaxis: { ...PLOTLY_BASE_LAYOUT.yaxis, title: 'flux (FLUXCAL, zp=27.5)', type: 'linear' },
+    legend: { ...PLOTLY_BASE_LAYOUT.legend, orientation: 'h', y: -0.25 },
+  }, PLOTLY_CONFIG);
+}
+
+function renderAnomalyPanel(elId, combined, anomaly) {
+  const el = $(elId);
+  if (combined == null) { el.innerHTML = '<div class="empty">not yet scored</div>'; return; }
+  let html = `<div class="stat" style="display:inline-block; min-width:140px;"><div class="v">${fmt(combined, 3)}</div><div class="l">combined (z-score avg.)</div></div>`;
+  if (anomaly?.components) {
+    const comps = Object.entries(anomaly.components);
+    html += `<table style="margin-top:8px;"><tbody>${comps.map(([k, v]) => `<tr><td class="muted">${k.replace('_', ' ')}</td><td class="num">${fmt(v, 3)}</td></tr>`).join('')}</tbody></table>`;
+    if (!anomaly.full_combination) html += '<div class="figcap">reconstruction-error only — Mahalanobis/isoforest scorers not persisted for this server</div>';
+  } else {
+    html += '<div class="figcap">component breakdown unavailable (needs the object\'s cached light-curve history, which this object doesn\'t have — see above)</div>';
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================ RESULTS ====
+async function loadResultsTab() {
+  const [tierA, tierB, gateC, anomalyMeta, persistedMeta] = await Promise.all([
+    fetchJson('/static/outputs/train_static/eval/metrics.json'),
+    fetchJson('/static/outputs/finetune_bts/lc_only/eval/metrics.json'),
+    fetchJson('/static/reports/gate_c/gate_c_report.json'),
+    fetchJson('/static/outputs/anomaly/anomaly_results.json'),
+    fetchJson('/static/outputs/anomaly/persisted_scorers_meta.json'),
+  ]);
+  if (tierA && tierB) renderPhaseCurve(tierA, tierB);
+  if (tierB) setupConfusionSlider(tierB);
+  if (anomalyMeta) renderAnomalyResults(anomalyMeta, persistedMeta);
+  if (gateC) renderGateCTable(gateC);
+}
+
+function renderPhaseCurve(tierA, tierB) {
+  const orderA = ['-5', '0', '5', '15', '30', 'full'];
+  const orderB = ['0', '5', '15', '30', 'full'];
+  const traceA = { x: orderA.filter(k => tierA[k]), y: orderA.filter(k => tierA[k]).map(k => tierA[k].macro_f1), name: 'Tier A (sim)', mode: 'lines+markers', line: { color: '#5b9dff', width: 3 } };
+  const traceB = { x: orderB.filter(k => tierB[k]), y: orderB.filter(k => tierB[k]).map(k => tierB[k].macro_f1), name: 'Tier B (real ZTF, deployed)', mode: 'lines+markers', line: { color: '#3ecf8e', width: 3 } };
+  Plotly.react('phaseCurveChart', [traceA, traceB], {
+    ...PLOTLY_BASE_LAYOUT, height: 340,
+    xaxis: { ...PLOTLY_BASE_LAYOUT.xaxis, title: 'phase cutoff (days since first detection)', type: 'category' },
+    yaxis: { ...PLOTLY_BASE_LAYOUT.yaxis, title: 'macro-F1', type: 'linear', range: [0, 1] },
+  }, PLOTLY_CONFIG);
+}
+
+const CM_CUTOFFS = ['0', '5', '15', '30', 'full'];
+function setupConfusionSlider(tierB) {
+  const slider = $('cmSlider');
+  const draw = () => {
+    const cutoff = CM_CUTOFFS[Number(slider.value)];
+    $('cmLabel').textContent = cutoff;
+    const conf = tierB[cutoff]?.confusion?.raw;
+    if (!conf) { $('confusionChart').innerHTML = '<div class="empty">no data at this cutoff</div>'; return; }
+    Plotly.react('confusionChart', [{
+      z: conf, x: CLASS_NAMES, y: CLASS_NAMES, type: 'heatmap', colorscale: 'Blues',
+      showscale: false, text: conf.map(row => row.map(String)), texttemplate: '%{text}', textfont: { color: '#0b0e14', size: 14 },
+      hovertemplate: 'true %{y}, predicted %{x}<br>count %{z}<extra></extra>',
+    }], {
+      ...PLOTLY_BASE_LAYOUT, height: 360,
+      xaxis: { ...PLOTLY_BASE_LAYOUT.xaxis, title: 'predicted', side: 'bottom' },
+      yaxis: { ...PLOTLY_BASE_LAYOUT.yaxis, title: 'true', autorange: 'reversed' },
+    }, PLOTLY_CONFIG);
+  };
+  slider.oninput = draw;
+  draw();
+}
+
+function renderAnomalyResults(anomalyMeta, persistedMeta) {
+  const components = ['reconstruction_error', 'entropy', 'mahalanobis', 'isoforest'];
+  const tierAvals = components.map(c => anomalyMeta.tier_a_roc_auc[c]);
+  const tierBvals = components.map(c => anomalyMeta.tier_b_roc_auc[c]);
+  Plotly.react('anomalyChart', [
+    { x: components, y: tierAvals, name: 'Tier A (sim exotics)', type: 'bar', marker: { color: '#5b9dff' } },
+    { x: components, y: tierBvals, name: 'Tier B (real "weird")', type: 'bar', marker: { color: '#3ecf8e' } },
+    { x: components, y: components.map(() => 0.5), name: 'chance', mode: 'lines', line: { color: '#8a93a6', dash: 'dot' } },
+  ], {
+    ...PLOTLY_BASE_LAYOUT, height: 280, barmode: 'group',
+    yaxis: { ...PLOTLY_BASE_LAYOUT.yaxis, title: 'ROC-AUC', type: 'linear', range: [0, 1] },
+  }, PLOTLY_CONFIG);
+
+  const rows = [
+    ['combined (4-component, w/ entropy)', anomalyMeta.tier_a_roc_auc.combined, anomalyMeta.tier_b_roc_auc.combined],
+  ];
+  if (persistedMeta) {
+    rows.push(['<b>combined (3-component, entropy dropped — served)</b>', null, persistedMeta.verification_tier_b_roc_auc?.combined_3component]);
+  }
+  document.querySelector('#anomalyTable tbody').innerHTML = rows.map(([name, a, b]) => `
+    <tr><td>${name}</td>
+      <td class="num">${a == null ? '<span class="muted">not recomputed</span>' : fmt(a)}</td>
+      <td class="num">${b == null ? '—' : fmt(b)}</td></tr>
+  `).join('');
+  $('anomalyNote').textContent = persistedMeta
+    ? "Tier A's entropy-dropped 3-component ROC-AUC (≈0.81, CLAUDE.md §11 Day 10) was never persisted back into a JSON artifact this session — shown as 'not recomputed' rather than restated from prose."
+    : 'Persisted scorer artifacts not found on this server — serving falls back to reconstruction-error only.';
+}
+
+function renderGateCTable(gateC) {
+  const rows = [
+    ['zero-shot (no fine-tune)', gateC.zero_shot],
+    ['LC-only fine-tune (deployed)', gateC.lc_only],
+    ['LC + static fine-tune', gateC.with_static],
+    ['LC + static + DRB', gateC.with_static_drb],
+  ];
+  $('gateCTableWrap').innerHTML = `<table><thead><tr>
+    <th>variant</th><th class="num">Tier B macro-F1</th><th class="num">Ia-vs-rest ROC-AUC</th><th class="num">Ib/c F1</th>
+  </tr></thead><tbody>${rows.map(([name, v]) => v ? `
+    <tr><td>${name}</td><td class="num">${fmt(v.macro_f1_full)}</td><td class="num">${fmt(v.ia_vs_rest_roc_auc)}</td><td class="num">${fmt(v.per_class_f1_full?.[1], 3)}</td></tr>
+  ` : '').join('')}</tbody></table>`;
+  $('gateCGapLine').innerHTML =
+    `Tier A test macro-F1 <b>${fmt(gateC.tier_a_test_macro_f1_full)}</b> → Tier B, deployed (LC-only) <b>${fmt(gateC.lc_only.macro_f1_full)}</b>, ` +
+    `a <b>${fmt(gateC.tier_a_test_macro_f1_full - gateC.lc_only.macro_f1_full)}</b> drop — expected direction (§7 Gate C). ` +
+    `A different, larger gap (<b>${fmt(gateC.sim_to_real_gap)}</b>) holds for the LC+static variant shown above, which was not shipped.`;
+}
+
+// ============================================================== ABOUT ====
+$('tiersTableWrap').innerHTML = `<table><thead><tr><th>Tier</th><th>Source</th><th>What it is</th><th>Role</th></tr></thead><tbody>
+  <tr><td><b>A</b></td><td>ELAsTiCC2</td><td>Simulated LSST light curves (ugrizy), 843,617 objects, true simulated type</td><td>Pretraining</td></tr>
+  <tr><td><b>B</b></td><td>BTSbot / ZTF BTS</td><td>Real ZTF alerts (ztf_g/ztf_r) with real spectroscopic labels</td><td>Fine-tuning</td></tr>
+  <tr><td><b>C</b></td><td>Fink (live)</td><td>Real, live, unlabeled ZTF and LSST alerts</td><td>Serving</td></tr>
+</tbody></table>`;
+
+// ================================================================ INIT ====
+onHashChange();
+
+// Header connectivity badge -- independent of which tab is active, since
+// the Live tab's own polling only runs while that tab is on-screen.
+async function updateHeaderBadge() {
+  const recent = await fetchJson('/alerts/recent?limit=1');
+  renderLiveStatus(recent);
+}
+updateHeaderBadge();
+setInterval(updateHeaderBadge, 10000);
 </script>
 </body>
 </html>

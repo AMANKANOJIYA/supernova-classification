@@ -1,4 +1,4 @@
-.PHONY: setup data data-elasticc2 data-elasticc2-verify train test reproduce clean
+.PHONY: setup data data-elasticc2 data-elasticc2-verify train test reproduce clean infra-up replay worker api frontend
 
 PYTHON ?= python3.12
 VENV   := .venv
@@ -61,3 +61,30 @@ reproduce: data train
 clean:
 	rm -rf $(VENV) requirements-lock.txt .pytest_cache
 	find . -name "__pycache__" -not -path "./.git/*" -exec rm -rf {} +
+
+# CLAUDE.md §6 step 12/13: Kafka + Redis + Postgres, local dev containers.
+infra-up:
+	docker compose -f infra/docker-compose.yml up -d
+
+# Replay-mode producer (archived Tier B parquet, CLAUDE.md §6 step 12). Needs
+# `make infra-up` and a running `make worker` to actually score anything --
+# this target only produces onto Kafka. SPLIT/SPEED are overridable, e.g.
+# `make replay SPLIT=test SPEED=500`.
+replay:
+	$(VENV)/bin/python -m src.serve.replay --split $${SPLIT:-test} --speed-days-per-second $${SPEED:-0}
+
+# The one consumer (CLAUDE.md §6: "same consumer code" for replay and live).
+worker:
+	$(VENV)/bin/python -m src.serve.inference_worker
+
+# FastAPI serving layer (src/serve/api.py) -- the frontend's API base URL
+# (frontend/.env.local) points here. Needs `make infra-up` first.
+api:
+	$(VENV)/bin/uvicorn src.serve.api:app --host 0.0.0.0 --port 8010
+
+# Next.js dashboard (frontend/, CLAUDE.md-instructed rebuild). Talks to
+# `make api` over HTTP -- run both together, e.g. in separate terminals:
+#   make api
+#   make frontend
+frontend:
+	npm --prefix frontend run dev

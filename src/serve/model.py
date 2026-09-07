@@ -259,3 +259,39 @@ class AnomalyScorer:
         maha_z = zscore(maha_raw, *self._ref_stats["mahalanobis"])
         iso_z = zscore(iso_raw, *self._ref_stats["isoforest"])
         return combine_equal_weight([recon_z, maha_z, iso_z])
+
+    @torch.no_grad()
+    def score_with_components(
+        self,
+        features: torch.Tensor,
+        lengths: torch.Tensor,
+        mask: torch.Tensor,
+        alerts: list[CanonicalAlert],
+    ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
+        """Same computation as `score()`, but additionally returns each
+        z-scored component that was averaged into the combined score --
+        added for the UI's "anomaly score with components broken out"
+        panel (CLAUDE.md Day-13-follow-up task), which needs the
+        breakdown `score()`'s single-array return throws away.
+        `src.serve.inference_worker`/`api.py`'s `/classify` keep calling
+        plain `score()` unchanged; this is a read-only addition for the
+        object-detail view, not a replacement."""
+        raw_recon = per_object_reconstruction_error(self.encoder, self.decoder, features, lengths, mask)
+        recon_z = zscore(raw_recon.numpy(), *self._ref_stats["reconstruction_error"])
+
+        if not self.full_combination:
+            return recon_z, {"reconstruction_error": recon_z}
+
+        hidden = encoder_trunk_hidden_states(self.encoder, features, lengths)
+        idx = (lengths - 1).clamp(min=0)
+        latent = hidden[torch.arange(hidden.shape[0]), idx].numpy()
+
+        maha_raw = self._mahalanobis.score(latent)
+        engineered = np.stack([engineered_features(a) for a in alerts], axis=0)
+        pine_x = np.concatenate([latent, self._engineered_normalizer.transform(engineered)], axis=1)
+        iso_raw = self._forest.score(pine_x)
+
+        maha_z = zscore(maha_raw, *self._ref_stats["mahalanobis"])
+        iso_z = zscore(iso_raw, *self._ref_stats["isoforest"])
+        combined = combine_equal_weight([recon_z, maha_z, iso_z])
+        return combined, {"reconstruction_error": recon_z, "mahalanobis": maha_z, "isoforest": iso_z}

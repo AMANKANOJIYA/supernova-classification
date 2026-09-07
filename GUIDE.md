@@ -125,10 +125,11 @@ never labeled at ingest time.
                     │                                            Postgres  │
                     │                                          (results)   │
                     └──────────────────────┬──────────────────────────────┘
-                                           │ api.py (FastAPI)
+                                           │ api.py (FastAPI, port 8010)
                                            ▼
                                 ┌─────────────────────┐
-                                │   ui/index.html       │  results + live panels
+                                │   frontend/ (Next.js)  │  overview / live / objects /
+                                │   port 3000, HTTP      │  results / anomalies / about
                                 └─────────────────────┘
 ```
 
@@ -248,7 +249,14 @@ sn-classifier/
 ├── infra/
 │   └── docker-compose.yml   Kafka + Redis + Postgres, for serving (§5, §6)
 ├── ui/
-│   └── index.html         single-page results/live viewer, served by src/serve/api.py
+│   └── index.html         RETIRED single-page viewer (superseded by frontend/, still served by
+│                          src/serve/api.py's `/` route for anyone who wants the old static page)
+├── frontend/              Next.js dashboard (App Router + TypeScript + Tailwind + shadcn/ui) —
+│   │                      the current results/live/objects/anomalies viewer, see §6
+│   ├── src/app/(dashboard)/  overview, live, objects, results, anomalies, about routes
+│   ├── src/components/       shared UI (sidebar, charts, object detail sheet, cutout viewer, ...)
+│   ├── src/lib/               typed API client (lib/api.ts) + report-JSON types (lib/types.ts)
+│   └── public/images/         locally-stored NASA/ESA images used on the About page (§6, credited inline)
 ├── outputs/               GITIGNORED — checkpoints, eval JSONs/figures written by training scripts
 ├── reports/               tracked in git — Gate A/C/D reports, span-ablation, live-Fink run logs
 ├── src/
@@ -300,6 +308,8 @@ added to `src/eval/metrics.py` on Day 6 as a pure addition (that commit is
 
 - Python 3.12 (exactly — `pyproject.toml` pins `requires-python = ">=3.12,<3.13"`)
 - Docker (for the serving layer only — §5/§6; not needed for training/eval)
+- Node.js 20+ and npm (for the dashboard only — `frontend/`; built and
+  verified this session against Node 22.14.0)
 - ~30GB free disk if you download both Tier A and Tier B raw data (see below)
 
 ### Install
@@ -339,6 +349,16 @@ environment with no conflicts (would install 26.3, PyPI's latest). This
 looks like an artifact of whenever `pip freeze` was last run, not a real
 constraint — if the user who asked about this had a specific incident in
 mind, it isn't recorded anywhere I could find.
+
+**Frontend install** (separate from the Python venv, only needed for the
+dashboard):
+```bash
+npm --prefix frontend install
+```
+`frontend/package.json` pins exact-enough major versions (Next.js 16,
+React 19, Tailwind v4, shadcn/ui, Recharts) — there is no equivalent
+"stale lockfile" concern here since `frontend/package-lock.json` was
+generated fresh this session and has not drifted from what's installed.
 
 ### Data
 
@@ -567,37 +587,58 @@ run it.
 
 ### Open the UI
 
-Start the API (needs Docker infra running first):
+The dashboard is a separate Next.js app (`frontend/`) that talks to the
+FastAPI serving layer over HTTP — **two processes**, in two terminals.
+Docker infra (§4) must already be up for the API to report `healthy`.
+
 ```bash
-.venv/bin/python -m uvicorn src.serve.api:app --host 0.0.0.0 --port 8000
+# terminal 1 — the API (needs Docker infra running first)
+make api          # or: .venv/bin/uvicorn src.serve.api:app --host 0.0.0.0 --port 8010
+
+# terminal 2 — the dashboard
+make frontend     # or: npm --prefix frontend run dev
 ```
-Then open `http://localhost:8000/` in a browser. See §6 for a full,
-step-by-step walkthrough — this is the section worth reading carefully.
+Then open `http://localhost:3000/` in a browser. The frontend's API base
+URL lives in `frontend/.env.local` (`NEXT_PUBLIC_API_BASE_URL`, defaults to
+`http://localhost:8010`) — change both the API's `--port` and this env var
+together if 8010 is already in use. CORS for `http://localhost:3000` is
+already configured on the API side (`src/serve/api.py`).
+
+The old single-page viewer (`ui/index.html`) still works unchanged at
+`http://localhost:8010/` if you ever want it, but the dashboard in
+`frontend/` is the one to use — see §6 for a full walkthrough.
 
 ---
 
 ## 6. Testing the UI
 
-This is the fastest way to see the whole project working at once.
+This is the fastest way to see the whole project working at once. The
+dashboard (`frontend/`, Next.js) is two processes, not one — see §5's
+"Open the UI" for the exact two commands.
 
 ### Startup sequence
 
 1. **Docker infra** (§4): `docker compose -f infra/docker-compose.yml up -d`.
    Wait for all three services to show `healthy`
    (`docker compose -f infra/docker-compose.yml ps`).
-2. **The API**: `.venv/bin/python -m uvicorn src.serve.api:app --host 0.0.0.0 --port 8000`
-   (pick a different `--port` if 8000 is already in use on your machine —
-   this happened during development).
-3. Open `http://localhost:8000/` in a browser.
+2. **The API**: `make api` (or `.venv/bin/uvicorn src.serve.api:app --host
+   0.0.0.0 --port 8010` — pick a different `--port`, and update
+   `frontend/.env.local` to match, if 8010 is already in use on your
+   machine).
+3. **The dashboard**: `make frontend` (or `npm --prefix frontend run dev`),
+   then open `http://localhost:3000/` in a browser.
 
-At this point, with nothing else running, the page loads but the **Live**
-panel is essentially empty: "Serving stats" shows zero objects/predictions
-(or whatever was left over from a previous run in Postgres — the numbers
-persist across restarts because of the named volume), and "Tonight's top
-anomalies" shows "No predictions yet — start replay or live_fink to
-populate." The **Results** panel, on the left, is unaffected by any of
-this — it reads static report JSONs and images checked into the repo, so
-it's fully populated the moment the page loads, live data or not.
+At this point, with nothing else running, the dashboard loads but **Live
+monitor** shows an empty-state card telling you to run replay + worker
+(rather than a blank table), and **Objects**/**Anomalies** show whatever is
+already in Postgres from a previous run (those numbers survive a container
+restart — see §9 item 7 for the caveat that Redis's *rolling light-curve
+state*, unlike Postgres, has no volume and is wiped by that same
+restart). **Results**
+and **About** are unaffected by any of this — they read static report
+JSONs (and, for About, locally-stored NASA/ESA images) checked into the
+repo, so they're fully populated the moment the page loads, live data or
+not.
 
 4. **Feed it data.** Either replay (fast, deterministic, uses archived
    Tier B data — good for a first look) or live Fink (needs the
@@ -606,42 +647,43 @@ it's fully populated the moment the page loads, live data or not.
    python -m src.serve.inference_worker --idle-stop-seconds 30 &
    python -m src.serve.replay --split test
    ```
-   Within a few seconds, the Live panel's "Serving stats" numbers start
-   climbing and "Tonight's top anomalies" populates with real rows.
+   Within a few seconds, **Overview**'s throughput sparkline and **Live
+   monitor**'s alerts-per-minute chart start climbing, and **Objects** /
+   **Anomalies** populate with real rows. Note: an object only has a full
+   light curve / cutouts / anomaly breakdown available in the detail sheet
+   while its Redis rolling state is populated — if you see "no live
+   rolling-state history" there, re-run the two commands above.
 
-### What each panel shows
+### What each route shows
 
-**Results (left column, static):**
-- **Gate status** — pass/deferred pills for Gates A/B/C/D, with the
-  one-line reason Gate D is deferred rather than failed.
-- **Sim-to-real gap** — a small table (zero-shot / LC-only / LC+static
-  macro-F1 and ROC-AUC) read directly from `reports/gate_c/gate_c_report.json`.
-- A phase-curve image (`reports/gate_c/phase_curve_comparison.png`) and a
-  confusion-matrix image
-  (`outputs/finetune_bts/lc_only/eval/confusion_matrices.png` — **see the
-  caveat in §5's fine-tune section**: this image may currently show
-  slightly different numbers than the table above it, if the fine-tune
-  script was re-run since the numbers were last generated).
-- Anomaly component ROC-AUC table, read from
-  `outputs/anomaly/anomaly_results.json` (+ the persisted-scorer
-  verification numbers, if `outputs/anomaly/persisted_scorers_meta.json`
-  exists).
-- Throughput/latency stat tiles — the peak-benchmark numbers are static
-  text; the p50/p99 latency tiles are **live**, pulled from `/stats` and
-  reflecting everything ever scored, not just the original Day-12
-  benchmark.
-
-**Live (right column, updates every 4 seconds):**
-- **Serving stats** — object/prediction counts, class distribution,
-  live latency percentiles.
-- **Tonight's top anomalies** — the 25 highest anomaly-scored objects,
-  most-recent prediction per object. Click any row.
-- **Selected object** — clicking a row shows that object's survey,
-  observation count, latest prediction, class probabilities, anomaly
-  score, and (if the object came from a live Fink run, not replay — Tier B
-  replay objects never have cutouts, see §2's "Cutouts is None for all
-  simulated data" schema rule) its science/template/difference cutout
-  images, ZScale-rendered from the actual FITS stamp bytes.
+- **Overview** (`/`) — hero stat cards (Tier A/B macro-F1, sim-to-real
+  gap, anomaly ROC-AUC, live p50/p99 latency from `/stats`), four gate
+  status badges, and a live throughput sparkline
+  (`/alerts/rate?minutes=60`).
+- **Live monitor** (`/live`) — an alerts-per-minute bar chart and a
+  filterable table of `/alerts/recent`, newest first. Click any row to
+  open the object detail sheet.
+- **Objects** (`/objects`) — a searchable, filterable (true class /
+  predicted class / correct-incorrect) card grid over `/objects`, each
+  card showing its science-cutout thumbnail, predicted-vs-true badges, and
+  confidence. Click a card for the full detail sheet.
+- **Object detail sheet** (opened from Live monitor, Objects, or
+  Anomalies) — light curve (colored continuously by wavelength, detections
+  filled / non-detections hollow), science/template/difference cutouts,
+  class-probability bars, and the anomaly-score breakdown by component.
+- **Results** (`/results`) — phase curve (Tier A vs. Tier B, `≥0` cutoffs
+  only for Tier B per §9), a confusion matrix with a dataset/cutoff/
+  raw-vs-normalized control (row-normalized by default — the raw-count
+  version saturates, one real cell is 429 vs. 3), the anomaly
+  sim-to-real-flip chart, and the sim-to-real gap table. Every number cites
+  its source JSON inline.
+- **Anomalies** (`/anomalies`) — what the three (plus one dropped) score
+  components measure, the Gate D top-50 breakdown, and the top-ranked
+  objects table (`/top-anomalies`).
+- **About** — the three target classes as cards (with credited NASA/ESA
+  imagery and a small schematic light-curve sparkline each), the pipeline
+  as a stepped diagram, the three data tiers as cards, and the open
+  questions above as a collapsed-by-default accordion.
 
 ### API endpoints, with real example responses
 
@@ -649,14 +691,14 @@ All examples below are real responses captured from this project's own
 live-Fink and replay runs (not fabricated).
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8010/health
 ```
 ```json
 {"status": "ok", "redis": true, "postgres": true}
 ```
 
 ```bash
-curl "http://localhost:8000/stats"
+curl "http://localhost:8010/stats"
 ```
 ```json
 {
@@ -668,7 +710,25 @@ curl "http://localhost:8000/stats"
 ```
 
 ```bash
-curl "http://localhost:8000/top-anomalies?limit=3"
+curl "http://localhost:8010/objects?true_class=Ia&limit=2"
+```
+```json
+{"total": 488, "limit": 2, "offset": 0, "results": [
+  {"object_id": "ZTF23aarvjaf", "survey": "ztf", "predicted_class": "Ia",
+   "prob_ia": 0.970, "prob_ibc": 0.014, "prob_ii": 0.016,
+   "true_class_id": 2222, "true_class_name": "Ia", "correct": true, "...": "..."},
+  {"object_id": "ZTF23aauytqw", "survey": "ztf", "predicted_class": "Ia",
+   "prob_ia": 0.744, "prob_ibc": 0.162, "prob_ii": 0.094,
+   "true_class_id": 2222, "true_class_name": "Ia", "correct": true, "...": "..."}
+]}
+```
+`true_class`/`predicted_class`: one of `Ia` / `Ib/c` / `II`. `label`:
+`labeled` / `unlabeled` / `correct` / `incorrect`. Added alongside the
+frontend rebuild (`src/serve/db.py::list_objects`) — `true_class` didn't
+exist before; the Objects page needed it to filter the card grid.
+
+```bash
+curl "http://localhost:8010/top-anomalies?limit=3"
 ```
 ```json
 {"n": 3, "results": [
@@ -679,7 +739,7 @@ curl "http://localhost:8000/top-anomalies?limit=3"
 ```
 
 ```bash
-curl "http://localhost:8000/object/ZTF26aazwmda"
+curl "http://localhost:8010/object/ZTF26aazwmda"
 ```
 ```json
 {
@@ -691,7 +751,7 @@ curl "http://localhost:8000/object/ZTF26aazwmda"
 ```
 
 ```bash
-curl "http://localhost:8000/cutouts/ZTF26aazwmda"
+curl "http://localhost:8010/cutouts/ZTF26aazwmda"
 ```
 ```json
 {"object_id": "ZTF26aazwmda", "images": {"science": "<base64 PNG, 63x63>", "template": "<base64 PNG>", "difference": "<base64 PNG>"}}
@@ -701,7 +761,7 @@ Returns `404` for any object that was never seen through `live_fink.py`
 `ZTF18aaojdul` from replay returns 404 here).
 
 ```bash
-curl -X POST http://localhost:8000/classify -H "Content-Type: application/json" -d '{
+curl -X POST http://localhost:8010/classify -H "Content-Type: application/json" -d '{
   "object_id": "TEST", "survey": "ztf",
   "observations": [
     {"mjd": 60000.0, "lam_eff": 472.3, "flux": 500.0, "flux_err": 20.0, "is_detection": true},
@@ -908,6 +968,22 @@ one.
    global RNG draw between the four sequentially-trained variants in one
    process) and fix it, or regenerate `outputs/finetune_bts/` cleanly and
    accept the new numbers as the new baseline.
+
+7. **New this session: Redis's rolling light-curve state has no volume,
+   Postgres does.** `infra/docker-compose.yml`'s `redis` service has no
+   `volumes:` entry (`postgres` implicitly persists via its container's
+   own writable layer surviving a stop/start, confirmed directly: 151,088
+   Postgres rows survived a container restart this session with zero
+   `sn:lc:*` Redis keys left). *Consequence:* a container **restart**
+   (not recreate) leaves Postgres history intact but wipes every object's
+   accumulated observation history — the dashboard's object detail sheet
+   then shows "no live rolling-state history" for any object scored
+   before the restart, even though its past predictions still show up in
+   Objects/Anomalies (those read Postgres, not Redis). *What would close
+   it:* add a named volume to the `redis` service if rolling state should
+   survive a restart, or accept it as intentionally ephemeral and document
+   that replay/worker needs re-running after any Redis restart (the
+   workaround used this session).
 
 ---
 

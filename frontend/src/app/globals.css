@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-card-strong: var(--card-strong);
+
+  /* Semantic supernova-class colors -- used consistently everywhere: charts,
+     badges, tables, cards. Never re-derive these locally. */
+  --color-ia: var(--ia);
+  --color-ia-foreground: var(--ia-foreground);
+  --color-ibc: var(--ibc);
+  --color-ibc-foreground: var(--ibc-foreground);
+  --color-ii: var(--ii);
+  --color-ii-foreground: var(--ii-foreground);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Design tokens (CLAUDE.md-instructed frontend rebuild).
+ * Base: Tailwind zinc scale. Accent: violet (kept clear of the three
+ * semantic class hues below so "active nav item" never gets mistaken for
+ * "this is a Ib/c row"). Dark theme only, by design brief -- both :root and
+ * .dark below carry the same dark palette so the app never flashes light.
+ */
+:root,
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.15 0.004 285);
+  --foreground: oklch(0.94 0.003 285);
+
+  --card: oklch(0.195 0.004 285);
+  --card-strong: oklch(0.23 0.006 285);
+  --card-foreground: oklch(0.94 0.003 285);
+
+  --popover: oklch(0.22 0.006 285);
+  --popover-foreground: oklch(0.94 0.003 285);
+
+  /* Accent: violet-500 family */
+  --primary: oklch(0.62 0.2 293);
+  --primary-foreground: oklch(0.98 0.005 293);
+
+  --secondary: oklch(0.27 0.006 285);
+  --secondary-foreground: oklch(0.94 0.003 285);
+
+  --muted: oklch(0.25 0.006 285);
+  --muted-foreground: oklch(0.66 0.012 285);
+
+  --accent: oklch(0.3 0.03 293);
+  --accent-foreground: oklch(0.94 0.01 293);
+
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.2 293 / 60%);
+
+  /* Class semantic colors: Ia amber / Ib-c blue / II emerald */
+  --ia: oklch(0.75 0.16 75);
+  --ia-foreground: oklch(0.18 0.03 75);
+  --ibc: oklch(0.66 0.17 250);
+  --ibc-foreground: oklch(0.98 0.01 250);
+  --ii: oklch(0.7 0.15 155);
+  --ii-foreground: oklch(0.16 0.03 155);
+
+  --chart-1: var(--ia);
+  --chart-2: var(--ibc);
+  --chart-3: var(--ii);
+  --chart-4: var(--primary);
+  --chart-5: oklch(0.68 0.19 15);
+
+  --radius: 0.65rem;
+
+  --sidebar: oklch(0.13 0.004 285);
+  --sidebar-foreground: oklch(0.9 0.004 285);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.22 0.008 285);
+  --sidebar-accent-foreground: oklch(0.96 0.003 285);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: var(--ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground text-base;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Type scale (CLAUDE.md-instructed rebuild §typography):
+     page title ~32px, section heading ~24px, card title ~18px,
+     body 16px, caption 14px. Nothing smaller than 14px anywhere. */
+  .text-page-title {
+    @apply text-[32px] leading-[1.2] font-semibold tracking-tight;
+  }
+  .text-section-heading {
+    @apply text-2xl leading-[1.25] font-semibold tracking-tight;
+  }
+  .text-card-title {
+    @apply text-lg leading-snug font-medium;
+  }
+  .text-body {
+    @apply text-base leading-relaxed;
+  }
+  .text-caption {
+    @apply text-sm leading-normal text-muted-foreground;
+  }
+  .prose-relaxed {
+    line-height: 1.6;
+  }
+  .tabular-nums-all {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

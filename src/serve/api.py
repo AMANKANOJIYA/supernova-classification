@@ -16,6 +16,7 @@ import numpy as np
 import redis
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -44,6 +45,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Transient Supernova Classifier — serving API", lifespan=lifespan)
+
+# The Next.js dev server (frontend/, CLAUDE.md-instructed rebuild) runs on a
+# separate origin/port and calls this API directly over HTTP -- CORS must be
+# open to it. Local dev only: every origin here is a localhost dev port, not
+# a production allowlist.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        # Alternate dev port, e.g. for a second `next dev` instance running
+        # ad-hoc verification alongside the main one on :3000.
+        "http://localhost:3099",
+        "http://127.0.0.1:3099",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Results-viewer UI (CLAUDE.md Day 13 Task 2). "reports"/"outputs" are
 # mounted read-only so the UI's own JS can fetch the existing report JSONs
@@ -178,6 +198,7 @@ def get_object(object_id: str) -> dict:
     with db.connect() as conn:
         latest = db.latest_prediction_for_object(conn, object_id)
 
+    true_class_name = db.TRUE_CLASS_NAME.get(alert.class_id) if alert.class_id is not None else None
     return {
         "object_id": object_id,
         "survey": alert.survey.value,
@@ -187,7 +208,87 @@ def get_object(object_id: str) -> dict:
             for o in alert.observations
         ],
         "class_id": alert.class_id,
+        "true_class_name": true_class_name,
+        "correct": (true_class_name == latest["predicted_class"]) if (latest and true_class_name) else None,
         "latest_prediction": latest,
+    }
+
+
+@app.get("/object/{object_id}/anomaly")
+def get_object_anomaly(object_id: str) -> dict:
+    """Anomaly score broken out into its z-scored components (CLAUDE.md
+    Day-13-follow-up task) -- recomputed fresh from the object's full
+    stored history, via `AnomalyScorer.score_with_components`, rather than
+    read from `predictions` (which only ever stored the combined score).
+    Deterministic given the same stored history, so this always matches
+    the combined value already shown via `/object/{id}`'s
+    `latest_prediction.anomaly_score` for an object that hasn't changed
+    since its last scored alert."""
+    alert = state.get_alert(_resources["redis"], object_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail=f"no stored history for object_id={object_id!r}")
+
+    tensorized = tensorize_alert(
+        alert, pre_detection_window_days=PRE_DETECTION_WINDOW_DAYS, max_span_days=RECOMMENDED_MAX_SPAN_DAYS,
+    )
+    features = tensorized.features.unsqueeze(0)
+    lengths = torch.tensor([tensorized.features.shape[0]], dtype=torch.int64)
+    mask = torch.ones((1, features.shape[1]), dtype=torch.bool)
+
+    combined, components = _resources["anomaly_scorer"].score_with_components(
+        features, lengths, mask, alerts=[alert]
+    )
+    return {
+        "object_id": object_id,
+        "combined": float(combined[0]),
+        "components": {k: float(v[0]) for k, v in components.items()},
+        "full_combination": _resources["anomaly_scorer"].full_combination,
+    }
+
+
+@app.get("/objects")
+def list_objects(
+    survey: Optional[str] = None,
+    predicted_class: Optional[str] = None,
+    true_class: Optional[str] = None,
+    label: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Browsable/filterable object list (CLAUDE.md Day-13-follow-up task:
+    "make BTSbot objects browsable"). `label`: 'labeled' | 'unlabeled' |
+    'correct' | 'incorrect' | omit for no label filter. `predicted_class` /
+    `true_class`: one of `src.serve.model.CLASS_NAMES` ('Ia' / 'Ib/c' /
+    'II')."""
+    with db.connect() as conn:
+        rows, total = db.list_objects(
+            conn, survey=survey, predicted_class=predicted_class, true_class=true_class,
+            label_filter=label, search=search, limit=limit, offset=offset,
+        )
+    return {"total": total, "limit": limit, "offset": offset, "results": rows}
+
+
+@app.get("/alerts/recent")
+def get_recent_alerts(
+    limit: int = 100, survey: Optional[str] = None, predicted_class: Optional[str] = None
+) -> dict:
+    """Every scored alert, newest first (not deduped by object) -- the Live
+    tab's own feed."""
+    with db.connect() as conn:
+        rows = db.recent_alerts(conn, limit=limit, survey=survey, predicted_class=predicted_class)
+    return {"n": len(rows), "results": rows}
+
+
+@app.get("/alerts/rate")
+def get_alerts_rate(minutes: int = 30) -> dict:
+    """Alerts-per-minute bucket counts over the trailing window, for the
+    Live tab's sparkline."""
+    with db.connect() as conn:
+        rows = db.alerts_per_minute(conn, minutes=minutes)
+    return {
+        "minutes": minutes,
+        "buckets": [{"minute": r["minute"].isoformat(), "n": r["n"]} for r in rows],
     }
 
 
@@ -195,13 +296,15 @@ def get_object(object_id: str) -> dict:
 def get_cutouts(object_id: str) -> dict:
     """Science/template/difference triplet for one object, ZScaled and PNG-
     encoded (base64) for direct `<img src="data:image/png;base64,...">` use
-    -- CLAUDE.md Day 13 Task 2. Only populated for objects seen through
-    `src.serve.live_fink` (real Fink alerts carry cutouts; ELAsTiCC2/BTSbot
-    replay objects never do -- see `src.serve.cutouts` module docstring)."""
-    arr = cutouts_store.load_cutouts(_resources["redis"], object_id)
-    if arr is None:
-        raise HTTPException(status_code=404, detail=f"no stored cutouts for object_id={object_id!r}")
-    return {"object_id": object_id, "images": cutouts_store.cutouts_to_png_triplet(arr)}
+    -- CLAUDE.md Day 13 Task 2. Two sources, checked in order: a live-Fink
+    object's own just-ingested cutout (Redis), or a precomputed Tier-B
+    BTSbot cutout (`src.serve.extract_btsbot_cutouts`, ~1,999 real test-split
+    objects). ELAsTiCC2 (Tier A) never has cutouts by construction (§5.1) --
+    404 either way."""
+    images = cutouts_store.load_cutout_images(_resources["redis"], object_id)
+    if images is None:
+        raise HTTPException(status_code=404, detail=f"no cutouts available for object_id={object_id!r}")
+    return {"object_id": object_id, "images": images}
 
 
 @app.get("/top-anomalies")
