@@ -181,6 +181,46 @@ minimum, and `last_detection_mjd` the maximum, of `obs.mjd` over
 `[first_detection_mjd - pre_detection_window_days, last_detection_mjd]`
 (the window only ever *widens* past a detection, via the pre-detection
 margin). Only excess forced photometry outside that range is dropped.
+
+-----------------------------------------------------------------------------
+RIGHT-EDGE CAP — `max_span_days` (Day 12 addendum).
+-----------------------------------------------------------------------------
+Everything above bounds only the *left* edge. Day 10's anomaly-branch finding
+(CLAUDE.md §11) is that nothing bounds the right edge: for a fading transient
+`last_detection_mjd` arrives naturally close to `first_detection_mjd` because
+the object drops below detection threshold, but for a periodic/continuously-
+variable source (recurring variable stars, AGN) nothing fades, so
+`last_detection_mjd` sits wherever the survey simulation happened to end —
+CLAGN measured at a 792.8-day mean detection span, TDE at 40.9. A causal GRU
+trained on Tier A's short-lived SN population meets a sequence spanning years
+at inference time: measured Day 10, this does not make the model uncertain,
+it makes it *confidently wrong* (CLAGN mean entropy 0.082 vs. Tier A normal's
+0.574 — higher confidence than the model's own in-distribution population).
+
+`max_span_days` (default `None`, preserving prior behaviour exactly) caps
+this: the window becomes
+`[first_detection_mjd - pre_detection_window_days,
+  min(last_detection_mjd, first_detection_mjd + max_span_days)]`.
+Unlike `pre_detection_window_days`, **this can remove a detection** — a
+real, late detection arriving after `first_detection_mjd + max_span_days` is
+dropped, by design: the whole point is to stop feeding the encoder a sequence
+longer than what it was trained on, and a long-lived source's detections
+past that point are exactly the excess this is meant to cut. This is a
+deliberate behaviour change from the invariant documented above, which only
+ever held for `pre_detection_window_days`.
+
+This does not, by itself, give a correct *serving-time* policy for a
+long-lived recurring source still generating new alerts — capping relative
+to `first_detection_mjd` means such an object's tensorized window stops
+advancing once `max_span_days` is reached, forever, rather than sliding to
+stay centered on "now" (CLAUDE.md's own Day 10 note already flags this
+distinction: a live pipeline needs "a fixed recent-window cap, not
+since-first-detection"). What `max_span_days` fixes is the *input-length
+distribution mismatch* relative to training — matching how long a real Tier
+A supernova's tensorized sequence actually gets, per the ablation in
+`src/train/span_ablation.py` — not the separate rolling-window question for
+indefinitely-recurring sources, which is a serving-layer (Redis state)
+concern, not a `tensorize_alert` one.
 """
 
 from dataclasses import dataclass
@@ -196,6 +236,22 @@ from src.schema import LAM_EFF, CanonicalAlert
 # (see `tensorize_alert`'s `pre_detection_window_days`), never a constant
 # hardcoded inline in the truncation logic itself.
 DEFAULT_PRE_DETECTION_WINDOW_DAYS: float = 30.0
+
+# Day 12 span ablation (`src/train/span_ablation.py`,
+# `reports/span_ablation/span_ablation_report.json`), measured against the
+# existing Tier A LC-only checkpoint, inference only: max_span_days=200 gave
+# the best full-cutoff macro-F1 among {100, 200} on the Tier A test split
+# (0.6979 vs 100's 0.6975), a negligible -0.0002 from uncapped (0.6981),
+# while leaving well under 1% of every class's objects truncated at all
+# (fraction_affected: Ia 0.03%, Ib/c 0.44%, II 0.32%) and cutting CLAGN's
+# Day-10 confidently-wrong entropy inversion roughly in half (mean entropy
+# 0.082 -> 0.282, vs. Tier A normal's 0.574 baseline — still short of that
+# baseline, but a real step toward it). This is the value serving code
+# (`src/serve/`) should pass explicitly as `max_span_days` — NOT
+# `tensorize_alert`'s own parameter default above, which stays `None` so
+# existing training/eval callers (and this checkpoint's own training run,
+# which used no right-edge cap) are unaffected.
+RECOMMENDED_MAX_SPAN_DAYS: float = 200.0
 
 FEATURE_NAMES: tuple[str, ...] = (
     "delta_t_days",
@@ -248,6 +304,7 @@ class TensorizedAlert:
 def tensorize_alert(
     alert: CanonicalAlert,
     pre_detection_window_days: Optional[float] = DEFAULT_PRE_DETECTION_WINDOW_DAYS,
+    max_span_days: Optional[float] = None,
 ) -> TensorizedAlert:
     """Convert one `CanonicalAlert` into a `(T, NUM_FEATURES)` tensor.
 
@@ -259,19 +316,25 @@ def tensorize_alert(
     Args:
         alert: the object to tensorize.
         pre_detection_window_days: if not `None` (the default — see module
-            docstring, "WINDOWING"), observations outside
-            `[first_detection_mjd - pre_detection_window_days,
-            last_detection_mjd]` are dropped before tensorizing, to match
-            what a live alert stream would actually have accumulated as of
-            this object's own last detection. Pass `None` to tensorize the
-            full, unwindowed observation list exactly as the reader parsed
-            it.
+            docstring, "WINDOWING"), observations before
+            `first_detection_mjd - pre_detection_window_days` are dropped
+            before tensorizing, to match what a live alert stream would
+            actually have accumulated as of this object's own last
+            detection. Pass `None` to disable the left-edge bound entirely.
+        max_span_days: if not `None` (the default, which preserves prior
+            behaviour exactly), caps the window's *right* edge at
+            `first_detection_mjd + max_span_days` — see module docstring,
+            "RIGHT-EDGE CAP". Unlike `pre_detection_window_days`, this can
+            remove a genuine late detection: a long-lived recurring source
+            (AGN, periodic variable) whose detections continue well past
+            this point has those later ones dropped, by design.
 
     Returns:
         `TensorizedAlert` with one feature row per surviving observation (all
-        of them, if `pre_detection_window_days` is `None`), in input order
-        (see module docstring for why row order among equal-mjd observations
-        cannot change any individual row's own feature values).
+        of them, if both `pre_detection_window_days` and `max_span_days` are
+        `None`), in input order (see module docstring for why row order among
+        equal-mjd observations cannot change any individual row's own
+        feature values).
 
     Raises:
         ValueError: if `alert.observations` is empty, or contains no
@@ -290,13 +353,22 @@ def tensorize_alert(
         )
     first_detection_mjd = min(detection_mjds)
 
-    if pre_detection_window_days is None:
+    if pre_detection_window_days is None and max_span_days is None:
         observations = alert.observations
     else:
         last_detection_mjd = max(detection_mjds)
-        window_start = first_detection_mjd - pre_detection_window_days
+        window_start = (
+            first_detection_mjd - pre_detection_window_days
+            if pre_detection_window_days is not None
+            else float("-inf")
+        )
+        window_end = (
+            min(last_detection_mjd, first_detection_mjd + max_span_days)
+            if max_span_days is not None
+            else last_detection_mjd
+        )
         observations = [
-            obs for obs in alert.observations if window_start <= obs.mjd <= last_detection_mjd
+            obs for obs in alert.observations if window_start <= obs.mjd <= window_end
         ]
 
     # Δt computed in plain Python float (float64) arithmetic *before* any

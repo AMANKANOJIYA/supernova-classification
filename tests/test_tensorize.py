@@ -338,6 +338,86 @@ class TestWindowing:
         assert wide_windowed.features.shape[0] == 2  # kept at 60d
 
 
+class TestMaxSpanDays:
+    """Day-12 addendum: right-edge cap, independent of `pre_detection_window_days`.
+    Window becomes `[first_detection - pre_detection_window_days,
+    min(last_detection, first_detection + max_span_days)]`."""
+
+    def test_default_none_preserves_prior_behaviour(self):
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60800.0, is_detection=True),  # 800 days after first detection
+            ]
+        )
+        with_default = tensorize.tensorize_alert(alert)
+        explicit_none = tensorize.tensorize_alert(alert, max_span_days=None)
+        assert torch.allclose(with_default.features, explicit_none.features)
+        assert with_default.features.shape[0] == 2  # nothing capped
+
+    def test_late_detection_beyond_span_is_dropped(self):
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60300.0, is_detection=True),  # 300 days after first detection
+            ]
+        )
+        result = tensorize.tensorize_alert(alert, max_span_days=200.0)
+        assert result.features.shape[0] == 1  # the 300-day-later detection is capped away
+
+    def test_span_boundary_is_inclusive(self):
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60200.0, is_detection=True),  # exactly at the 200-day cap
+            ]
+        )
+        result = tensorize.tensorize_alert(alert, max_span_days=200.0)
+        assert result.features.shape[0] == 2
+
+    def test_span_never_widens_past_last_detection(self):
+        """A generous max_span_days must not pull in forced photometry past
+        the object's own last detection -- min(last_detection, ...) in the
+        semantics, not a plain additive cap."""
+        alert = _alert(
+            [
+                _obs(60000.0, is_detection=True),
+                _obs(60010.0, is_detection=True),
+                _obs(60500.0, is_detection=False),  # far post-fade baseline
+            ]
+        )
+        result = tensorize.tensorize_alert(alert, max_span_days=10_000.0)
+        assert result.features.shape[0] == 2  # forced photometry at 60500 still excluded
+
+    def test_composes_with_pre_detection_window_days_none(self):
+        """max_span_days must still cap the right edge even when the left
+        edge is fully unbounded."""
+        alert = _alert(
+            [
+                _obs(59000.0, is_detection=False),  # 1000 days before first detection
+                _obs(60000.0, is_detection=True),
+                _obs(60300.0, is_detection=True),  # 300 days after first detection
+            ]
+        )
+        result = tensorize.tensorize_alert(
+            alert, pre_detection_window_days=None, max_span_days=200.0
+        )
+        assert result.features.shape[0] == 2  # early point kept, late detection capped away
+
+    def test_both_none_is_fully_unwindowed(self):
+        alert = _alert(
+            [
+                _obs(59000.0, is_detection=False),
+                _obs(60000.0, is_detection=True),
+                _obs(60900.0, is_detection=False),
+            ]
+        )
+        result = tensorize.tensorize_alert(
+            alert, pre_detection_window_days=None, max_span_days=None
+        )
+        assert result.features.shape[0] == 3
+
+
 class TestTruncationInvariance:
     def test_truncated_tensorization_matches_prefix_of_full_tensorization(self):
         observations = [

@@ -1,0 +1,95 @@
+{
+  "span_settings": {
+    "100": {
+      "max_span_days": 100.0,
+      "macro_f1_full": 0.6975425857075909,
+      "n_objects": 126542,
+      "n_excluded": 0,
+      "fraction_affected_per_class": {
+        "II": {
+          "n_total": 64616,
+          "n_affected": 2439,
+          "fraction_affected": 0.03774606908505633
+        },
+        "Ia": {
+          "n_total": 25872,
+          "n_affected": 325,
+          "fraction_affected": 0.012561842918985777
+        },
+        "Ib/c": {
+          "n_total": 36054,
+          "n_affected": 1590,
+          "fraction_affected": 0.04410051589282742
+        }
+      },
+      "elapsed_seconds": 18.86726403236389
+    },
+    "200": {
+      "max_span_days": 200.0,
+      "macro_f1_full": 0.6979421747689849,
+      "n_objects": 126542,
+      "n_excluded": 0,
+      "fraction_affected_per_class": {
+        "II": {
+          "n_total": 64616,
+          "n_affected": 207,
+          "fraction_affected": 0.0032035409186579175
+        },
+        "Ia": {
+          "n_total": 25872,
+          "n_affected": 8,
+          "fraction_affected": 0.00030921459492888067
+        },
+        "Ib/c": {
+          "n_total": 36054,
+          "n_affected": 159,
+          "fraction_affected": 0.004410051589282742
+        }
+      },
+      "elapsed_seconds": 23.097824096679688
+    },
+    "full": {
+      "max_span_days": null,
+      "macro_f1_full": 0.6980555859510594,
+      "n_objects": 126542,
+      "n_excluded": 0,
+      "fraction_affected_per_class": {
+        "Ia": {
+          "n_total": 0,
+          "n_affected": 0,
+          "fraction_affected": 0.0
+        },
+        "Ib/c": {
+          "n_total": 0,
+          "n_affected": 0,
+          "fraction_affected": 0.0
+        },
+        "II": {
+          "n_total": 0,
+          "n_affected": 0,
+          "fraction_affected": 0.0
+        }
+      },
+      "elapsed_seconds": 18.68569016456604
+    }
+  },
+  "chosen_default": 200.0,
+  "chosen_default_reason": "max_span_days=200.0 gave the best full-cutoff macro-F1 among the finite settings tested ([0.6975425857075909, 0.6979421747689849] for [100.0, 200.0]), vs. uncapped 0.6981.",
+  "clagn_entropy_check": {
+    "n_clagn_objects": 108939,
+    "baseline_max_span_days_none": {
+      "n_objects": 108939,
+      "mean_entropy": 0.08200104044563697,
+      "mean_max_softmax_prob": 0.968069851398468,
+      "mean_seq_length": 213.89530838359082
+    },
+    "capped_max_span_days": 200.0,
+    "capped": {
+      "n_objects": 108939,
+      "mean_entropy": 0.28155355150544176,
+      "mean_max_softmax_prob": 0.8778079152107239,
+      "mean_seq_length": 65.68880749777398
+    },
+    "day10_recorded_mean_entropy": 0.082
+  }
+}

@@ -703,6 +703,27 @@ directories; Tier B's confirmed non-SN/AGN/SLSN/TDE/CSM-interacting objects)
 all exist and are usable today, with or without an image encoder. Image
 encoder remains descoped-from-here (§10 ladder item 8), not abandoned.
 
+**Day 12: image encoder (item 8) is CUT, not deferred -- decision recorded,
+not yet acted on by deleting anything.** With 2 days left (Day 13 live Fink
++ UI, Day 14 UI + buffer) and replay-mode serving (item 7) landing today,
+there is no remaining day this ladder allocates to it: cutting from the
+bottom up, items 9 (live Fink) and 10 (review UI + AAD loop) are already
+committed as this project's actual remaining work, which leaves nothing
+between here and Day 14 for item 8. It was never in §1's problem statement
+(pretrain / fine-tune / serve / rank anomalies -- no mention of images) --
+unlike the anomaly branch, which is item 6 of §1 verbatim. Its hard
+prerequisite (Tier B `images_v10`, §5.1) is still unloaded three separate
+sessions after "deferred to Day 10" (§9) was itself already a second
+deferral, and loading it now would still only be step one of building an
+image encoder, fusing it in, and retraining Tier B's fine-tune to actually
+use it -- a multi-day scope this timeline no longer has room for. The UI
+(§1, §6 step 14) will still display BTSbot's and Fink's own image cutouts
+directly from their source data -- that is presentation of existing
+pixels, not a model change, and needs no image encoder to exist. Cut, for
+the record: not built, not scheduled, and every image-encoder-dependent
+plan in this file (§9's repo layout `image_encoder.py` stub, this ladder's
+item 8) should be read as declined scope from here on, not a TODO.
+
 ---
 
 ## 11. Expected results — sanity anchors
@@ -1031,6 +1052,160 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   output going forward.
 
   **Gate D (top 50, Tier B): see §7's Gate D entry above.**
+
+- **Day 12: right-edge windowing fix (measured, not asserted) + replay-mode
+  serving pipeline built end to end (§6 steps 12).**
+
+  **Task 1 -- `max_span_days`.** Added `src.features.tensorize.tensorize_alert`'s
+  `max_span_days` parameter (default `None`, preserving prior behaviour
+  exactly -- see that module's docstring, "RIGHT-EDGE CAP"): the window's
+  right edge becomes `min(last_detection_mjd, first_detection_mjd +
+  max_span_days)`. Ablated `{100, 200, None}` on the existing Tier A LC-only
+  checkpoint (`outputs/train/checkpoint.pt`), inference only, no retraining
+  (`src/train/span_ablation.py`, `reports/span_ablation/`):
+
+  | `max_span_days` | Tier A test macro-F1 (full cutoff) | Ia affected | Ib/c affected | II affected |
+  | --- | ---: | ---: | ---: | ---: |
+  | 100 | 0.6975 | 1.26% | 4.41% | 3.77% |
+  | **200** | **0.6979** | **0.03%** | **0.44%** | **0.32%** |
+  | None (uncapped) | 0.6981 | 0% | 0% | 0% |
+
+  200 days -- the prior stated at the top of this task -- wins outright
+  among the finite settings tested and costs only -0.0002 macro-F1 against
+  uncapped, while leaving well under 1% of every class's objects truncated
+  at all. Set as `tensorize.RECOMMENDED_MAX_SPAN_DAYS = 200.0`, a constant
+  serving code passes explicitly (`tensorize_alert`'s own parameter default
+  stays `None`, per the task's own instruction, so existing training/eval
+  callers are unaffected).
+
+  **CLAGN entropy, before/after** (same 108,939-object population as Day
+  10's anomaly branch, re-scored through the frozen Tier A encoder):
+
+  | | mean entropy | mean max-softmax-prob | mean seq length |
+  | --- | ---: | ---: | ---: |
+  | uncapped (Day-10 setup, reproduced) | 0.0820 | 0.968 | 213.9 |
+  | `max_span_days=200` | 0.2816 | 0.878 | 65.7 |
+  | (Tier A normal test, Day-10 reference) | 0.574 | -- | -- |
+
+  The uncapped row reproduces Day 10's recorded 0.082 almost exactly (0.0820
+  vs. 0.082), confirming the re-scoring methodology before trusting the
+  capped comparison. Capping the span more than triples CLAGN's mean
+  entropy (0.082 -> 0.282) and pulls mean confidence down from 0.968 to
+  0.878 -- a real step toward genuine uncertainty, though still short of
+  the 0.574 a normal in-distribution object shows. This connects three
+  separate findings into one mechanism, as anticipated when this task was
+  set: the Day-4 windowing decision (left edge only) left the right edge
+  unbounded; Day 10 found this produces confidently-wrong (not uncertain)
+  predictions on long-lived sources specifically because their tensorized
+  span sits far outside the training distribution; today's fix bounds that
+  same span and directly, measurably reduces that overconfidence, on the
+  same objects, via the same causal mechanism (sequence length relative to
+  training range) Day 10 identified. It does not close the gap
+  entirely -- CLAGN at 200-day cap is still far more confident than a
+  genuine ambiguous case would be -- so this is a real mitigation, not a
+  full fix.
+
+  Note also (§10's own already-recorded caveat, unresolved by this fix):
+  `max_span_days` bounds relative to `first_detection_mjd`, not to "now" --
+  a still-alerting AGN's tensorized window stops advancing once the cap is
+  reached, rather than sliding forward. That is a separate, serving-layer
+  (Redis state) rolling-window question, not something this parameter
+  answers by itself (see `src.features.tensorize` module docstring,
+  "RIGHT-EDGE CAP").
+
+  **Task 2 -- replay-mode serving pipeline, `src/serve/` (first creation of
+  `infra/`).** `replay.py` (Kafka producer, Tier B parquet in global MJD
+  order, configurable speed or unthrottled) -> `ingest.py` (stateless
+  packet -> `Observation` normalization) -> `state.py` (Redis rolling
+  per-object history, `sn:lc:{object_id}`) -> `inference_worker.py` (the one
+  consumer implementation, per §6's "same consumer code" -- micro-batched
+  ONNX classifier + reconstruction-error anomaly score, Postgres results) ->
+  `api.py` (FastAPI: `/classify`, `/object/{id}`, `/top-anomalies`,
+  `/stats`, `/health`). `infra/docker-compose.yml`: single-node KRaft Kafka,
+  Redis, Postgres.
+
+  **Non-monotonic window, reproduced and tested** (§5.1's own predicted
+  case): `src.serve.state.merge_history` re-sorts by mjd on every merge
+  rather than appending, so a later alert's bundled forced photometry
+  arriving with an EARLIER mjd than everything already stored gets inserted
+  in its correct sorted position, not tacked onto the end.
+  `tests/test_serve_state.py::TestNonMonotonicMerge` covers this directly
+  (day-3 forced photometry arriving in an alert triggered at day 20, after
+  a day-10 detection was already stored, lands at position 0, not 2).
+
+  **End-to-end validation against Day 9's own recorded Gate C number.**
+  Replayed the full Tier B test split (1,994 objects, 49,587 alerts,
+  BTS-Sample-Explorer-joined ground truth -- 488 Ia / 35 Ib/c / 135 II
+  3-class-labeled, matching Day 9's reported 13.9:1 Ia:Ib/c exactly) through
+  the complete pipeline. Each object's LATEST prediction (i.e. using its
+  full accumulated history, same as Gate C's "full cutoff") scores macro-F1
+  **0.6727** against ground truth -- Day 9's own recorded LC-only Tier B
+  test macro-F1 was **0.6716**. The pipeline was not built or tuned against
+  this number; it reproduces it to within 0.0011, using `max_span_days=200`
+  where Gate C's own eval used no cap at all. This is strong end-to-end
+  evidence that ingest/state/tensorize/ONNX-export introduce no correctness
+  regression relative to the offline harness.
+
+  **Latency and throughput, measured on this machine (Postgres-recorded,
+  full pipeline: Kafka consume -> Redis GET/SET -> tensorize -> ONNX
+  classify -> anomaly score -> Postgres INSERT, one row per alert, no
+  batching on the DB write):**
+
+  | | value |
+  | --- | ---: |
+  | p50 | 27.2 ms |
+  | p99 | 73.7 ms |
+  | mean | 29.7 ms |
+  | max | 273.8 ms |
+  | throughput (busy interval) | 730 alerts/sec |
+  | throughput (wall time, incl. idle-stop wait) | 660 alerts/sec |
+
+  ONNX classifier inference itself, measured separately in the
+  micro-batch timing logs, is 0.3-0.5ms/alert -- the end-to-end latency
+  above is dominated by per-alert Redis and Postgres round trips (both
+  currently unbatched, one network round trip per alert each), not by the
+  model. Batching the Postgres insert per micro-batch (already computed
+  together) rather than per-alert is the obvious next lever if higher
+  throughput is ever needed -- not attempted today, flagged for whoever
+  picks this up next.
+
+  **What the serving layer exposed that offline evaluation had hidden.**
+  Day 10's anomaly branch combined four components (reconstruction error,
+  entropy [dropped], Mahalanobis distance, PineForest/isolation-forest);
+  building a servable version surfaced that only reconstruction error
+  actually CAN be served from what Day 10 persisted.
+  `src.anomaly.scoring.MahalanobisScorer` and the isolation-forest scorer
+  are fitted, stateful objects that `src.train.train_anomaly` never
+  serialized -- only their scores on the four eval populations, their
+  z-score reference stats, and the decoder's weights were saved
+  (`outputs/anomaly/anomaly_results.json`, `decoder_checkpoint.pt`). A live
+  server has no way to reconstruct a fitted Mahalanobis mean/precision or a
+  fitted forest from those artifacts without re-running the entire
+  60,000-object fit population through the pipeline at every process
+  start. `src/serve/model.py::AnomalyScorer` therefore serves
+  reconstruction error only (documented in that module's own docstring, not
+  silently substituted) -- z-scored against the already-persisted
+  `reference_zscore_stats.reconstruction_error`, the one component that
+  needed nothing beyond already-checkpointed weights. Offline evaluation
+  (ROC-AUC against two held-out sets) never had to confront this because it
+  only ever ran once, in-process, right after fitting; the moment scoring
+  needs to survive a process restart, "saved the numbers" and "saved the
+  model" turned out to be different claims. Persisting the fitted scorer
+  objects themselves (not just their scores) is what would let the full
+  3-component combination (§11 Day 10's actual best-on-both-sets result)
+  serve -- flagged here, not fixed today.
+
+  A second, smaller version of the same lesson: Tier B's interim parquet
+  (`data/interim/btsbot_*.parquet`) carries `class_id=None` for every row by
+  construction (`src.readers.btsbot`'s own docstring) -- ground truth only
+  exists after a separate join against the BTS Sample Explorer export
+  (`src.readers.bts_labels`). `replay.py` originally replayed without this
+  join and every `true_class_id` came through `NULL`; the offline harness
+  never surfaces this because `finetune_bts.py`/`train_anomaly.py` always
+  perform the join as a normal part of loading Tier B. A replay/serving
+  path that reads the interim parquet directly, the way a new script
+  naturally would, has to know to do this join itself -- worth a pointer
+  for whoever writes the next Tier-B-reading script.
 
 ## 12. Working style
 

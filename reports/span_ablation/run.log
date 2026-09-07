@@ -1,0 +1,28 @@
+2026-09-07 00:31:22,484 INFO Loaded frozen Tier A LC-only encoder from outputs/train/checkpoint.pt
+2026-09-07 00:31:22,484 INFO Loading Tier A object_id/class_id (cheap columns) to compute the split...
+2026-09-07 00:31:23,483 INFO Test split: 126542 objects
+2026-09-07 00:31:23,484 INFO Reconstructing test-split alerts only...
+2026-09-07 00:31:43,088 INFO Reconstructed 126542 test alerts
+2026-09-07 00:31:43,089 INFO === max_span_days=100 ===
+2026-09-07 00:31:43,322 INFO fraction_affected[100] = {'II': {'n_total': 64616, 'n_affected': 2439, 'fraction_affected': 0.03774606908505633}, 'Ia': {'n_total': 25872, 'n_affected': 325, 'fraction_affected': 0.012561842918985777}, 'Ib/c': {'n_total': 36054, 'n_affected': 1590, 'fraction_affected': 0.04410051589282742}}
+2026-09-07 00:32:02,189 INFO max_span_days=100: tensorized+scored 126542 objects (3370331 predictions) in 18.9s
+2026-09-07 00:32:06,355 INFO max_span_days=100: full-cutoff macro_f1=0.6975
+2026-09-07 00:32:06,355 INFO === max_span_days=200 ===
+2026-09-07 00:32:07,296 INFO fraction_affected[200] = {'II': {'n_total': 64616, 'n_affected': 207, 'fraction_affected': 0.0032035409186579175}, 'Ia': {'n_total': 25872, 'n_affected': 8, 'fraction_affected': 0.00030921459492888067}, 'Ib/c': {'n_total': 36054, 'n_affected': 159, 'fraction_affected': 0.004410051589282742}}
+2026-09-07 00:32:30,395 INFO max_span_days=200: tensorized+scored 126542 objects (3441560 predictions) in 23.1s
+2026-09-07 00:32:33,792 INFO max_span_days=200: full-cutoff macro_f1=0.6979
+2026-09-07 00:32:33,792 INFO === max_span_days=full ===
+2026-09-07 00:32:33,792 INFO fraction_affected[full] = {'Ia': {'n_total': 0, 'n_affected': 0, 'fraction_affected': 0.0}, 'Ib/c': {'n_total': 0, 'n_affected': 0, 'fraction_affected': 0.0}, 'II': {'n_total': 0, 'n_affected': 0, 'fraction_affected': 0.0}}
+2026-09-07 00:32:52,478 INFO max_span_days=full: tensorized+scored 126542 objects (3452172 predictions) in 18.7s
+2026-09-07 00:32:56,003 INFO max_span_days=full: full-cutoff macro_f1=0.6981
+2026-09-07 00:32:57,489 INFO Chosen default: max_span_days=200.0 -- max_span_days=200.0 gave the best full-cutoff macro-F1 among the finite settings tested ([0.6975425857075909, 0.6979421747689849] for [100.0, 200.0]), vs. uncapped 0.6981.
+2026-09-07 00:32:57,492 INFO Loaded frozen Tier A LC-only encoder from outputs/train/checkpoint.pt
+2026-09-07 00:32:57,513 INFO data/raw/elasticc2/elasticc2_gentypeofclassid.csv: skipped 23 of 54 row(s) with blank 'gentype' (category-level classIds, which have no single corresponding gentype)
+2026-09-07 00:32:57,514 INFO Reading CLAGN model directory: data/raw/elasticc2/ELASTICC2_TRAIN_02_CLAGN
+2026-09-07 05:06:15,025 INFO elasticc2 reader: data/raw/elasticc2/ELASTICC2_TRAIN_02_CLAGN -> 108939 objects read, 0 discarded (no discards); 40 HEAD files found, 40 PHOT files found, 40 pairs read ok
+2026-09-07 05:06:15,026 INFO Read 108939 CLAGN objects (0 discarded, {}) in 16397.5s
+2026-09-07 05:06:15,219 INFO Scoring CLAGN (108939 objects) at max_span_days=None (Day-10 baseline reproduction)...
+2026-09-07 05:07:18,154 INFO CLAGN baseline (max_span_days=None): {'n_objects': 108939, 'mean_entropy': 0.08200104044563697, 'mean_max_softmax_prob': 0.968069851398468, 'mean_seq_length': 213.89530838359082}
+2026-09-07 05:07:18,154 INFO Scoring CLAGN at chosen default max_span_days=200.0...
+2026-09-07 05:07:41,102 INFO CLAGN capped (max_span_days=200.0): {'n_objects': 108939, 'mean_entropy': 0.28155355150544176, 'mean_max_softmax_prob': 0.8778079152107239, 'mean_seq_length': 65.68880749777398}
+2026-09-07 05:07:42,625 INFO Wrote reports/span_ablation/span_ablation_report.json
