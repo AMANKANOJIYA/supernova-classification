@@ -1,0 +1,25 @@
+{
+  "survey": "ztf",
+  "topics": [
+    "fink_sn_candidates_ztf"
+  ],
+  "n_received": 1015,
+  "n_produced": 1006,
+  "n_skipped": 9,
+  "skip_reasons": {
+    "cutouts for object_id='ZTF26abowfvb' has shape (3, 63, 49), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abowfvb' has shape (3, 63, 42), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abrihsy' has shape (3, 63, 48), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abrbsty' has shape (3, 63, 54), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abrijwb' has shape (3, 63, 43), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abowfvb' has shape (3, 63, 60), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abazmyu' has shape (3, 63, 60), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abrijwb' has shape (3, 63, 45), expected (3, 63, 63)": 1,
+    "cutouts for object_id='ZTF26abneook' has shape (3, 63, 52), expected (3, 63, 63)": 1
+  },
+  "n_cutouts_stored": 1006,
+  "n_detection_observations": 20780,
+  "n_negative_flux_detection_observations": 625,
+  "negative_flux_fraction": 0.030076997112608278,
+  "elapsed_seconds": 100.84222266700817
+}

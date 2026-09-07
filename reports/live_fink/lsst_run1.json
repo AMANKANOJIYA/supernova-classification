@@ -1,0 +1,15 @@
+{
+  "survey": "lsst",
+  "topics": [
+    "fink_most_likely_sn_lsst"
+  ],
+  "n_received": 0,
+  "n_produced": 0,
+  "n_skipped": 0,
+  "skip_reasons": {},
+  "n_cutouts_stored": 0,
+  "n_detection_observations": 0,
+  "n_negative_flux_detection_observations": 0,
+  "negative_flux_fraction": null,
+  "elapsed_seconds": 70.20651658298448
+}
