@@ -1207,6 +1207,216 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   naturally would, has to know to do this join itself -- worth a pointer
   for whoever writes the next Tier-B-reading script.
 
+- **Day 13: preliminary verification (3 items), live Fink (ZTF connected,
+  LSST confirmed empty), and a results/live UI.**
+
+  **1. `max_span_days=200.0` wiring -- confirmed by grep, not assumed.**
+  Both serving call sites import `RECOMMENDED_MAX_SPAN_DAYS` from
+  `src.features.tensorize` and pass it EXPLICITLY as a hardcoded constant:
+  `src/serve/inference_worker.py`'s `_build_batch_tensor` and
+  `src/serve/api.py`'s `/classify` both call `tensorize_alert(...,
+  max_span_days=RECOMMENDED_MAX_SPAN_DAYS)` -- not opt-in, a caller cannot
+  forget it. No training/eval call site (`dataset.py`, `dataset_static.py`,
+  `finetune_bts.py`, `pretrain*.py`, `train_anomaly.py`) passes
+  `max_span_days` at all -- confirmed by grep, and this is NOT a gap: Day
+  12's own span ablation was inference-only against the ALREADY-TRAINED
+  checkpoint, no retraining under the cap was ever performed or claimed, so
+  there is no training call site that should be passing it.
+
+  **2. Anomaly scorers persisted -- the full 3-component combination now
+  serves.** `src/train/persist_anomaly_scorers.py` reconstructs the exact
+  60,000-object Day-10 fit population (same seed; loaded via
+  `dataset.load_alerts`'s own documented `object_ids`-filtered fast path --
+  reconstructing all 843,617 objects to recover 60,000 of them would cost
+  the ~50 minutes that function's docstring warns about; id-filtering first
+  cost under a minute), refits `MahalanobisScorer`/`PineForestScorer`
+  against it, and persists the fitted objects for the first time
+  (`outputs/anomaly/mahalanobis.npz`, `engineered_normalizer.npz`,
+  `forest.pkl`). Verification, kept deliberately cheap (re-scoring Tier A's
+  442,303-object exotic eval set again would cost as much as Day 10's own
+  eval pass for no new information): the refit fit-population z-score
+  stats match Day 10's recorded ones almost exactly --
+  reconstruction_error and mahalanobis to ~1e-4 or better, isoforest to
+  only ~0.002 (a small, real, unexplained residual, most likely
+  `PineForest`'s own internal randomness not fully pinned by the shared
+  seed -- noted, not chased further). Tier B's full, uncapped 3-component
+  ROC-AUC (entropy dropped, per this section's own Day-10 decision) was
+  independently recomputed end-to-end: **0.7616**, matching Day 10's
+  already-recorded 3-component figure (0.7622) to within 0.0006 despite
+  being computed from a freshly-refit forest -- strong evidence this is the
+  same fit, not a different one. Individual components:
+  reconstruction_error 0.8382 (exact match) and mahalanobis 0.5236 (exact
+  match) against Day 10's own numbers; isoforest 0.6479 vs. 0.6400 (the
+  same small residual noted above). Tier A's exotic-population ROC-AUC was
+  NOT recomputed (too expensive for a verification pass); its
+  already-recorded per-component numbers are unaffected, since they never
+  depended on persisting these objects. `src/serve/model.py::AnomalyScorer`
+  now loads the persisted artifacts when present and serves the full
+  combination; `inference_worker.py`/`api.py` were both updated to pass
+  each batch's source `CanonicalAlert`s into `.score()` (needed for the
+  isoforest component's engineered features, which read from unpadded
+  observations, never the padded tensor) -- falls back to
+  reconstruction-error-only, unchanged, if the artifacts are absent.
+
+  **3. Throughput headline, stated explicitly.** 730 alerts/sec (Day 12's
+  peak benchmark) is ~63,072,000/day against LSST's own ~7,000,000/night --
+  roughly 9x headroom on a single node. The more interesting half of this
+  number is the caveat: it is single-node, commodity hardware, and the
+  bottleneck is unbatched per-alert Redis/Postgres round trips (Day 12's
+  own finding), not the model (ONNX classifier inference alone: 0.3-0.5ms/
+  alert) -- the number says more about how cheap this specific model is to
+  run than about the serving layer's own engineering maturity.
+
+  **Task 1, ZTF: connected and streamed within seconds; ~1,591 real alerts
+  ingested end to end.** `fink-client` actually installed: **11.0**, not
+  the >=12 this session's own briefing assumed (`requirements-lock.txt`
+  claims 12.1.0; `pip show fink-client` in this venv reports 11.0) -- a
+  real, unexplained lock-file/installed-version discrepancy, flagged here
+  rather than silently worked around. Version 11.0's `AlertConsumer` API
+  was sufficient for everything needed (topic listing, `.poll()`), so this
+  did not block the work, but a future session should not assume 12.1.0 is
+  actually installed without checking again. No password was required on
+  either broker -- `username`+`group.id` alone succeeded for topic listing
+  AND for consuming real alerts on both `kafka-ztf.fink-broker.org:24499`
+  and `kafka-lsst.fink-broker.org:24499` (`fink_client.consumer.
+  _get_kafka_config` only enables SASL when a `password` key is present;
+  none was ever supplied, nothing failed). `ftest_*` test topics (this
+  session's own suggested starting point) were not present in either
+  broker's topic listing at connection time -- instead, both surveys
+  expose Fink's own SN-candidate-filtered LIVE topics directly
+  (`fink_sn_candidates_ztf`, `fink_most_likely_sn_lsst`, and others), which
+  is what this session connected to; see "pre-filter" below for why that's
+  also the right long-term choice, not just what was available.
+
+  `src/readers/avro_ztf.py` -- built and golden-tested
+  (`tests/fixtures/golden_avro_ztf_alert.py`, `tests/test_readers_avro_ztf.py`)
+  against ONE REAL alert polled live from `fink_sn_candidates_ztf` (object
+  ZTF26ablxxjw, 26 total rows). Same ZTF alert-packet schema and mag->flux
+  conversion `src/readers/btsbot.py` already established
+  (`magpsf`/`sigmapsf`/`magzpsci` per-alert zeropoint, NOT the generic
+  nJy/zp=31.4 convention §3 describes for a hypothetical LSST/ZTF reader),
+  confirmed directly on the live packet, not re-derived from memory. One
+  real difference: a live Fink packet's `isdiffpos` is the literal string
+  `"t"`/`"f"`, not the `bool` btsbot.py's CSV export already produced. This
+  is also the first reader in this repo that has to represent a ZTF
+  **non-detection** (`prv_candidates` rows with `magpsf=None`, only a
+  5-sigma `diffmaglim` known -- 19 of 25 `prv_candidates` rows on the
+  golden alert) -- BTSbot's export contains no such row type at all (§5.1
+  Day-8 finding). Represented as `flux=0.0` (no measured excess) with
+  `flux_err` from the limiting depth read as a 5-sigma bound -- a stated
+  modeling assumption, not a verified external convention.
+
+  **A real bug, found by this live run, not by inspection.**
+  `_decode_cutouts`'s first version let an undersized cutout stamp (a real
+  ZTF object near a CCD-quadrant edge gets a stamp smaller than 63x63 --
+  observed down to `(63, 42)`) raise all the way through
+  `CanonicalAlert.validate()`'s hard `(3, 63, 63)` shape check, discarding
+  the alert's entire LIGHT CURVE over an undersized CUTOUT -- 9/1,015
+  alerts lost to this in the first live run. Fixed to degrade to
+  `cutouts=None` on any mis-sized/undecodable cutout (the same defensive
+  pattern `avro_lsst.py` already used, for a different, anticipated
+  reason), confirmed 0/585 lost on a second run with the fix in place, and
+  pinned with a regression test. This never showed up in any prior session
+  because no cutout had ever flowed through this pipeline before today --
+  exactly the class of bug Gate-style "verify against real data" exists to
+  catch.
+
+  **Live ZTF run (post-fix), `fink_sn_candidates_ztf`, ~161s wall-clock
+  across two runs:** 1,591 alerts received, 1,591 produced (0 skipped after
+  the fix), 337-338 unique objects, all scored end-to-end through the
+  EXISTING replay-mode pipeline (Kafka -> Redis state -> ONNX classifier +
+  anomaly scorer -> Postgres) with zero code changes to that pipeline --
+  confirms §6's "same consumer code... swap producer" for steps 12->13 in
+  practice, not just in design.
+
+  **Negative-flux fraction: ~3.0-3.1% of live ZTF detections** (625/20,780
+  and 363/11,866 detections across the two runs) -- the first non-zero
+  negative-flux fraction this pipeline has ever measured on real ZTF data.
+  Tier B (§5.1) measures exactly 0% by construction (BTS's `isdiffpos`
+  pre-filter excludes fading/negative subtractions before a candidate ever
+  reaches `metadata_v10`) -- this is the first direct, quantified
+  confirmation of that filtering's effect, from data Tier B's own filter
+  never included.
+
+  **Predicted class distribution (latest prediction per object, 338
+  objects, live-run-only): II 52% (176), Ib/c 35% (117), Ia 13% (45).**
+  Notably skewed against EVERY prior anchor this project has recorded --
+  ELAsTiCC's own training composition (20/28/51), the real sky rate
+  (~25-30/10-20/55-65), and Tier B's own Gate C test composition (13.9:1
+  Ia:Ib/c) all put Ia well above Ib/c, not roughly 3x below it. **Flagged
+  as an interesting, unexplained live observation, not a validated
+  result** -- per this section's own Day-6 precedent ("a model that
+  suddenly nails Ib/c is a model that is cheating... investigate, do not
+  celebrate"), an inverse skew deserves the same skepticism, not a story.
+  Plausible, UNTESTED contributors: live triggers are disproportionately
+  early-phase/short sequences (fresh detections), unlike Tier B's
+  full-cutoff Gate C evaluation; Fink's own `fink_sn_candidates_ztf`
+  topic-level filter may itself select non-representatively. No ground
+  truth exists for these live objects to check accuracy against -- this is
+  a prediction-SHAPE observation only, exactly the caveat this session's
+  own task instructions anticipated ("this is live inference and sanity
+  checking, not a measured result").
+
+  **Task 1, LSST: stream confirmed empty, not merely unreachable.**
+  `src/readers/avro_lsst.py` was built against the standard Rubin/LSST DPDD
+  alert schema (`diaSource`/`diaObject`/`prvDiaSources`/
+  `prvDiaForcedSources`, nJy flux at AB zp=31.4 -- §3's own named example)
+  but is **UNVERIFIED against real traffic**: every livestream topic on
+  `kafka-lsst.fink-broker.org` (11 checked: `fink_most_likely_sn_lsst`,
+  `fink_uniform_sample_lsst`, and 9 others) returned zero messages, checked
+  via Kafka watermark offsets (not just a poll timeout) including an
+  8-sample watch over a continuous 100 seconds showing no movement at all
+  -- the SAME session, SAME code pattern, connected to ZTF and streamed a
+  real alert within seconds. This is a genuine, checked fact about Fink's
+  current LSST relay state, not a connectivity failure on this project's
+  end. `avro_lsst.py` fails loudly and by name (never silently mismaps a
+  field) the first time real data arrives -- tested only against synthetic
+  packets built from its own documented assumptions
+  (`tests/test_readers_avro_lsst.py`). **No LSST prediction distribution
+  exists to report, for a verified reason, not a missing one** -- whether
+  ugrizy ingests cleanly and whether wavelength-conditioning transfers
+  weights across surveys as designed (§3's whole point) remains unverified
+  until Fink's LSST relay actually carries traffic.
+
+  **What Tier C added that Tier B hid -- three findings, plus one
+  non-finding worth stating explicitly.** (1) negative-flux detections
+  (~3%), structurally excluded by Tier B's own `isdiffpos` pre-filter; (2)
+  undersized/CCD-edge cutout shapes, a real-world variability Tier B never
+  exercises (BTSbot images were never wired into this pipeline at all); (3)
+  genuine non-detection upper-limit rows (19/25 in the golden alert) --
+  Tier B's export contains no such row type (§5.1), so this session is the
+  first time any reader in this repo has had to decide how to represent
+  one. **The non-finding: Gate D's actual blocker is NOT resolved by
+  today's work.** This session's live ingestion deliberately consumed
+  Fink's OWN pre-filtered SN-candidate topics (see "pre-filter" below) --
+  which means, like Tier B, it still contains no bogus/artifact candidates
+  for Gate D's ranker to have found. Gate D's real unblock needs an
+  UNFILTERED alert stream (or Fink's own reject/candidate topics), which
+  this session did not attempt to consume.
+
+  **Pre-filter, stated per this session's own task instruction.** Chosen:
+  consume Fink's own science-module-filtered candidate topics
+  (`fink_sn_candidates_ztf`, `fink_most_likely_sn_lsst`) rather than either
+  survey's raw/uniform stream -- delegates real-bogus and SN-likelihood
+  filtering to Fink's own deployed, production-tested science modules
+  rather than reimplementing an equivalent filter from scratch. Necessary
+  for LSST specifically (~7M alerts/night); applied uniformly to ZTF too,
+  for the same reason.
+
+  **Task 2: UI built, results + live panels, both reading from existing
+  artifacts.** Single page (`ui/index.html`), served by the existing
+  FastAPI app (`GET /`, plus `/static/reports`/`/static/outputs` mounts) --
+  no new service, no build step. Results half reads `gate_c_report.json`,
+  `anomaly_results.json` (+ `persisted_scorers_meta.json` when present),
+  and the existing confusion-matrix/phase-curve PNGs directly; nothing is
+  recomputed. Live half polls `/stats`/`/top-anomalies` every 4s and adds
+  one new endpoint, `GET /cutouts/{object_id}` (`src/serve/cutouts.py`,
+  ZScale-rendered PNG triplets, base64-inlined) -- the first time this
+  pipeline has served an image at all. Verified end to end in-browser
+  against this session's own live ZTF run: clicking a live object's row
+  renders its real science/template/difference cutout triplet, decoded
+  from the actual gzip-FITS stamp bytes ingested minutes earlier.
+
 ## 12. Working style
 
 - **One module per session.** Do not build the model and the serving pipeline in

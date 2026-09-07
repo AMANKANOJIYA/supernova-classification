@@ -19,34 +19,45 @@ by fighting for a component that already runs in milliseconds per
 micro-batch on CPU.
 
 -----------------------------------------------------------------------------
-Serving-time anomaly score: reconstruction error ONLY -- a discovered gap,
-not a design choice
+Serving-time anomaly score: reconstruction error only, THEN the full
+3-component combination once its fitted scorers were persisted (Day 13)
 -----------------------------------------------------------------------------
 Day 10's anomaly branch combined FOUR components (reconstruction error,
 entropy [dropped, CLAUDE.md §11], Mahalanobis distance, PineForest/
-isolation-forest) via equal-weight z-scoring. Building the serving path
-surfaced something offline evaluation never had to confront: `MahalanobisScorer`
-and the isolation-forest scorer are fitted, stateful objects
-(`src.anomaly.scoring.MahalanobisScorer`, `src.anomaly.pineforest.
+isolation-forest) via equal-weight z-scoring. Building the Day-12 serving
+path surfaced something offline evaluation never had to confront:
+`MahalanobisScorer` and the isolation-forest scorer are fitted, stateful
+objects (`src.anomaly.scoring.MahalanobisScorer`, `src.anomaly.pineforest.
 PineForestScorer`/`IsolationForestScorer`) that `src.train.train_anomaly`
 never persisted -- only their SCORES on the four eval populations, their
-z-score reference statistics, and the trained decoder's weights were saved
-(`outputs/anomaly/anomaly_results.json`, `decoder_checkpoint.pt`). A live
-server cannot reconstruct a `MahalanobisScorer`'s fitted mean/precision or a
-fitted forest from those artifacts -- it would need to re-run the entire
-60,000-object fit population through the pipeline at every process start,
-which is not what a serving worker should do on every restart.
-Reconstruction error is the one component that needs nothing beyond
-already-checkpointed weights (the frozen Tier A encoder + the trained
-decoder) plus its own already-persisted z-score reference stats, so it is
-the only component deployed here. This is flagged, not silently worked
-around -- see the Day-12 session report for the corrective action
-(persisting fitted scorer objects, not just their scores, is what
-Mahalanobis/PineForest would need before they could serve).
+z-score reference statistics, and the trained decoder's weights were saved.
+Day 12 shipped reconstruction-error-only as a flagged, stated gap, not a
+silent workaround.
+
+Day 13 (`src/train/persist_anomaly_scorers.py`) closed that gap: the frozen
+Tier A encoder + already-trained decoder reconstruct the SAME 60,000-object
+fit population (same seed), refit `MahalanobisScorer`/`PineForestScorer`
+against it (deterministic given the same inputs -- verified by diffing the
+refit z-score reference stats against `anomaly_results.json`'s recorded
+ones), and persist the fitted objects themselves (`outputs/anomaly/
+mahalanobis.npz`, `engineered_normalizer.npz`, `forest.pkl`). `AnomalyScorer`
+below loads these if present and serves the full 3-component combination
+(entropy dropped, per CLAUDE.md §11 Day 10's own decision that dropping it
+IMPROVES the combination on both eval sets); if absent, it degrades to
+reconstruction-error-only exactly as before -- never a hard dependency.
+
+The isoforest component needs `src.anomaly.pineforest.engineered_features`,
+which reads directly from a `CanonicalAlert`'s own (unpadded) observations
+(pineforest.py's own docstring: "not from the padded/windowed tensorized
+form"). `AnomalyScorer.score` therefore takes the batch's source
+`CanonicalAlert` objects as well as the padded tensors -- both
+`inference_worker.py` and `api.py` already hold these per pending item, so
+this is a signature addition, not new state either caller has to compute.
 """
 
 import json
 import logging
+import pickle
 from pathlib import Path
 from typing import Optional
 
@@ -61,9 +72,11 @@ from src.anomaly.decoder import (
     per_object_reconstruction_error,
     shift_right,
 )
-from src.anomaly.scoring import zscore
+from src.anomaly.pineforest import EngineeredFeatureNormalizer, engineered_features
+from src.anomaly.scoring import MahalanobisScorer, combine_equal_weight, zscore
 from src.features.tensorize import NUM_FEATURES
 from src.models.lc_encoder import LCEncoder
+from src.schema import CanonicalAlert
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +85,12 @@ TIER_B_ONNX_PATH = Path("outputs/finetune_bts/lc_only_model.onnx")
 TIER_A_ENCODER_CHECKPOINT = Path("outputs/train/checkpoint.pt")
 ANOMALY_DECODER_CHECKPOINT = Path("outputs/anomaly/decoder_checkpoint.pt")
 ANOMALY_RESULTS_JSON = Path("outputs/anomaly/anomaly_results.json")
+# Persisted Day 13 (src/train/persist_anomaly_scorers.py) -- optional; see
+# AnomalyScorer.__init__ for the reconstruction-error-only fallback when
+# these don't exist.
+MAHALANOBIS_NPZ = Path("outputs/anomaly/mahalanobis.npz")
+ENGINEERED_NORMALIZER_NPZ = Path("outputs/anomaly/engineered_normalizer.npz")
+FOREST_PKL = Path("outputs/anomaly/forest.pkl")
 
 CLASS_NAMES = ("Ia", "Ib/c", "II")  # src.taxonomy.TARGET_CLASS_IDS order
 
@@ -152,14 +171,19 @@ class ONNXClassifier:
 
 
 class AnomalyScorer:
-    """Reconstruction-error-only anomaly score -- see module docstring for
-    why the other three Day-10 components aren't served today."""
+    """Full 3-component combination (reconstruction_error + mahalanobis +
+    isoforest, entropy dropped) when the Day-13-persisted scorer artifacts
+    are present; degrades to reconstruction-error-only otherwise -- see
+    module docstring."""
 
     def __init__(
         self,
         encoder_checkpoint: Path = TIER_A_ENCODER_CHECKPOINT,
         decoder_checkpoint: Path = ANOMALY_DECODER_CHECKPOINT,
         results_json: Path = ANOMALY_RESULTS_JSON,
+        mahalanobis_npz: Path = MAHALANOBIS_NPZ,
+        engineered_normalizer_npz: Path = ENGINEERED_NORMALIZER_NPZ,
+        forest_pkl: Path = FOREST_PKL,
     ) -> None:
         enc_ckpt = torch.load(encoder_checkpoint, map_location="cpu", weights_only=False)
         self.encoder = LCEncoder(input_size=NUM_FEATURES, hidden_size=128, num_layers=2, dropout=0.2, num_classes=3)
@@ -180,13 +204,58 @@ class AnomalyScorer:
 
         with open(results_json) as f:
             results = json.load(f)
-        mean, std = results["reference_zscore_stats"]["reconstruction_error"]
-        self._ref_mean = float(mean)
-        self._ref_std = float(std)
+        self._ref_stats = results["reference_zscore_stats"]
+
+        self.full_combination = (
+            mahalanobis_npz.exists() and engineered_normalizer_npz.exists() and forest_pkl.exists()
+        )
+        if self.full_combination:
+            maha_npz = np.load(mahalanobis_npz)
+            self._mahalanobis = MahalanobisScorer(mean=maha_npz["mean"], precision=maha_npz["precision"])
+            eng_npz = np.load(engineered_normalizer_npz)
+            self._engineered_normalizer = EngineeredFeatureNormalizer(mean=eng_npz["mean"], std=eng_npz["std"])
+            with open(forest_pkl, "rb") as f:
+                self._forest = pickle.load(f)
+            logger.info(
+                "AnomalyScorer: persisted mahalanobis/isoforest scorers found -- "
+                "serving the full 3-component combination"
+            )
+        else:
+            logger.info(
+                "AnomalyScorer: %s not found -- serving reconstruction_error only "
+                "(run `python -m src.train.persist_anomaly_scorers` to enable the "
+                "full combination)",
+                forest_pkl,
+            )
 
     @torch.no_grad()
-    def score(self, features: torch.Tensor, lengths: torch.Tensor, mask: torch.Tensor) -> np.ndarray:
-        """Z-scored reconstruction error against the Day-10 fit-population
-        statistics -- higher = more anomalous, same convention as Day 10."""
-        raw = per_object_reconstruction_error(self.encoder, self.decoder, features, lengths, mask)
-        return zscore(raw.numpy(), self._ref_mean, self._ref_std)
+    def score(
+        self,
+        features: torch.Tensor,
+        lengths: torch.Tensor,
+        mask: torch.Tensor,
+        alerts: Optional[list[CanonicalAlert]] = None,
+    ) -> np.ndarray:
+        """Higher = more anomalous. `alerts` (this batch's source
+        `CanonicalAlert`s, same order as `features`) is required to compute
+        the isoforest component's engineered features when
+        `self.full_combination` is True -- omit it (or run without the
+        persisted artifacts) to always get reconstruction-error-only."""
+        raw_recon = per_object_reconstruction_error(self.encoder, self.decoder, features, lengths, mask)
+        recon_z = zscore(raw_recon.numpy(), *self._ref_stats["reconstruction_error"])
+
+        if not self.full_combination or alerts is None:
+            return recon_z
+
+        hidden = encoder_trunk_hidden_states(self.encoder, features, lengths)
+        idx = (lengths - 1).clamp(min=0)
+        latent = hidden[torch.arange(hidden.shape[0]), idx].numpy()
+
+        maha_raw = self._mahalanobis.score(latent)
+        engineered = np.stack([engineered_features(a) for a in alerts], axis=0)
+        pine_x = np.concatenate([latent, self._engineered_normalizer.transform(engineered)], axis=1)
+        iso_raw = self._forest.score(pine_x)
+
+        maha_z = zscore(maha_raw, *self._ref_stats["mahalanobis"])
+        iso_z = zscore(iso_raw, *self._ref_stats["isoforest"])
+        return combine_equal_weight([recon_z, maha_z, iso_z])

@@ -88,7 +88,7 @@ def _score_batch(
     lengths_t = torch.from_numpy(lengths)
     t_max = features.shape[1]
     mask_t = (torch.arange(t_max).unsqueeze(0) < lengths_t.unsqueeze(1))
-    anomaly_scores = anomaly_scorer.score(features_t, lengths_t, mask_t)
+    anomaly_scores = anomaly_scorer.score(features_t, lengths_t, mask_t, alerts=[p.alert for p in pending])
 
     elapsed_ms_total = (time.monotonic() - t0) * 1000.0
 
