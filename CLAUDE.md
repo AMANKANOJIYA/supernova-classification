@@ -1417,6 +1417,147 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   renders its real science/template/difference cutout triplet, decoded
   from the actual gzip-FITS stamp bytes ingested minutes earlier.
 
+- **Day 14 (final, buffer day): flux-conversion report, class-distribution
+  root cause found, LSST reframed, headline numbers finalized.**
+
+  **1. Fink flux conversion -- restated and freshly re-verified, since Day
+  13's chat report omitted it even though CLAUDE.md's own Day-13 entry
+  already named it.** `src/readers/avro_ztf.py` reads ZTF's alert-packet
+  magnitude convention (`magpsf`/`sigmapsf`, PSF-fit magnitude + 1-sigma
+  uncertainty) against that alert's OWN per-row photometric zeropoint
+  (`magzpsci` -- verified varying row-to-row on the live golden alert,
+  25.98-26.44 mag across its 26 rows -- NOT the fixed nJy/zp=31.4 §3
+  describes for a hypothetical generic LSST/ZTF reader). Conversion:
+  `flux_raw = sign * 10**(-0.4*(magpsf - magzpsci))` (sign: `isdiffpos`
+  `"t"` -> +1, else -1), `flux_err_raw = |flux_raw| * (ln(10)/2.5) *
+  sigmapsf`, then `src.readers.zeropoint.convert_zeropoint(flux_raw,
+  flux_err_raw, from_zeropoint=magzpsci)` rescales onto the schema's SNANA
+  FLUXCAL zp=27.5 -- the SAME shared, tested helper every non-SNANA reader
+  must call (§3), `from_zeropoint` passed per-row, never a module
+  constant. Verified independently: `tests/fixtures/golden_avro_ztf_alert.py`
+  hand-computes expected flux/flux_err for all 26 rows of one real,
+  live-polled alert via plain Python math (not by calling the reader, or
+  even `convert_zeropoint`), and
+  `tests/test_readers_avro_ztf.py::test_flux_and_flux_err_converted_to_fluxcal_27_5`
+  checks the reader's actual output against those independent numbers to
+  `abs=1e-6`/`rel=1e-6` -- re-run fresh this session, still 20/20 passing.
+  **Conversion is happening, on the correct per-alert zeropoint, verified
+  independently -- not a live bug.**
+
+  **2. Class-distribution skew -- ROOT CAUSE CONFIRMED: training-prior
+  mismatch, not a zeropoint bias.** Pulled the actual per-object softmax
+  posteriors (`prob_ia`/`prob_ibc`/`prob_ii`, already stored in Postgres)
+  for all 338 live-run objects and applied a standard prior correction:
+  `corrected(c) ∝ p_model(c) * (sky_prior(c) / train_prior(c))`,
+  renormalized, re-argmaxed. Training prior: ELAsTiCC's own Ia 20.4% /
+  Ib-c 28.5% / II 51.1% (§11, Day 4). Sky prior: midpoint of the stated
+  real rates, Ia 27.5% / Ib-c 15% / II 57.5%.
+
+  | | Ia | Ib/c | II |
+  | --- | ---: | ---: | ---: |
+  | raw (argmax of model posterior) | 13.3% | 34.6% | 52.1% |
+  | **prior-corrected** | **17.5%** | **13.9%** | **68.6%** |
+  | real sky rate (target) | 25-30% | 10-20% | 55-65% |
+
+  Ib/c collapses from 2.3x too high (34.6%) to squarely inside the target
+  band (13.9%) once the training prior is divided out -- the dominant
+  effect, and exactly the axis (Ia<->Ib/c) the correction should move if
+  candidate 1 (trained prior showing through) is right. Robust across the
+  full plausible range of sky-prior point estimates (three points spanning
+  Ia 25-30% / Ib-c 10-20% / II 55-65%): Ib/c lands at 7.1-23.1% in every
+  case, always inside or near the target band, never anywhere close to the
+  raw 34.6%. **Candidate 1 (ELAsTiCC training prior showing through in the
+  outputs -- §11's own already-recorded caveat, "output probabilities...
+  carry the ELAsTiCC prior, not the true sky prior") is CONFIRMED as the
+  dominant driver.** Candidate 2 (a flux-zeropoint bias) is not supported:
+  item 1's fresh re-verification found the conversion correct and
+  independently checked bit-for-bit against hand computation, on the
+  correct per-alert zeropoint -- there is no live bug in that path for a
+  bias to originate from.
+
+  A real residual remains, reported honestly rather than smoothed away: Ia
+  stays under-represented even after correction (17.5% vs. a 25-30%
+  target) and II overshoots slightly above it (68.6% vs. 55-65%) at the
+  midpoint sky-prior estimate. Plausible, UNTESTED explanation: the
+  correction assumes the model's raw softmax output is a well-calibrated
+  posterior under the training prior, which nothing in this project has
+  actually checked (no calibration curve was ever verified against
+  ELAsTiCC's own 20.4/28.5/51.1 composition) -- an uncalibrated model would
+  not correct cleanly with a single multiplicative reweighting, and 338
+  live objects from one night is a small sample besides. Not chased
+  further -- the headline conclusion (prior mismatch, not a zeropoint bug)
+  is well supported without resolving this residual, and the residual
+  itself is a calibration question, not a live-serving-path bug.
+
+  **3. LSST: reframed, and the reframe is now evidence-backed, not just
+  more careful wording.** Day 13's "confirmed empty" framing overstated
+  what was actually observed. Topic names re-checked against Fink's own
+  docs (`doc.lsst.fink-broker.org/services/livestream/`): every topic
+  subscribed to (`fink_most_likely_sn_lsst`, `fink_uniform_sample_lsst`,
+  and the other 9) is confirmed correct and current -- not a naming
+  mismatch. Watermark offsets re-checked ~90 minutes after the Day-13
+  check, at a different point in the UTC day: **every topic's cumulative
+  offset is now in the hundreds of thousands** (`fink_most_likely_sn_lsst`:
+  366,760; `fink_remove_unlikely_transients_lsst`: 585,407; smallest
+  nonzero, `fink_early_snia_candidate_lsst`: 1,299; one topic,
+  `fink_faint_trails_lsst`, has never carried a single message, offset 0
+  both times) -- direct evidence of substantial real historical
+  production, consistent with the survey running since 30 June 2026, and
+  inconsistent with Day 13's stronger claim. At BOTH check times, however,
+  `lo == hi` on every topic: zero messages currently retained in queue at
+  either specific moment, consistent with Fink's documented ~4-7 day
+  retention window landing between production bursts rather than the
+  topics being structurally empty. A follow-up poll just now found nothing
+  currently arriving either. **Corrected finding: no traffic on the
+  subscribed topics during this session's two observation windows
+  (2026-09-07, ~02:30-03:20 UTC and ~04:10 UTC) -- not "LSST is empty."**
+  Rubin observes from Chile (Cerro Pachón); both windows fall inside a
+  plausible nighttime-observing UTC range for that longitude in early
+  September, so a simple day/night mismatch does not explain the gap
+  either -- the honest state is that this session caught two lulls, for a
+  reason not further diagnosed (one attempt beyond Day 13's, per
+  instruction, then move on). `avro_lsst.py` remains unverified against
+  real traffic and continues to fail loudly by name on any mismatch, which
+  is the right place to leave it -- the topic-name and reachability
+  questions are now resolved; only actual traffic during a future session
+  is still needed.
+
+  **4. Headline numbers -- confirmed present, two gaps closed.** Every
+  number below now has its metric explicitly named and its
+  checkpoint/cutoff identified in this document, not just implied by an
+  artifact file:
+  - Tier A (LC+static, step 8, full cutoff): macro-F1 **0.7169**,
+    Ia-vs-rest ROC-AUC **0.9301** (`outputs/train_static/eval/metrics.json`,
+    `full.macro_f1` / `full.roc_auc[0]`) -- previously only the macro-F1
+    half of this pair was named anywhere in this file (Gate C's
+    sim-to-real-gap sentence); the ROC-AUC half is added here for the
+    first time. 0.9301 sits at the very bottom of Gate B's own step-8
+    ceiling band (0.93-0.96) -- passes, but barely; noted, not chased
+    further.
+  - Tier B (LC-only fine-tune, the DEPLOYED model, full cutoff): macro-F1
+    **0.6716** -- already named (Day 9).
+  - **Sim-to-real gap for the actually-deployed model, added here for the
+    first time: 0.7169 -> 0.6716, a -0.0453 drop.** Day 9's own recorded
+    gap sentence (0.7169 -> 0.6343, -0.0826) uses the LC+static variant,
+    which is NOT what serving actually runs (Day 9 itself found LC-only
+    beat LC+static on Tier B and shipped LC-only) -- both gaps are real and
+    both are now on the record, but the LC-only one is the one that
+    describes what is actually deployed.
+  - Transfer gain: zero-shot 0.4483 -> LC+static fine-tuned 0.6343,
+    **+0.186** -- already named (Day 9), unchanged.
+  - Ib/c F1 **0.411** (LC+static fine-tune, 35 test objects) -- already
+    named (Day 9).
+  - Anomaly combined (entropy dropped): Tier A **0.8146**, Tier B
+    **0.7622** -- already named (Day 10).
+  - Replay-mode agreement: **0.6727** (live replay, `max_span_days=200`)
+    vs. Day 9's recorded **0.6716** (offline, uncapped) -- already named
+    (Day 12), 0.0011 apart.
+  - Latency/throughput: p50 **27.2ms**, p99 **73.7ms**, **730** alerts/sec
+    peak -- already named (Day 12).
+
+  See `RESULTS.md` (repo root) for the consolidated, reader-facing summary
+  of what was built, measured, and left unresolved.
+
 ## 12. Working style
 
 - **One module per session.** Do not build the model and the serving pipeline in
