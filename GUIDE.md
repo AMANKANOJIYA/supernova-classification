@@ -254,7 +254,7 @@ sn-classifier/
 ├── frontend/              Next.js dashboard (App Router + TypeScript + Tailwind + shadcn/ui) —
 │   │                      the current results/live/objects/anomalies viewer, see §6
 │   ├── src/app/(dashboard)/  overview, live, objects, results, anomalies, about routes
-│   ├── src/components/       shared UI (sidebar, charts, object detail sheet, cutout viewer, ...)
+│   ├── src/components/       shared UI (sidebar, charts, object detail view, cutout viewer, ...)
 │   ├── src/lib/               typed API client (lib/api.ts) + report-JSON types (lib/types.ts)
 │   └── public/images/         locally-stored NASA/ESA images used on the About page (§6, credited inline)
 ├── outputs/               GITIGNORED — checkpoints, eval JSONs/figures written by training scripts
@@ -429,7 +429,14 @@ but is unreachable. Check first with `lsof -i :5432` (etc.) if something
 seems wrong. Postgres data persists in a named volume
 (`sn_classifier_pg_data`) across `docker compose down`/`up` — verified
 this session (stopped and restarted the stack; all prior prediction rows
-were still there).
+were still there). **Redis now persists too** (`sn_classifier_redis_data`
++ `--appendonly yes`, added this session): a `docker restart
+sn-classifier-redis` (or a full `down`/`up`, without `-v`) keeps every
+object's rolling light-curve state, not just Postgres's prediction
+history — verified directly by restarting the container and confirming
+an object's light curve/cutouts/anomaly breakdown still rendered in the
+dashboard afterward, with no `make replay` re-seed needed. `docker
+compose down -v` (or a fresh clone) still starts both empty, as always.
 
 ---
 
@@ -631,14 +638,16 @@ dashboard (`frontend/`, Next.js) is two processes, not one — see §5's
 At this point, with nothing else running, the dashboard loads but **Live
 monitor** shows an empty-state card telling you to run replay + worker
 (rather than a blank table), and **Objects**/**Anomalies** show whatever is
-already in Postgres from a previous run (those numbers survive a container
-restart — see §9 item 7 for the caveat that Redis's *rolling light-curve
-state*, unlike Postgres, has no volume and is wiped by that same
-restart). **Results**
-and **About** are unaffected by any of this — they read static report
-JSONs (and, for About, locally-stored NASA/ESA images) checked into the
-repo, so they're fully populated the moment the page loads, live data or
-not.
+already in Postgres from a previous run — both Postgres and Redis's
+rolling light-curve state now survive a container **restart** (§9 item 7:
+Redis got a named volume + AOF this session, closing a real gap where a
+restart used to wipe every object's light curve/cutouts/anomaly
+breakdown while leaving its Postgres-backed prediction history intact). A
+`docker compose down -v` or a fresh clone still starts both empty, same
+as always — that's what step 4 below is for. **Results** and **About**
+are unaffected by any of this — they read static report JSONs (and, for
+About, locally-stored NASA/ESA images) checked into the repo, so they're
+fully populated the moment the page loads, live data or not.
 
 4. **Feed it data.** Either replay (fast, deterministic, uses archived
    Tier B data — good for a first look) or live Fink (needs the
@@ -650,7 +659,7 @@ not.
    Within a few seconds, **Overview**'s throughput sparkline and **Live
    monitor**'s alerts-per-minute chart start climbing, and **Objects** /
    **Anomalies** populate with real rows. Note: an object only has a full
-   light curve / cutouts / anomaly breakdown available in the detail sheet
+   light curve / cutouts / anomaly breakdown available in the detail view
    while its Redis rolling state is populated — if you see "no live
    rolling-state history" there, re-run the two commands above.
 
@@ -662,12 +671,12 @@ not.
   (`/alerts/rate?minutes=60`).
 - **Live monitor** (`/live`) — an alerts-per-minute bar chart and a
   filterable table of `/alerts/recent`, newest first. Click any row to
-  open the object detail sheet.
+  open the object detail view.
 - **Objects** (`/objects`) — a searchable, filterable (true class /
   predicted class / correct-incorrect) card grid over `/objects`, each
   card showing its science-cutout thumbnail, predicted-vs-true badges, and
-  confidence. Click a card for the full detail sheet.
-- **Object detail sheet** (opened from Live monitor, Objects, or
+  confidence. Click a card for the full detail view.
+- **Object detail view** (opened from Live monitor, Objects, or
   Anomalies) — light curve (colored continuously by wavelength, detections
   filled / non-detections hollow), science/template/difference cutouts,
   class-probability bars, and the anomaly-score breakdown by component.
@@ -969,21 +978,31 @@ one.
    process) and fix it, or regenerate `outputs/finetune_bts/` cleanly and
    accept the new numbers as the new baseline.
 
-7. **New this session: Redis's rolling light-curve state has no volume,
-   Postgres does.** `infra/docker-compose.yml`'s `redis` service has no
-   `volumes:` entry (`postgres` implicitly persists via its container's
-   own writable layer surviving a stop/start, confirmed directly: 151,088
-   Postgres rows survived a container restart this session with zero
-   `sn:lc:*` Redis keys left). *Consequence:* a container **restart**
-   (not recreate) leaves Postgres history intact but wipes every object's
-   accumulated observation history — the dashboard's object detail sheet
-   then shows "no live rolling-state history" for any object scored
-   before the restart, even though its past predictions still show up in
-   Objects/Anomalies (those read Postgres, not Redis). *What would close
-   it:* add a named volume to the `redis` service if rolling state should
-   survive a restart, or accept it as intentionally ephemeral and document
-   that replay/worker needs re-running after any Redis restart (the
-   workaround used this session).
+7. **RESOLVED (was open earlier this session): Redis's rolling light-curve
+   state had no volume, Postgres did.** `infra/docker-compose.yml`'s
+   `redis` service had no `volumes:` entry (`postgres` implicitly
+   persists via its container's own writable layer surviving a
+   stop/start, confirmed directly: 151,088 Postgres rows survived a
+   container restart this session with zero `sn:lc:*` Redis keys left).
+   *Consequence at the time:* a container **restart** (not recreate) left
+   Postgres history intact but wiped every object's accumulated
+   observation history — the dashboard's object detail view then showed
+   "no live rolling-state history" for any object scored before the
+   restart, even though its past predictions still showed up in
+   Objects/Anomalies (those read Postgres, not Redis). **Fixed**: added a
+   named volume (`sn_classifier_redis_data:/data`) plus `--appendonly yes`
+   (AOF) to the `redis` service. Verified directly, this session: repopulated
+   Redis via `make replay` + `make worker` (1,994 keys), ran `docker
+   restart sn-classifier-redis` (a real restart, not a recreate), confirmed
+   `DBSIZE` still read 1,994 and a specific object's key still existed
+   immediately after, then confirmed end-to-end through the actual running
+   dashboard — `/objects` → filter to Ia → open an object's detail view —
+   that its light curve, cutouts, and anomaly breakdown all rendered
+   normally post-restart, with no re-seeding step in between. A `docker
+   compose down -v` (removes volumes) or a fresh clone still starts empty,
+   same as Postgres always has — this closes the restart gap specifically,
+   not the "never seeded" gap, which `make replay` + `make worker` was
+   always the answer for.
 
 ---
 

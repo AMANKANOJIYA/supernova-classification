@@ -117,8 +117,20 @@ export default function AboutPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {SN_TYPES.map((t) => (
             <Card key={t.name} className="gap-0 overflow-hidden py-0">
-              <div className="relative h-48 w-full bg-black">
-                <Image src={t.image} alt={t.imageAlt} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 33vw" />
+              {/* h-56 (not h-48) + a mild brightness/contrast lift: two of
+                  these three are genuine, low-key deep-space photography
+                  (mostly-black background, a comparatively small bright or
+                  faint-green feature) -- verified by sampling actual pixel
+                  data, not broken renders -- and at a small card thumbnail
+                  size they read as nearly empty without this boost. */}
+              <div className="relative h-56 w-full bg-black">
+                <Image
+                  src={t.image}
+                  alt={t.imageAlt}
+                  fill
+                  className="object-cover brightness-125 contrast-[1.1]"
+                  sizes="(max-width: 1024px) 100vw, 33vw"
+                />
               </div>
               <CardHeader className="pt-5">
                 <div className="flex items-center gap-2">

@@ -40,6 +40,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: sn-classifier-redis
+    # `--appendonly yes` (AOF) + a named volume: without this, Redis is
+    # pure in-memory and a container restart wipes every object's rolling
+    # light-curve state (src/serve/state.py) even though Postgres's own
+    # named volume below already makes ITS data survive a restart --
+    # verified directly (frontend rebuild session): 151k+ Postgres rows
+    # survived a restart with zero Redis keys left. AOF replays its
+    # on-disk log on startup, so a restart now rehydrates state instead
+    # of starting empty -- the gap between "clone and run" and "must
+    # re-seed via `make replay` + `make worker` first every time."
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
     healthcheck:
@@ -47,6 +57,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    volumes:
+      - sn_classifier_redis_data:/data
 
   postgres:
     image: postgres:16-alpine
@@ -67,3 +79,4 @@ services:
 
 volumes:
   sn_classifier_pg_data:
+  sn_classifier_redis_data:

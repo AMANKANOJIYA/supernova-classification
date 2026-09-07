@@ -6,6 +6,22 @@ import { makeChartTooltip } from "./chart-tooltip";
 import { useLegendToggle } from "./legend-toggle";
 import type { AnomalyTierRocAuc } from "@/lib/types";
 
+// Recharts silently DROPS a category tick's <text> from the DOM (not just
+// clips it visually) when the default centered anchor would push it past
+// the plot's left/right bound -- exactly what happens with only 2 wide
+// category labels ("Tier A (ELAsTiCC2 exotics)" centered at the leftmost
+// tick position overflows left, past the Y-axis). Anchoring the two edge
+// ticks to "start"/"end" instead of "middle" keeps both on-canvas.
+function EdgeAwareTick(props: { x?: number; y?: number; payload?: { value: string }; index?: number }) {
+  const { x = 0, y = 0, payload, index } = props;
+  const anchor = index === 0 ? "start" : "end";
+  return (
+    <text x={x} y={y + 16} textAnchor={anchor} fill={AXIS_TEXT} fontSize={14}>
+      {payload?.value}
+    </text>
+  );
+}
+
 const COMPONENT_META: Array<{ key: keyof AnomalyTierRocAuc; name: string; color: string; dashed?: boolean }> = [
   { key: "reconstruction_error", name: "Reconstruction error", color: "#8b6cf0" },
   { key: "mahalanobis", name: "Mahalanobis distance", color: "#38bdf8" },
@@ -40,9 +56,10 @@ export function AnomalySlopeChart({
         <CartesianGrid stroke={NEUTRAL_GRID} vertical={false} />
         <XAxis
           dataKey="dataset"
-          tick={{ fill: AXIS_TEXT, fontSize: 14 }}
+          tick={<EdgeAwareTick />}
           tickLine={false}
           axisLine={{ stroke: NEUTRAL_GRID }}
+          interval={0}
         />
         <YAxis
           domain={[0, 1]}

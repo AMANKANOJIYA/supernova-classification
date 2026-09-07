@@ -138,10 +138,19 @@
     @apply bg-background text-foreground text-base;
     font-feature-settings: "cv11", "ss01";
   }
+}
 
+@layer utilities {
   /* Type scale (CLAUDE.md-instructed rebuild §typography):
      page title ~32px, section heading ~24px, card title ~18px,
-     body 16px, caption 14px. Nothing smaller than 14px anywhere. */
+     body 16px, caption 14px. Nothing smaller than 14px anywhere.
+     Deliberately in @layer utilities, not @layer base: Tailwind's own
+     utilities (e.g. shadcn's CardTitle shipping a default `text-base`)
+     live in this layer, and `@layer base` always loses to `@layer
+     utilities` regardless of source order -- a `text-card-title` defined
+     in `base` silently lost to CardTitle's own `text-base`, rendering
+     every card title at 16px instead of the intended 18px. Found by
+     inspecting computed font-size directly, not by eye. */
   .text-page-title {
     @apply text-[32px] leading-[1.2] font-semibold tracking-tight;
   }
@@ -163,9 +172,7 @@
   .tabular-nums-all {
     font-variant-numeric: tabular-nums;
   }
-}
 
-@layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
