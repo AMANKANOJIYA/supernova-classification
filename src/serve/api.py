@@ -16,9 +16,12 @@ import numpy as np
 import redis
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.features.tensorize import NUM_FEATURES, RECOMMENDED_MAX_SPAN_DAYS, tensorize_alert
+from src.serve import cutouts as cutouts_store
 from src.serve import db, ingest, state
 from src.serve.inference_worker import PRE_DETECTION_WINDOW_DAYS, REDIS_HOST, REDIS_PORT
 from src.serve.model import CLASS_NAMES, AnomalyScorer, ONNXClassifier
@@ -41,6 +44,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Transient Supernova Classifier — serving API", lifespan=lifespan)
+
+# Results-viewer UI (CLAUDE.md Day 13 Task 2). "reports"/"outputs" are
+# mounted read-only so the UI's own JS can fetch the existing report JSONs
+# and figures directly -- the API never recomputes anything already in
+# those files, it just serves them alongside the live endpoints below.
+app.mount("/static/reports", StaticFiles(directory="reports"), name="reports")
+app.mount("/static/outputs", StaticFiles(directory="outputs"), name="outputs")
+
+
+@app.get("/")
+def ui_index() -> FileResponse:
+    return FileResponse("ui/index.html")
 
 
 class ObservationIn(BaseModel):
@@ -126,7 +141,9 @@ def classify(alert_in: AlertIn) -> dict:
     features_t = torch.from_numpy(features)
     lengths_t = torch.from_numpy(lengths)
     mask_t = torch.ones((1, features.shape[1]), dtype=torch.bool)
-    anomaly_score = float(_resources["anomaly_scorer"].score(features_t, lengths_t, mask_t)[0])
+    anomaly_score = float(
+        _resources["anomaly_scorer"].score(features_t, lengths_t, mask_t, alerts=[canonical])[0]
+    )
     latency_ms = (time.monotonic() - t0) * 1000.0
 
     predicted_class = CLASS_NAMES[int(np.argmax(probs))]
@@ -172,6 +189,19 @@ def get_object(object_id: str) -> dict:
         "class_id": alert.class_id,
         "latest_prediction": latest,
     }
+
+
+@app.get("/cutouts/{object_id}")
+def get_cutouts(object_id: str) -> dict:
+    """Science/template/difference triplet for one object, ZScaled and PNG-
+    encoded (base64) for direct `<img src="data:image/png;base64,...">` use
+    -- CLAUDE.md Day 13 Task 2. Only populated for objects seen through
+    `src.serve.live_fink` (real Fink alerts carry cutouts; ELAsTiCC2/BTSbot
+    replay objects never do -- see `src.serve.cutouts` module docstring)."""
+    arr = cutouts_store.load_cutouts(_resources["redis"], object_id)
+    if arr is None:
+        raise HTTPException(status_code=404, detail=f"no stored cutouts for object_id={object_id!r}")
+    return {"object_id": object_id, "images": cutouts_store.cutouts_to_png_triplet(arr)}
 
 
 @app.get("/top-anomalies")
