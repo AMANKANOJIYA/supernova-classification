@@ -186,12 +186,17 @@ def list_objects(
 def recent_alerts(
     conn: psycopg.Connection,
     limit: int = 200,
+    offset: int = 0,
     survey: Optional[str] = None,
     predicted_class: Optional[str] = None,
-) -> list[dict]:
+) -> tuple[list[dict], int]:
     """Every scored alert (not deduped by object), newest first -- the
     Live tab's own feed, distinct from `top_anomalies`/`list_objects`'s
-    latest-per-object view."""
+    latest-per-object view. Returns `(rows, total)` -- `total` is the
+    filtered count across the WHOLE table (not just this page), same
+    convention as `list_objects`, so a caller can page through the full
+    `predictions` table rather than only ever seeing its newest `limit`
+    rows."""
     where = ["1=1"]
     params: list = []
     if survey:
@@ -202,9 +207,11 @@ def recent_alerts(
         params.append(predicted_class)
     where_sql = " AND ".join(where)
     with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+        cur.execute(f"SELECT count(*) AS n FROM predictions WHERE {where_sql}", params)
+        total = cur.fetchone()["n"]
         cur.execute(
-            f"SELECT * FROM predictions WHERE {where_sql} ORDER BY id DESC LIMIT %s",
-            (*params, limit),
+            f"SELECT * FROM predictions WHERE {where_sql} ORDER BY id DESC LIMIT %s OFFSET %s",
+            (*params, limit, offset),
         )
         rows = cur.fetchall()
     for row in rows:
@@ -212,7 +219,7 @@ def recent_alerts(
         row["correct"] = (
             (row["true_class_name"] == row["predicted_class"]) if row["true_class_name"] else None
         )
-    return rows
+    return rows, total
 
 
 def alerts_per_minute(conn: psycopg.Connection, minutes: int = 30) -> list[dict]:

@@ -55,7 +55,7 @@ export const api = {
     getJson<ObjectAnomalyResponse>(`/object/${encodeURIComponent(objectId)}/anomaly`),
   cutouts: (objectId: string) =>
     getJson<CutoutsResponse>(`/cutouts/${encodeURIComponent(objectId)}`),
-  recentAlerts: (params: { limit?: number; survey?: string; predicted_class?: string }) =>
+  recentAlerts: (params: { limit?: number; offset?: number; survey?: string; predicted_class?: string }) =>
     getJson<RecentAlertsResponse>("/alerts/recent", params),
   alertsRate: (minutes = 30) => getJson<AlertsRateResponse>("/alerts/rate", { minutes }),
   topAnomalies: (limit = 50) => getJson<TopAnomaliesResponse>("/top-anomalies", { limit }),

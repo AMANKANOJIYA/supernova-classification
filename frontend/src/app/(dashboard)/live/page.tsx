@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { ClassBadge } from "@/components/class-badge";
 import { EmptyState } from "@/components/empty-state";
 import { ChartSkeleton, TableSkeleton } from "@/components/panel-skeleton";
@@ -30,21 +31,33 @@ import { AXIS_TEXT, NEUTRAL_GRID } from "@/lib/colors";
 import { fmtMs, relTime } from "@/lib/format";
 import { Radio, Terminal } from "lucide-react";
 
+const PAGE_SIZE = 50;
+
 export default function LiveMonitorPage() {
   const [survey, setSurvey] = useState<string>("all");
   const [predictedClass, setPredictedClass] = useState<string>("all");
   const [selected, setSelected] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+
+  function selectFilter(setter: (v: string) => void) {
+    return (v: string) => {
+      setter(v);
+      setPage(0);
+    };
+  }
 
   const { data: recent } = useSWR(
-    ["alerts-recent", survey, predictedClass],
+    ["alerts-recent", survey, predictedClass, page],
     () =>
       api.recentAlerts({
-        limit: 150,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
         survey: survey === "all" ? undefined : survey,
         predicted_class: predictedClass === "all" ? undefined : predictedClass,
       }),
-    { refreshInterval: 5000 },
+    { refreshInterval: 5000, keepPreviousData: true },
   );
+  const totalPages = recent ? Math.max(1, Math.ceil(recent.total / PAGE_SIZE)) : 1;
   const { data: rate } = useSWR("alerts-rate-live", () => api.alertsRate(30), {
     refreshInterval: 8000,
   });
@@ -62,16 +75,24 @@ export default function LiveMonitorPage() {
   // the LAST bucket is just "the most recent minute that had any alerts" --
   // it could be from hours ago. Checking its timestamp against wall-clock
   // now (not just "is the array non-empty") is what actually answers
-  // "is something streaming right now".
+  // "is something streaming right now". Reading Date.now() during render
+  // is impure (react-hooks/purity), so it's tracked in state, refreshed on
+  // an interval instead of read directly in the render body.
   const lastBucketAt = rate?.buckets.length ? new Date(rate.buckets[rate.buckets.length - 1].minute).getTime() : 0;
-  const isCurrentlyLive = lastBucketAt > 0 && Date.now() - lastBucketAt < 90_000;
+  const [isCurrentlyLive, setIsCurrentlyLive] = useState(false);
+  useEffect(() => {
+    const check = () => setIsCurrentlyLive(lastBucketAt > 0 && Date.now() - lastBucketAt < 90_000);
+    check();
+    const id = setInterval(check, 5000);
+    return () => clearInterval(id);
+  }, [lastBucketAt]);
 
   const TooltipContent = makeChartTooltip((payload, label) => ({
     title: String(label),
     rows: [{ label: "alerts", value: String((payload[0] as { value: number }).value), color: "var(--color-primary)" }],
   }));
 
-  const noData = recent && recent.n === 0;
+  const noData = recent && recent.total === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -125,7 +146,7 @@ export default function LiveMonitorPage() {
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={survey} onValueChange={setSurvey}>
+          <Select value={survey} onValueChange={selectFilter(setSurvey)}>
             <SelectTrigger className="w-40"><SelectValue placeholder="Survey" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All surveys</SelectItem>
@@ -134,7 +155,7 @@ export default function LiveMonitorPage() {
               <SelectItem value="elasticc">ELAsTiCC2</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={predictedClass} onValueChange={setPredictedClass}>
+          <Select value={predictedClass} onValueChange={selectFilter(setPredictedClass)}>
             <SelectTrigger className="w-44"><SelectValue placeholder="Predicted class" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All predicted classes</SelectItem>
@@ -143,7 +164,11 @@ export default function LiveMonitorPage() {
               <SelectItem value="II">II</SelectItem>
             </SelectContent>
           </Select>
-          {recent ? <span className="text-caption ml-auto">{recent.n} alert(s) shown</span> : null}
+          {recent ? (
+            <span className="text-caption ml-auto tabular-nums-all">
+              {recent.total.toLocaleString()} alert(s) total
+            </span>
+          ) : null}
         </div>
 
         {!recent ? (
@@ -204,6 +229,28 @@ export default function LiveMonitorPage() {
             </Table>
           </div>
         )}
+
+        {recent && !noData ? (
+          <div className="flex items-center justify-between">
+            <span className="text-caption">
+              Page {page + 1} of {totalPages} — rows {page * PAGE_SIZE + 1}–
+              {Math.min((page + 1) * PAGE_SIZE, recent.total)} of {recent.total.toLocaleString()}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <ObjectDetailSheet objectId={selected} open={!!selected} onOpenChange={(o) => !o && setSelected(null)} />

@@ -31,7 +31,9 @@ export interface ObjectsResponse {
 }
 
 export interface RecentAlertsResponse {
-  n: number;
+  total: number;
+  limit: number;
+  offset: number;
   results: PredictionRow[];
 }
 

@@ -271,13 +271,20 @@ def list_objects(
 
 @app.get("/alerts/recent")
 def get_recent_alerts(
-    limit: int = 100, survey: Optional[str] = None, predicted_class: Optional[str] = None
+    limit: int = 100,
+    offset: int = 0,
+    survey: Optional[str] = None,
+    predicted_class: Optional[str] = None,
 ) -> dict:
     """Every scored alert, newest first (not deduped by object) -- the Live
-    tab's own feed."""
+    tab's own feed. Paginated the same way `/objects` is: `total` is the
+    filtered row count across the whole table, `limit`/`offset` page
+    through it."""
     with db.connect() as conn:
-        rows = db.recent_alerts(conn, limit=limit, survey=survey, predicted_class=predicted_class)
-    return {"n": len(rows), "results": rows}
+        rows, total = db.recent_alerts(
+            conn, limit=limit, offset=offset, survey=survey, predicted_class=predicted_class
+        )
+    return {"total": total, "limit": limit, "offset": offset, "results": rows}
 
 
 @app.get("/alerts/rate")
