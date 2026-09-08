@@ -1,0 +1,108 @@
+\section{Hyperparameters and training configuration}
+\label{sec:appendixa}
+
+\begin{table}[htb]
+\centering
+\caption{Tier A pretraining configuration (identical across the flat,
+LC+static, LC+static-no-photo-$z$, and WHXE runs except where noted).}
+\begin{tabular}{L{5.2cm}L{8.3cm}}
+\toprule
+Parameter & Value \\
+\midrule
+Seed & 42 \\
+Train/val/test split & 0.70 / 0.15 / 0.15, stratified by class, by object id \\
+Pre-detection window & 30.0 days \\
+Batch size & 256 \\
+Epochs & 15 \\
+Optimiser & AdamW, learning rate $1\times10^{-3}$, weight decay $1\times10^{-2}$ \\
+LR schedule & Cosine annealing, $T_\mathrm{max}=$ num.\ epochs \\
+Class weighting & sqrt-dampened inverse frequency, normalised to mean 1 \\
+LC encoder & 2-layer GRU, hidden size 128, dropout 0.2 \\
+Static encoder (LC+static only) & MLP, hidden size 32, output size 16, dropout 0.2 \\
+WHXE $\alpha$ (WHXE run only) & 0.5 \\
+Phase cutoffs (evaluation) & $-5, 0, 5, 15, 30,$ full (days since first detection) \\
+ECE bins & 15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htb]
+\centering
+\caption{Tier B fine-tuning configuration (applied identically to every
+fine-tuned variant: zero-shot, LC-only, LC+static, LC+static+DRB).}
+\begin{tabular}{L{5.2cm}L{8.3cm}}
+\toprule
+Parameter & Value \\
+\midrule
+Seed & 42 \\
+Phase 1 (epochs 1--2) & GRU trunk frozen; head (+static/DRB branch) at LR $3\times10^{-4}$ \\
+Phase 2 (epochs 3--8) & Trunk unfrozen at LR $3\times10^{-6}$; head continues at $3\times10^{-4}$, cosine-annealed to 0 \\
+Weight decay & $1\times10^{-2}$ \\
+Batch size & 128 \\
+Pre-detection window & 30.0 days (a documented no-op on Tier B; Section~\ref{sec:discussion}) \\
+Phase cutoffs (evaluation) & $0, 5, 15, 30,$ full (Tier B has no pre-detection point) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htb]
+\centering
+\caption{Anomaly-branch reconstruction-decoder training configuration.}
+\begin{tabular}{L{5.2cm}L{8.3cm}}
+\toprule
+Parameter & Value \\
+\midrule
+Seed & 42 \\
+Fit subsample & 60{,}000 Tier A objects, 3 normal classes only \\
+Epochs & 5 \\
+Batch size & 256 \\
+Optimiser & AdamW, learning rate $1\times10^{-3}$, weight decay $1\times10^{-2}$ \\
+Encoder hidden size (frozen, Tier A LC-only checkpoint) & 128 \\
+Decoder hidden size & 64 \\
+Dropout & 0.2 \\
+Mahalanobis ridge regularisation & $\varepsilon = 1\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{BTS raw type-string to taxonomy mapping}
+\label{sec:appendixb}
+
+\begin{table}[htb]
+\centering
+\caption{Complete BTS Sample Explorer raw \texttt{type} string to
+taxonomy-id mapping. Where more than one raw string maps to the same id,
+they are grouped on one row.}
+\label{tab:btsmapping}
+\scriptsize
+\begin{tabular}{L{7.2cm}L{3.6cm}L{2.9cm}}
+\toprule
+Raw BTS type string(s) & Taxonomy id & Notes \\
+\midrule
+\texttt{SN Ia}, \texttt{SN Ia-91T} & 2222 (Ia) & 91T-like folds into Ia; no dedicated node \\
+\texttt{SN Ia-91bg} & 2226 (91bg) & Dedicated node, not folded into 2222 \\
+\texttt{SN Iax} & 2225 (Iax) & Dedicated node, not folded into 2222 \\
+\texttt{SN Ib}, \texttt{SN Ic}, \texttt{SN Ic-BL}, \texttt{SN Ib/c} & 2223 (Ib/c) & \\
+\texttt{SN II}, \texttt{SN IIn}, \texttt{SN IIP}, \texttt{SN IIL}, \texttt{SN IIb} & 2224 (II) & IIb is II, not Ib/c \\
+\texttt{AGN} & 2332 (AGN) & Non-3-class, real taxonomy id \\
+\texttt{SLSN-I}, \texttt{SLSN-II} & 2242 (SLSN) & Single undifferentiated node \\
+\texttt{TDE}, \texttt{TDE-H-He}, \texttt{TDE-He}, \texttt{TDE-featureless} & 2243 (TDE) & \\
+\texttt{ILRT} & 2244 (ILOT) & ILRT $\approx$ ILOT in the literature \\
+\texttt{Ca-rich}, \texttt{SN Ca-rich-Ca} & 2245 (CART) & Moved from NO\_TREE\_NODE on review \\
+\midrule
+\multicolumn{3}{l}{\textit{Excluded from the 3-class set (\texttt{class\_id=None})}} \\
+\midrule
+\texttt{SN Ibn}, \texttt{SN Icn} & \texttt{excluded\_csm\_interacting} &
+  Confirmed stripped-envelope, but judged CSM/interaction-powered
+  photometrically; deliberately kept out of 2223 \\
+\texttt{-}, \texttt{Other}, \texttt{other} & \texttt{unclassified} & No
+  spectroscopic classification obtained yet -- missing data, not a
+  confirmed negative \\
+\texttt{CV?}, \texttt{AGN?} & \texttt{uncertain} & BTS's own tentative flag \\
+\texttt{SN Ia-pec}, \texttt{SN II-pec}, \texttt{SN Ib-pec}, \texttt{SN Ic-pec}, \texttt{SN IIn-pec}, \texttt{SN Ia-CSM}, \texttt{SN Ia-SC} & \texttt{ambiguous} &
+  Real spectra, family not specified unambiguously by the string alone \\
+\texttt{CV}, \texttt{nova}, \texttt{LBV}, \texttt{LRN} & \texttt{no\_tree\_node} &
+  Confirmed, unambiguous real classes with no matching taxonomy leaf \\
+\bottomrule
+\end{tabular}
+\end{table}

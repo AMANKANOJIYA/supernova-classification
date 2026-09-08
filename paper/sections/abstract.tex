@@ -1,0 +1,39 @@
+\begin{abstract}
+\noindent
+We describe an end-to-end pipeline that classifies transient astronomical
+alerts into Type Ia, Ib/c, and II supernovae and separately flags alerts
+that resemble none of the three, built across three data tiers: a large
+simulated corpus (ELAsTiCC2, \TierATotalObjects{} objects, Tier A) used for
+pretraining, a small real, spectroscopically labelled corpus (the Zwicky
+Transient Facility Bright Transient Survey via BTSbot, Tier B) used for
+fine-tuning, and a live Fink alert stream (ZTF and LSST, Tier C) used for
+serving. The classifier is a causal, single-direction gated recurrent unit
+over per-observation flux features, conditioned on continuous filter
+wavelength rather than a categorical band index so that weights learned on
+simulated LSST photometry transfer to real ZTF photometry; a separate
+branch scores anomalies by combining a light-curve reconstruction error, a
+Mahalanobis distance in the classifier's own latent space, and an isolation
+forest. On held-out Tier A data the classifier reaches a macro-F1 of
+\TierAFullMacroF{} (Ia-vs-rest ROC-AUC \LCOnlyRocAucIa{}); fine-tuned on
+Tier B, the deployed configuration reaches \LCOnlyMacroF{}, a
+\SimToRealGapLCOnly{} drop consistent with the expected sim-to-real gap,
+and fine-tuning itself recovers \TransferGain{} macro-F1 over the
+zero-shot (Tier-A-only) baseline on Tier B. The anomaly branch's
+three-component combination reaches a normal-vs-anomalous ROC-AUC of
+\AnomalyTierACombinedThreeRecomputed{} on held-out simulated exotic classes and
+\AnomalyTierBCombinedThreeRecomputed{} on real, spectroscopically confirmed
+non-supernova BTS objects, a smaller but still useful score under the
+domain shift from simulation to real data. The pipeline was validated
+against four pre-registered gates (reader correctness, causality and label-
+shuffling checks, the sim-to-real drop itself, and a manual anomaly
+inspection) rather than against a single end-of-project number, and it was
+run once, briefly, against live ZTF and LSST alert traffic; a serving-layer
+latency and throughput benchmark exists in the project's development
+record but, per this report's rule that every number must be traceable to
+a stored artifact, is not restated here because no such artifact survives
+on disk (Section~\ref{sec:results}). We report several results that were
+not anticipated going in -- a net-negative effect of host-galaxy features
+on real-data fine-tuning, and an anomaly classifier that becomes more,
+not less, confident on inputs unlike anything it was trained on -- as
+open findings rather than as smoothed-over caveats.
+\end{abstract}

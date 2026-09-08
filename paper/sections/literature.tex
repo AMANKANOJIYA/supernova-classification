@@ -1,0 +1,145 @@
+\subsection{Literature Survey}
+\label{sec:literature}
+
+\paragraph{Recurrent networks on raw light curves.}
+\citet{charnock2017} were among the first to show that a recurrent neural
+network fed raw, un-engineered light-curve photometry directly could
+classify supernova types competitively with feature-engineering pipelines,
+on simulated Dark Energy Survey-like data -- establishing that a sequence
+model need not first be handed hand-built summary statistics (rise time,
+colour at peak, and so on) to find useful structure in a light curve.
+\citet{muthukrishna2019rapid} extended this to \emph{early}, time-resolved
+classification with RAPID, a Gated Recurrent Unit (GRU) architecture that
+emits a classification at every observed timestep rather than only at the
+end of a light curve, across 12 transient classes; this per-timestep
+prediction convention, and the resulting practice of reporting accuracy as
+a function of time since first detection rather than as one end-of-light-
+curve number, is used throughout the present work (Section~\ref{sec:analysis}).
+\citet{moller2020supernnova} (SuperNNova) placed a Bayesian recurrent
+architecture in this same family, adding calibrated uncertainty estimates
+and a systematic comparison against feature-based random-forest baselines,
+run at ZTF and LSST alert-stream scale.
+
+\paragraph{Data challenges.}
+\citet{kessler2019plasticc} designed and described PLAsTiCC, the Photometric
+LSST Astronomical Time-series Classification Challenge: a large, publicly
+released simulated dataset spanning many transient and variable-source
+classes, intended to let classification methods be compared on a common,
+labelled corpus before real LSST data existed. ELAsTiCC2 \citep{elasticc2},
+the LSST Dark Energy Science Collaboration's Extended LSST Astronomical
+Time-series Classification Challenge and this project's own Tier A
+simulated corpus (Section~\ref{sec:data}), supersedes PLAsTiCC with an
+updated simulation
+pipeline, revised class definitions, and -- the property this project
+depends on most directly -- deliberately \emph{non}-representative class
+proportions relative to the real sky rate, so that a classifier trained on
+it must be evaluated with that mismatch in mind rather than assumed to
+inherit a realistic prior (Section~\ref{sec:data}).
+
+\paragraph{Current state of the art.}
+\citet{cabreravives2024atat} report ATAT, a pair of transformer encoders
+(one over the light curve, one over tabular host/metadata features) fused
+before a classification head, reaching a macro-F1 of $82.9 \pm 0.4$ across
+20 ELAsTiCC classes -- the strongest published number on this class of
+problem to date, and the anchor this project's own, considerably smaller
+3-class macro-F1 figures should be read against, not compared to directly
+(Section~\ref{sec:results}). \citet{shah2025oracle} (ORACLE) instead build
+a GRU-based hierarchical classifier trained with a hierarchical
+cross-entropy loss and host-galaxy context, explicitly targeting the same
+graceful-degradation property (a correct ``supernova-like'' call even when
+the fine-grained subtype call is wrong) that this project's own hierarchical
+loss experiment tests and does not, in the end, adopt
+(Section~\ref{sec:methodology}). A causal-transformer architecture for this
+same task is described in \citet{atcat2025}, reporting 71.8\% light-curve-only
+and 89.8\% light-curve-plus-metadata F1 on their own evaluation. Fine-grained
+supernova subtyping is consistently reported, across this literature, as a
+harder discrimination axis than the coarser transient-vs-non-transient call
+-- consistent with this project's own recorded expectation that the Ib/c
+class in particular should be, and is, the hardest of the three target
+classes to recover cleanly.
+
+\paragraph{Anomaly detection over alert streams.}
+\citet{malanchev2021} ran an unsupervised anomaly detector (isolation-forest-
+based) over ZTF's third public data release and reported that of the
+highest-ranked, most anomalous objects a human inspected, 68\% were
+artifacts of imperfect image subtraction rather than genuine unusual
+transients -- the published anchor this project's own Gate D (deferred, not
+passed -- Section~\ref{sec:results}) was designed to be checked against.
+\citet{villar2021vraenn} (VRAENN) instead trained a variational recurrent
+autoencoder for the same live-anomaly-detection task, an architecture whose
+reconstruction-error principle is close in spirit to the decoder component
+of this project's own three-part anomaly score
+(Section~\ref{sec:methodology}). \texttt{coniferest} \citep{coniferest}, the
+isolation-forest and active-learning package used here for one of the three
+anomaly components, is developed and maintained by the SNAD (SNAD Anomaly
+Detection) team; the production Fink broker's own anomaly-ranking module,
+described in \citet{moller2021fink}, is built on the same package.
+
+\paragraph{Real data and brokers.}
+The Zwicky Transient Facility Bright Transient Survey (BTS,
+\citealp{fremling2020bts,perley2020bts}) is the source of this project's
+real, spectroscopically labelled fine-tuning data (Tier B). BTSbot
+\citep{rehemtulla2024btsbot} is a real-bogus and bright-transient-vs-reject
+triage classifier trained on the same BTS alert stream; this project reuses
+its public metadata release as the raw Tier B corpus (Section~\ref{sec:data})
+but not its own triage labels, which answer a different question (``is this
+a real, bright transient at all'') from the one this project trains on
+(``which of Ia/Ib-c/II is it''). ALeRCE \citep{forster2021alerce} and Fink
+\citep{moller2021fink} are both production alert brokers that ingest ZTF
+(and, for Fink, LSST) alert streams and run their own classification and
+anomaly-ranking pipelines in real time; Fink is the broker this project's
+own serving layer (Section~\ref{sec:methodology}) actually connects to for
+live Tier C data.
+
+\paragraph{Transfer learning.}
+\citet{guptamuthukrishna2025} report that pretraining a transient classifier
+on simulated data and fine-tuning on a comparatively small real labelled
+ZTF set reduces the amount of real labelled data needed by about 75\%
+relative to training on real data alone, and that a model pretrained on
+ZTF reaches 94\% of a from-scratch baseline's performance on simulated LSST
+data using only 30\% as much LSST training data -- the same sim-to-real
+transfer strategy this project's own Tier A~$\to$~Tier B pipeline follows
+(in the opposite direction, LSST-like simulation to real ZTF), and the same
+comparison (zero-shot Tier-A-only performance versus fine-tuned performance
+on Tier B) this project measures directly in Section~\ref{sec:results}.
+
+\paragraph{Loss design.}
+\citet{villar2023whxe} propose weighted hierarchical cross-entropy (WHXE): a
+loss that predicts at every level of a class taxonomy tree, not only at the
+leaf, and weights a mistake by how far apart the true and predicted classes
+sit in that tree -- confusing two supernova subtypes should cost less than
+confusing a supernova with a non-supernova. This project implements WHXE
+essentially as published, encounters and resolves a real ambiguity in the
+paper's own depth-indexing convention, and reports a controlled, one-run
+comparison against a flat classification head that does not favour WHXE on
+this project's own single-branch dataset (Section~\ref{sec:methodology});
+this is stated as a property of the data available at the time of the
+comparison, not as a criticism of the loss itself.
+
+\paragraph{Surveys.}
+\citet{bellm2019ztf} describe ZTF's system design, cadence, and early
+performance; \citet{ivezic2019lsst} describe LSST's science drivers,
+reference design, and anticipated data products, including the alert-volume
+figures cited in Section~\ref{sec:introduction}.
+
+\paragraph{Taxonomy.}
+\citet{filippenko1997} is the standard review of the spectroscopic
+classification scheme this entire field, and this project's own taxonomy
+(Section~\ref{sec:data}), is built on.
+
+\paragraph{Where this work sits.}
+None of the architectural components used here are novel: a causal GRU
+light-curve encoder, a reconstruction-error/Mahalanobis/isolation-forest
+anomaly ensemble, and a Kafka-based serving layer are all established
+techniques, individually published elsewhere in the works cited above. What
+this report adds is not a new architecture but a measured, audited account
+of what happens when a comparatively standard pipeline of this kind is
+actually built end to end on a strict timeline: a quantified sim-to-real
+transfer gap and transfer gain (Section~\ref{sec:results}); a documented
+account of where the train-time and serve-time data distributions silently
+diverge and what that costs (Section~\ref{sec:analysis}); a measured,
+non-obvious failure mode in the anomaly ensemble under domain shift
+(Section~\ref{sec:results}); and end-to-end serving and live-ingestion
+results, run against real ZTF and LSST alert traffic, that are not published
+elsewhere for a pipeline of this specific shape. Understating this
+contribution is the safer error to make, and is made deliberately.

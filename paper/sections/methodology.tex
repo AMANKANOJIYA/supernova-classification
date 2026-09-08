@@ -1,0 +1,389 @@
+\subsection{Methodology}
+\label{sec:methodology}
+
+This section states the design principles adopted \emph{before} any model
+was trained or any result existed, the resulting architecture, and the
+validation protocol used to judge every result reported in
+Section~\ref{sec:results}. Table~\ref{tab:decisionlog} at the end of this
+section is a decision log: for each major design choice, the alternatives
+considered, the choice made, and the evidence that settled it. Most write-ups
+of a pipeline like this present only the final configuration; the
+alternatives that were rejected, and why, are at least as informative.
+
+\subsubsection{Design principles}
+
+\paragraph{Wavelength conditioning, not band identity.}
+ZTF alerts carry three photometric filters; LSST alerts carry six
+(Table~\ref{tab:lameff}). If a model's input encoded ``filter index 2,''
+ZTF's second filter and LSST's second filter would be unrelated integers
+occupying unrelated positions in the model's input space, and nothing
+learned from simulated LSST photometry (Tier A) would transfer to real ZTF
+photometry (Tier B) at all. Instead, every observation in this pipeline
+carries its filter's actual \emph{effective wavelength}, a continuous
+physical quantity, linearly mapped into $[-1, 1]$
+(Section~\ref{sec:analysis}). ZTF's $r$ band (633.9\,nm) and LSST's $r$ band
+(622.2\,nm) land near each other in the model's input space automatically,
+because they are physically similar wavelengths, not because any code
+special-cases ``these are both called $r$.'' This single decision is what
+makes ``pretrain on simulated LSST photometry, fine-tune on real ZTF
+photometry'' a coherent strategy rather than two unrelated models sharing a
+name.
+
+\begin{table}[htb]
+\centering
+\caption{Filter effective wavelengths used for wavelength conditioning
+(Section~\ref{sec:methodology}). LSST's six bands and ZTF's three are
+mapped into the same continuous space; no band index is ever used as a
+model input.}
+\label{tab:lameff}
+\begin{tabular}{ccccc}
+\toprule
+\multicolumn{2}{c}{LSST} & & \multicolumn{2}{c}{ZTF} \\
+Band & $\lambda_\mathrm{eff}$ (nm) & & Band & $\lambda_\mathrm{eff}$ (nm) \\
+\midrule
+$u$ & 368.6 & & $g$ & 472.3 \\
+$g$ & 480.3 & & $r$ & 633.9 \\
+$r$ & 622.2 & & $i$ & 788.6 \\
+$i$ & 754.5 & & & \\
+$z$ & 869.1 & & & \\
+$y$ & 971.0 & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Causal models only.}
+Every recurrent layer in this pipeline runs in a single direction only
+(\texttt{bidirectional=False} throughout), with no attention mechanism
+that could attend to a future timestep. A bidirectional model evaluated
+offline, where
+every object's complete light curve already exists in the training set,
+would silently learn to use information from an object's future relative to
+whatever point it is nominally classifying at -- on day 3 of a real alert
+stream, day 60 has not happened yet. Such a model scores well offline and is
+meaningless in production, and the failure would not be visible in any
+ordinary train/test split, since both sides of that split share the same
+non-causal leakage. This is treated as an absolute architectural constraint,
+not a tunable hyperparameter, and is enforced by a dedicated unit test that
+truncates a real input sequence at a timestep $t$ and asserts the model's
+prediction at $t$ is bit-identical whether or not timesteps after $t$ are
+present in the input tensor at all (Table~\ref{tab:gates}, Gate B).
+
+\paragraph{A frozen evaluation harness.}
+The canonical data schema and the evaluation metrics code were written and
+frozen before any model existed, and were never modified afterward except
+by one documented, additive amendment (below). The reasoning is that a
+metric implementation that can still be edited is a metric that will,
+eventually, be adjusted -- consciously or not -- to make a disappointing
+result look better, and the resulting number would be unfalsifiable: there
+would be no way to tell ``the model improved'' from ``the yardstick moved''
+after the fact. The one amendment made to the frozen harness after Day~1
+was the addition of ROC-AUC (Ia-vs-rest) as a new metric, once the project's
+own literature anchors (Section~\ref{sec:literature}) turned out to name a
+metric that did not yet exist anywhere in the harness. The amendment added a
+new function and the minimal wiring to carry its output through the existing
+report structures, touched no existing function's computed output, and was
+verified independently (a new value on an existing checkpoint, not a
+retroactive recomputation of an existing reported number). An amendment of
+this kind -- additive, independently verified, motivated by a real gap
+rather than a disappointing result -- is judged preferable to a blanket
+no-changes rule that would otherwise have blocked a metric the project's
+own anchors required.
+
+\paragraph{Flux, never magnitude.}
+Difference-image photometry -- subtracting a reference template from a new
+science exposure -- routinely produces negative flux values on noisy,
+faint, non-detections. Those points are concentrated in exactly the early,
+pre-peak regime this project's early-classification goal cares about most.
+A magnitude is a logarithm of flux and cannot represent a negative value at
+all; any reader that converts to magnitude before this pipeline sees the
+data has already silently discarded some of the most informative early-time
+points. Every reader in this pipeline therefore emits flux, on one shared
+zeropoint (Section~\ref{sec:data}), and only ever converts to magnitude for
+plotting.
+
+\paragraph{A canonical alert schema as the single conversion target.}
+Every data source -- simulated ELAsTiCC2, real ZTF/BTSbot, live Fink -- is
+converted into one shared \texttt{CanonicalAlert} record before any model
+or evaluation code ever touches it (Table~\ref{tab:schema}). This is what
+makes ``pretrain on one source, fine-tune on another, serve a third''
+possible without a source-specific branch anywhere downstream of the reader
+layer.
+
+\begin{table}[htb]
+\centering
+\caption{The canonical alert schema (\texttt{src/schema.py}, frozen after
+Day 1--2 of the project). Every reader converts its source into this record;
+no downstream code depends on which survey an alert came from.}
+\label{tab:schema}
+\begin{tabular}{L{2.6cm}L{10.9cm}}
+\toprule
+Field & Meaning \\
+\midrule
+\texttt{object\_id} & Survey-native identifier \\
+\texttt{survey} & ZTF / LSST / ELAsTiCC \\
+\texttt{observations} & List of (mjd, $\lambda_\mathrm{eff}$, flux, flux\_err, is\_detection), sorted ascending by mjd \\
+\texttt{static} & Host photo-$z$, offset, ellipticity, host magnitude, MW $E(B\!-\!V)$, galactic latitude, real-bogus score \\
+\texttt{cutouts} & $(3,63,63)$ science/reference/difference postage stamps, or \texttt{None} \\
+\texttt{class\_id} & ELAsTiCC2 taxonomy id (Table~\ref{tab:taxonomy}), or \texttt{None} if unlabelled \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Figure 1: pipeline architecture}
+
+Figure~\ref{fig:pipeline} is the anchor figure for this report: the three
+data tiers on the left, the canonical schema as the single conversion
+funnel every tier passes through, the shared light-curve encoder feeding
+both the classification head and the anomaly scorer, and the serving path
+from a live alert stream through to a results interface.
+
+\begin{figure}[htb]
+\centering
+\resizebox{\linewidth}{!}{\input{figures/fig1_pipeline}}
+\caption{Pipeline architecture. Three data tiers (simulated ELAsTiCC2 for
+pretraining, real ZTF/BTSbot for fine-tuning, live Fink for serving) convert
+into one canonical alert schema, which every downstream stage consumes
+identically regardless of source. A shared causal GRU light-curve encoder
+(optionally fused with a static host-context branch) feeds both the flat
+3-class classification head and a separate anomaly-scoring branch. The
+serving path (Kafka $\to$ Redis rolling state $\to$ ONNX inference $\to$
+Postgres $\to$ API) is the same consumer code whether its producer is an
+archived-data replay or the live Fink stream.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsubsection{Model architecture}
+
+The light-curve encoder (Figure~\ref{fig:pipeline}) is a 2-layer causal GRU,
+hidden size 128, with a \texttt{LayerNorm} and dropout ($p=0.2$) applied to
+the GRU's output before a linear head. Sequences are packed and masked
+(\texttt{pack\_padded\_sequence}) so that a padded timestep is never
+processed by the recurrent layer for any sequence in a batch, regardless of
+where it sits in the batch. Predictions are emitted at \emph{every}
+timestep, not only the last, which is what makes the phase-cutoff curves in
+Section~\ref{sec:results} possible without a separate model per cutoff.
+
+Each observation is represented by six per-timestep features:
+$\Delta t$ (days since the object's own first detection),
+$\mathrm{signed\_log1p}(\mathrm{flux}/\mathrm{flux\_err})$ (a compressed
+signal-to-noise ratio), $\mathrm{signed\_log1p}(\mathrm{flux})$ (compressed
+absolute flux), $\log1p(\mathrm{flux\_err})$, the linearly-mapped filter
+wavelength, and a detection/forced-photometry indicator. Absolute flux is
+carried \emph{in addition to} the signal-to-noise ratio, not instead of it,
+even though it is in principle recoverable as their product
+($\mathrm{flux} = (\mathrm{flux}/\mathrm{flux\_err}) \times
+\mathrm{flux\_err}$): a Type Ia supernova's absolute peak brightness clusters
+tightly near $M \approx -19.3$, while Ib/c and II are both fainter and more
+scattered, so absolute brightness is real discriminating signal for exactly
+the Ia/non-Ia boundary this pipeline is most sensitive on -- but that signal
+is only accessible as a \emph{multiplicative} interaction between two other,
+already nonlinearly-compressed input channels, and GRUs and MLPs are
+comparatively poor at learning multiplicative interactions between their own
+inputs. Supplying $\mathrm{signed\_log1p}(\mathrm{flux})$ directly removes
+that burden at no additional leakage cost (Section~\ref{sec:analysis}).
+
+An optional static-context branch (a small MLP over seven host/extinction
+fields) is fused with the GRU's output before the head in the
+``LC+static'' configuration (Section~\ref{sec:results}). Missingness in
+these fields is handled explicitly: each field carries its own
+zero-filled, z-scored value \emph{and} a separate missingness indicator,
+rather than a silently imputed value alone. A zero-fill on already
+z-scored data lands at the training-set mean, a neutral placeholder in the
+untransformed scale as well; the indicator lets the downstream MLP learn to
+treat a filled value differently from a measured one, which a silent
+imputation would not allow it to do at all.
+
+\subsubsection{Anomaly branch}
+
+The anomaly score combines three components, computed over the encoder's
+own latent representation and the observed light curve:
+\begin{itemize}
+  \item \textbf{Reconstruction error}: a small decoder predicts each
+    timestep's flux-derived features from the encoder's hidden state as of
+    the \emph{previous} timestep only (never the current one, which the GRU
+    has already consumed and would make reconstruction trivial), trained on
+    the three normal classes only. An object whose flux behaviour this
+    decoder cannot predict well is anomalous by construction.
+  \item \textbf{Mahalanobis distance} of an object's latent encoding from a
+    Gaussian fitted to the normal-class population's latent space.
+  \item \textbf{Isolation forest} (\texttt{coniferest}'s \texttt{PineForest},
+    used here in pure unsupervised mode) over the concatenation of the
+    latent encoding and a handful of directly-engineered light-curve summary
+    statistics.
+\end{itemize}
+The three components are z-scored against their own fit-population
+statistics and combined by an equal-weighted average
+(Section~\ref{sec:results} discusses why entropy, a fourth candidate
+component, was tried and dropped).
+
+\subsubsection{Hierarchical loss (WHXE)}
+
+Weighted hierarchical cross-entropy \citep{villar2023whxe} was implemented
+and compared, in one controlled run (same encoder, data, split, seed, and
+class weighting as the flat-head baseline), against the flat 3-class head
+used everywhere else in this report. On the data available at the time of
+that comparison -- every training object was, by construction, one of the
+three target SN-like leaves, with no non-SN-like sibling for the hierarchy
+to correctly reject -- WHXE scored \emph{worse} than the flat head
+(macro-F1 \TierWHXEMacroFFull{} versus \TierLCOnlyMacroFFull{}, a
+$\WHXEMacroFDelta{}$ difference), because the loss's only lever, redistributing
+confidence toward a shared parent node, had nowhere useful to spend that
+redistribution on a dataset with a single populated branch. Node-level
+accuracy at the ``SN-like'' parent measured $\WHXENodeAccuracy{}$ on this
+same run, but that number is not informative on its own: every object in
+this dataset \emph{is} SN-like, so there is no wrong branch for the
+hierarchy to have been tested against. This report treats WHXE as
+provisional, not rejected: its entire justification is graceful degradation
+in the presence of genuine non-supernova contaminants, a property this
+particular comparison could not test, since no such contaminant existed in
+the data available for it.
+
+A genuine ambiguity in the published loss's own notation was found and
+resolved during implementation, and is recorded here because it changes the
+loss's qualitative behaviour depending on which reading is taken. The
+published loss (their Eq.~2) indexes a class's position in the taxonomy tree
+as $c^{(0)}$ at the \emph{leaf}, increasing toward the root, and weights each
+level's term by $\lambda(c^{(h)}) = \exp(-\alpha \, h)$ (their Eq.~5). Read
+literally with their own leaf-indexed $h$, this weights \emph{fine-grained}
+distinctions (near the leaf, where $h$ is small and $\lambda$ near 1) most
+heavily and \emph{coarse} distinctions (near the root, where $h$ is large and
+$\lambda$ small) least -- the opposite of the paper's own surrounding
+prose, which states that a \emph{larger} $\alpha$ should favour
+\emph{parent}-level (coarse) classification more strongly. A hierarchical
+loss built to weight fine-grained mistakes most and coarse mistakes least
+has no purpose over a plain flat softmax, since the entire motivation for a
+hierarchical loss is to penalise a coarse mistake (supernova versus
+artifact) more than a fine one (Ia versus Ib/c). This implementation
+therefore indexes depth \emph{from the root} instead, so that $\lambda$ stays
+near~1 for coarse, near-root terms and shrinks for fine-grained, leaf-level
+terms as $\alpha$ grows -- consistent with both the paper's own prose and
+with this project's taxonomy's stated purpose. This is recorded as a
+resolved implementation decision, not an unresolved ambiguity, but is
+reported explicitly rather than silently, since a reader implementing the
+same loss from the same equation could reasonably make the opposite choice.
+
+\subsubsection{Serving architecture}
+
+The serving path (Figure~\ref{fig:pipeline}) is Kafka
+$\to$ a stateless normalisation step $\to$ Redis (rolling per-object
+observation history) $\to$ an ONNX-exported classifier plus the anomaly
+scorer $\to$ Postgres (durable prediction storage) $\to$ a FastAPI read
+layer. Replay mode (an archived-data producer onto the same Kafka topic) was
+built and validated before live mode, so that the live-mode step was a
+producer swap plus new reader modules, not a rewrite of the consumer -- the
+same consumer code was verified, unmodified, against both an archived-data
+replay and real Fink alert traffic (Section~\ref{sec:results}).
+
+\subsubsection{Deviation from the specified toolchain}
+
+The programme brief specified the Fink client, TensorFlow, and LightGBM.
+The Fink client was used as specified, against real ZTF and LSST broker
+topics. TensorFlow was not used; PyTorch was used instead. LightGBM was not
+used at all. This deviation is stated plainly rather than left for a reader
+to notice: an ONNX export of a PyTorch checkpoint gave a clean, framework-
+agnostic serving path with no retraining required to change inference
+runtimes; the astronomical ecosystem this project depends on most directly
+(\texttt{astropy}, \texttt{sncosmo}, \texttt{coniferest}) is more naturally
+composed with PyTorch's eager-mode Python interface than with a static
+TensorFlow graph; and LightGBM is a gradient-boosted-tree method suited to a
+pipeline built on hand-engineered per-object features -- the design ALeRCE's
+own balanced hierarchical random forest follows \citep{forster2021alerce}
+-- rather than to the raw, per-timestep sequence input the brief's own
+recurrent-network framing specifies. Substituting a gradient-boosted-tree
+method for a sequence model would have been a different architecture
+entirely, not an equivalent implementation choice.
+
+\subsubsection{Validation protocol}
+
+Four gates (Table~\ref{tab:gates}) were defined \emph{before} the results
+they judge, as pre-registered acceptance criteria rather than criteria
+chosen to match whatever result was obtained.
+
+\begin{table}[htb]
+\centering
+\caption{The four validation gates, defined before the results they judge.}
+\label{tab:gates}
+\small
+\begin{tabular}{L{1.5cm}L{4.6cm}L{4.6cm}L{3.6cm}}
+\toprule
+Gate & What it checks & Why this failure mode matters & Outcome \\
+\midrule
+A (readers) & Light curves are visually plausible per class; negative
+  fluxes are present in the parsed data; real BTS class counts are near
+  their published ratio & A reader that runs without crashing can still
+  silently produce garbage; only a direct check catches it & Passed \\
+B (first model) & Shuffled-label test collapses to chance; truncating a
+  sequence never changes an earlier prediction; Ia-vs-rest ROC-AUC sits in
+  a pre-registered band & Catches label leakage, non-causal architecture,
+  and results that are too good to be true, respectively & Passed (at a
+  corrected sample size for the shuffle test) \\
+C (fine-tune) & Accuracy measurably drops from simulated to real data & No
+  drop at all would indicate a broken, leaking evaluation split, not a
+  better model & Passed \\
+D (anomaly branch) & Manual inspection of the top-ranked anomalies expects
+  them artifact-dominated, per a published real-bogus-filtering anchor &
+  Checks whether real-bogus filtering is suppressing genuine rare signal &
+  Deferred -- see Section~\ref{sec:results} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htb]
+\centering
+\caption{Decision log: major design choices, the alternatives considered,
+the choice made, and the evidence that settled it. Presenting the rejected
+alternatives alongside the final configuration, rather than only the final
+configuration, is deliberate.}
+\label{tab:decisionlog}
+\scriptsize
+\begin{tabular}{L{2.1cm}L{2.6cm}L{2.5cm}L{3.5cm}L{3.0cm}}
+\toprule
+Decision & Options considered & Choice made & Rationale & Evidence \\
+\midrule
+Band representation & Categorical band index; continuous wavelength &
+  Continuous wavelength & ZTF/LSST bands must land in a shared input space
+  for transfer to work at all & Design argument, not an ablation (transfer
+  would be structurally impossible otherwise) \\
+Recurrence direction & Bidirectional; causal (single-direction) & Causal &
+  A bidirectional model sees future timesteps during offline training that
+  do not exist at serving time & Gate B causality test, passed \\
+Photometry scale & Magnitude; flux & Flux, never clipped & Magnitude cannot
+  represent the negative fluxes routine in faint, early-time
+  difference-image photometry & Negative-flux fraction confirmed present
+  in parsed Tier A data (\TierANegFluxMin{}--\TierANegFluxMax{}\%
+  per model directory) \\
+Evaluation harness & Mutable; frozen with additive-only amendments &
+  Frozen, one additive amendment (ROC-AUC) & A mutable metric can be
+  adjusted to fit a disappointing result after the fact & One amendment,
+  independently verified, no existing function's output changed \\
+Left-edge window & Full archived history; 30-day pre-detection lookback &
+  30-day lookback & Training data must match what a live alert stream
+  actually accumulates by an object's own last detection &
+  \WindowMeanDetections{} detections vs.\ \WindowMeanForcedPhot{} forced-
+  photometry points/object measured; \WindowFracRemoved{}\% of a sampled
+  sequence's observations fall outside the window \\
+Right-edge cap & Uncapped; fixed span cap & 200-day cap
+  (\texttt{max\_span\_days}) & A long-lived recurring source's tensorized
+  span is otherwise unbounded and far outside the training distribution &
+  Span ablation: \SpanTwoHundredMacroF{} at 200~d vs.\ \SpanUncappedMacroF{}
+  uncapped, $<$1\% of any class affected \\
+Hierarchical loss & WHXE; flat head & Flat head (WHXE kept, provisional) &
+  WHXE was worse on a single-populated-branch dataset with no non-SN-like
+  negatives yet to gracefully degrade against & Controlled comparison:
+  \TierWHXEMacroFFull{} (WHXE) vs.\ \TierLCOnlyMacroFFull{} (flat) \\
+Anomaly ensemble & With classifier entropy; without & Without (3-component) &
+  Entropy inverted under domain shift (Section~\ref{sec:results}) and
+  actively hurt the combination on both evaluation sets & Combined score
+  improved from \AnomalyTierACombined{} to
+  \AnomalyTierACombinedThreeRecomputed{} (Tier A) and \AnomalyTierBCombined{}
+  to \AnomalyTierBCombinedThreeRecomputed{} (Tier B) on dropping it \\
+Tier B host features & LC+static; LC-only & LC-only (deployed) & Host
+  features helped on Tier A but measurably hurt the Tier B fine-tune &
+  \LCOnlyMacroF{} (LC-only) vs.\ \WithStaticMacroF{} (LC+static) on
+  Tier B test \\
+Image encoder & Build; cut & Cut & No remaining schedule day, and Tier B
+  cutout data was never loaded across three sessions & Descope ladder
+  accounting (Section~\ref{sec:discussion}) \\
+\bottomrule
+\end{tabular}
+\end{table}

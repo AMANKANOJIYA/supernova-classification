@@ -1,0 +1,280 @@
+\section{Results}
+\label{sec:results}
+
+\subsection{Main classification results}
+
+Table~\ref{tab:mainresults} reports macro-F1 and Ia-vs-rest ROC-AUC for
+every trained configuration. The majority-class and logistic-regression
+baselines specified alongside these rows were never run to completion or
+persisted to any artifact in this project's \texttt{reports/} or
+\texttt{outputs/} directories; producing one now would require fitting a
+new baseline classifier, which this report's own rule against retraining
+during paper-writing was read to prohibit (Appendix, and
+\texttt{paper/NUMBERS\_GAPS.md}). Those two rows are left blank rather than
+filled with a plausible number.
+
+\begin{table}[htb]
+\centering
+\caption{Main classification results. Per-class F1 columns are Ia/Ib-c/II
+in order. The deployed configuration is marked; ``sim.\ prior'' notes that
+a model's output probabilities carry the ELAsTiCC training-set class
+prior, not the real sky prior (Section~\ref{sec:discussion}).}
+\label{tab:mainresults}
+\small
+\begin{tabular}{L{4.6cm}rrrrr}
+\toprule
+Configuration & Macro-F1 & ROC-AUC (Ia) & F1 Ia & F1 Ib/c & F1 II \\
+\midrule
+Majority-class baseline & -- & -- & -- & -- & -- \\
+Logistic regression baseline & -- & -- & -- & -- & -- \\
+Tier A, LC-only & \TierLCOnlyMacroFFull{} & \LCOnlyRocAucIa{} &
+  \TierLCOnlyFIaFull{} & \TierLCOnlyFIbcFull{} & \TierLCOnlyFIIFull{} \\
+Tier A, LC+static & \TierLCStaticMacroFFull{} & \TierLCStaticRocAucIaFull{} &
+  \TierLCStaticFIaFull{} & \TierLCStaticFIbcFull{} & \TierLCStaticFIIFull{} \\
+Tier A, LC+static, no photo-$z$ & \TierLCStaticNoPhotozMacroFFull{} &
+  \TierLCStaticNoPhotozRocAucIaFull{} & \TierLCStaticNoPhotozFIaFull{} &
+  \TierLCStaticNoPhotozFIbcFull{} & \TierLCStaticNoPhotozFIIFull{} \\
+Tier A, WHXE head & \TierWHXEMacroFFull{} & \TierWHXERocAucIaFull{} &
+  \TierWHXEFIaFull{} & \TierWHXEFIbcFull{} & \TierWHXEFIIFull{} \\
+Tier B, zero-shot (Tier A weights, no fine-tune) & \ZeroShotMacroF{} &
+  \ZeroShotRocAucIa{} & \ZeroShotFIa{} & \ZeroShotFIbc{} & \ZeroShotFII{} \\
+Tier B, LC-only fine-tune \textbf{(deployed)} & \LCOnlyMacroF{} &
+  \LCOnlyRocAucIa{} & \LCOnlyFIa{} & \LCOnlyFIbc{} & \LCOnlyFII{} \\
+Tier B, LC+static fine-tune & \WithStaticMacroF{} & \WithStaticRocAucIa{} &
+  \WithStaticFIa{} & \WithStaticFIbc{} & \WithStaticFII{} \\
+Tier B, LC+static+DRB fine-tune & \WithStaticDRBMacroF{} &
+  \WithStaticDRBRocAucIa{} & \WithStaticDRBFIa{} & \WithStaticDRBFIbc{} &
+  \WithStaticDRBFII{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The sim-to-real gap for the deployed configuration is
+$\TierAFullMacroF{} \to \LCOnlyMacroF{}$, a drop of $\SimToRealGapLCOnly{}$
+macro-F1; the (not deployed) LC+static variant shows a larger drop,
+$\TierAFullMacroF{} \to \WithStaticMacroF{}$
+($\SimToRealGapStatic{}$). Both are the expected direction: simulated data
+has no instrument noise, no real-bogus artifacts, and no mislabelled hosts,
+so it is strictly easier than reality, and a model that scored identically
+on both would be the stronger signal of a broken (leaking) evaluation
+split, not of a better model. Fine-tuning itself recovers
+$\TransferGain{}$ macro-F1 over the zero-shot baseline on Tier B
+($\ZeroShotMacroF{} \to \WithStaticMacroF{}$) -- fine-tuning is doing real,
+measurable work, not merely re-labelling an already-adequate zero-shot
+model.
+
+\subsection{Phase curve}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=0.78\linewidth]{figures/fig4_phase_curve}
+\caption{Macro-F1 as a function of days since first detection, Tier A test
+(LC+static) against Tier B test (LC+static fine-tune). Tier B has no
+pre-detection ($-5$\,d) point because its source metadata contains no
+forced-photometry row type at all (Section~\ref{sec:discussion}); the
+comparison is therefore restricted to cutoffs $\geq 0$. Conflating ``the
+model degrades on real data'' with ``the model was evaluated on an easier
+phase slice'' would compare a full Tier A curve (which includes $-5$\,d)
+against a necessarily truncated Tier B one and misstate the size of the
+sim-to-real gap for reasons that have nothing to do with sim-to-real
+generalisation. This figure shows the LC+static Tier B variant specifically,
+not the deployed LC-only variant, because its own per-cutoff phase curve
+survives on disk fully intact and git-tracked
+(\texttt{reports/gate\_c/gate\_c\_report.json}); the deployed variant's
+intermediate cutoffs exist only in a since-superseded, non-deterministic
+re-run of the fine-tuning script (Section~\ref{sec:results}, Table
+\ref{tab:mainresults} gives the deployed variant's own, unaffected
+full-cutoff numbers).}
+\label{fig:phasecurve}
+\end{figure}
+
+Both curves in Figure~\ref{fig:phasecurve} rise monotonically with more of
+the light curve observed, from \TierLCStaticMacroFZero{} (Tier A, $0$\,d) to
+\TierLCStaticMacroFFull{} (full) and from \TierBWithStaticPhaseZero{} (Tier B,
+$0$\,d) to \TierBWithStaticPhaseFull{} (full). A model that got \emph{worse}
+with more data would itself indicate a bug -- leakage that only helps a
+truncated input, or an architecture unable to use a long sequence -- so the
+monotonic shape is a sanity check that passed, not merely a pleasant
+picture.
+
+\subsection{Confusion matrices}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=\linewidth]{figures/fig5_confusion_grid}
+\caption{Row-normalised confusion matrices (raw counts in parentheses) at
+each phase cutoff. Top row: Tier A test, LC+static, read directly from its
+own untouched evaluation artifact. Bottom row: Tier B test, LC+static
+fine-tune, reproduced in this same paper-writing session because no
+original confusion-matrix artifact survives on disk for any Tier B
+variant (every \texttt{outputs/finetune\_bts/*/eval/*.json} file was
+overwritten by an unrelated, accidental full re-run of the fine-tuning
+script during a previous documentation session, and only the git-tracked
+scalar summary in \texttt{reports/gate\_c/gate\_c\_report.json} -- used
+for every other Tier B number in this report -- survived that overwrite
+intact). This reproduction's own full-cutoff macro-F1 (0.6354) differs from
+the original, git-tracked figure used everywhere else in this report
+(\WithStaticMacroF{}) by 0.0011 -- an unresolved, small run-to-run
+non-determinism in the fine-tuning script, not a transcription error; see
+\texttt{paper/NUMBERS\_GAPS.md}. At the earliest cutoff the
+model collapses onto the majority class (Tier B: every object predicted
+Ia at $0$\,d); the diagonal emerges as photometry accumulates.}
+\label{fig:confgrid}
+\end{figure}
+
+\subsection{Prediction panels}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/fig6_prediction_panels}
+\caption{Four real Tier B test-split objects, run through the deployed
+checkpoint (LC-only fine-tune) at inference time: the light curve as
+tensorized (detections filled, forced photometry as small crosses, ZTF
+$g$/$r$ in distinct colours), the real science/template/difference cutout
+triplet (ZScale-rendered), and the model's own class-probability bars.
+\emph{Selection}: for each class, the highest-confidence correctly
+classified test object with at least 25 observations (falling back to the
+best available if no such object exists for a class); for the
+misclassification panel, among test objects truly Ib/c but predicted Ia --
+this project's own recorded dominant confusion -- the most confident wrong
+call, tie-broken toward the sparser light curve. All four objects shown
+were found by this selection rule on the first pass (a true-Ib/c-as-Ia
+case did exist in the candidate pool); none were cherry-picked from a
+larger, unreported set of alternatives.}
+\label{fig:predpanels}
+\end{figure}
+
+The misclassified panel in Figure~\ref{fig:predpanels} is instructive on
+its own: a 23-observation light curve, evenly sampled but sparse, is called
+Ia at 94\% confidence while its spectroscopic type is Ib/c -- exactly the
+kind of case the sim-to-real gap and the Ib/c F1 figure in
+Table~\ref{tab:mainresults} are summarising as a single number.
+
+\subsection{Anomaly branch under domain shift}
+
+\begin{figure}[htb]
+\centering
+\includegraphics[width=0.62\linewidth]{figures/fig7_anomaly_slope}
+\caption{Each anomaly-score component's normal-vs-anomalous ROC-AUC, Tier A
+(simulated exotic classes held out of classifier training) against Tier B
+(real, spectroscopically confirmed non-supernova BTS objects). The two
+latent-space methods (isolation forest, Mahalanobis distance) fall toward
+chance under the sim-to-real domain shift; reconstruction error rises. The
+combined score (entropy dropped, black) is not the best score on either
+individual set -- isolation forest alone beats it on Tier A, reconstruction
+error alone beats it on Tier B -- but it is the only score that stays
+useful on \emph{both}.}
+\label{fig:anomalyslope}
+\end{figure}
+
+Table~\ref{tab:anomaly} gives the same comparison numerically, including
+the combination with and without classifier entropy. Entropy was tested as
+a fourth component and dropped: rather than being merely unhelpful, it was
+actively \emph{harmful} to the combination on both evaluation sets, and its
+own behaviour is the more interesting finding
+(Section~\ref{sec:discussion}) -- it is markedly \emph{more} confident
+(mean entropy \EntropyTierAExotic{} on Tier A's held-out exotic classes
+versus \EntropyTierANormal{} on Tier A's own in-distribution test set; the
+same direction, \EntropyTierBWeird{} versus \EntropyTierBNormal{}, on Tier
+B) on objects the classifier has never seen anything like, exactly the
+population an anomaly score is supposed to flag.
+
+\begin{table}[htb]
+\centering
+\caption{Anomaly-component ROC-AUC (normal test objects vs.\ held-out
+anomalous objects), each component and the combination with and without
+classifier entropy. ``Combined (recomputed)'' is this component
+combination recomputed directly from the per-object score files in this
+same session, independently of the single stored summary number, and
+agrees with it to four decimal places.}
+\label{tab:anomaly}
+\begin{tabular}{lrr}
+\toprule
+Component & Tier A ($n$=\AnomalyTierANNormal{}/\AnomalyTierANAnomalous{}) &
+  Tier B ($n$=\AnomalyTierBNNormal{}/\AnomalyTierBNAnomalous{}) \\
+\midrule
+Reconstruction error & \AnomalyTierAReconstructionError{} & \AnomalyTierBReconstructionError{} \\
+Classifier entropy & \AnomalyTierAEntropy{} & \AnomalyTierBEntropy{} \\
+Mahalanobis distance & \AnomalyTierAMahalanobis{} & \AnomalyTierBMahalanobis{} \\
+Isolation forest & \AnomalyTierAIsoforest{} & \AnomalyTierBIsoforest{} \\
+Combined (with entropy) & \AnomalyTierACombined{} & \AnomalyTierBCombined{} \\
+\textbf{Combined (entropy dropped)} & \textbf{\AnomalyTierACombinedThreeRecomputed{}} & \textbf{\AnomalyTierBCombinedThreeRecomputed{}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Serving benchmarks}
+
+A serving-layer latency and throughput benchmark (Kafka consume through
+Postgres write, one alert at a time) exists in this project's development
+record, but no JSON or other artifact recording it survives in either
+\texttt{reports/} or \texttt{outputs/} -- confirmed by direct search of
+both directories for the relevant field names. Per this report's rule that
+every number must be traceable to a stored artifact, that benchmark is not
+restated here as a verified figure; a reader wanting it should treat it as
+an unverified project-log claim rather than a result of this report. What
+\emph{is} verifiable from a stored artifact is the replay-mode pipeline's
+agreement with the offline evaluation harness on the same data: replaying
+the full Tier B test split through the complete ingest~$\to$~state~$\to$~
+tensorize~$\to$~ONNX~$\to$~anomaly-score path reproduces the offline
+LC-only macro-F1 to within 0.0011 (Section~\ref{sec:discussion}), evidence
+that the serving path introduces no correctness regression relative to the
+harness these headline numbers otherwise come from.
+
+\subsection{Live stream results}
+
+\paragraph{ZTF.} \LiveZtfTotalAlerts{} real alerts were ingested end to end
+through the unmodified replay-mode pipeline across two live sessions
+against Fink's \texttt{fink\_sn\_candidates\_ztf} topic
+(\LiveZtfRunOneNReceived{} and \LiveZtfRunTwoNReceived{} alerts received,
+\LiveZtfRunOneNSkipped{} and \LiveZtfRunTwoNSkipped{} skipped). The first
+session's \LiveZtfRunOneNSkipped{} skips were traced to a real bug -- an
+undersized, CCD-edge cutout stamp raising an exception that discarded an
+alert's entire light curve, not merely its cutout -- fixed to degrade to
+``no cutout'' instead, and confirmed at 0 skips on the second session.
+Negative-flux detections, structurally absent from Tier B by construction
+(BTS pre-filters to brightening subtractions before a candidate ever
+reaches its public metadata release), appeared in \LiveZtfRunOneNegFluxFrac{}--\LiveZtfRunTwoNegFluxFrac{}\%
+of live detections across the two sessions -- the first direct, quantified
+confirmation of that filtering's effect on data Tier B's own construction
+never included.
+
+\paragraph{LSST.} \LiveLsstNReceived{} messages were received across every
+subscribed LSST topic during this project's live-ingestion windows, despite
+cumulative topic offsets in the hundreds of thousands confirming genuine
+historical production on Fink's LSST relay. \texttt{avro\_lsst.py}, this
+pipeline's LSST reader, therefore remains built and defensively tested
+against synthetic packets, but unverified against a single real LSST
+alert -- a real, stated gap, not a claimed success.
+
+\subsection{Gate outcomes}
+
+\begin{table}[htb]
+\centering
+\caption{Outcome of each pre-registered validation gate
+(Table~\ref{tab:gates}).}
+\label{tab:gateoutcomes}
+\small
+\begin{tabular}{L{0.8cm}L{6.0cm}L{7.2cm}}
+\toprule
+Gate & Criterion & Result \\
+\midrule
+A & Plausible light curves per class; negative flux present;
+  BTS class ratio near published anchor & Passed
+  (\TierANegFluxMin{}--\TierANegFluxMax{}\% negative flux across Tier A
+  directories; \TierBJoinRatio{}:1 Ia:Ib/c) \\
+B & Shuffled labels collapse to chance; causal truncation-invariance;
+  ROC-AUC within pre-registered band & Passed \\
+C & Measurable sim-to-real accuracy drop & Passed
+  ($\SimToRealGapLCOnly{}$ macro-F1, deployed configuration) \\
+D & Top-50 ranked anomalies are artifact-dominated (68\% anchor,
+  \citealp{malanchev2021}) & \textbf{Deferred, not passed or failed}: the
+  only evaluation population available (\GateDNTotal{} Tier B ``weird''
+  objects: \GateDNNoTreeNode{} confirmed non-tree-node real classes,
+  \GateDNAGN{} AGN, \GateDNNinetyOneBG{} 91bg) is spectroscopically confirmed real
+  objects only, pre-filtered by construction at two separate stages
+  (Section~\ref{sec:discussion}) -- there was no bogus/artifact candidate
+  in the pool for the ranker to have possibly found \\
+\bottomrule
+\end{tabular}
+\end{table}

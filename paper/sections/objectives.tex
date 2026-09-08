@@ -1,0 +1,39 @@
+\subsection{Motive and Objectives}
+\label{sec:objectives}
+
+The programme brief, as set by the Summer School of Astronomy and
+Astrophysics, asked for a multi-survey, multimodal pipeline that classifies
+transient alerts into supernova subtypes and flags objects that fit none of
+them, pretrained on simulated data, fine-tuned on real spectroscopically
+labelled data, served over a live alert stream, and refined by a
+human-in-the-loop anomaly review process. From that brief, seven concrete,
+individually testable objectives were set at the start of the project:
+
+\begin{enumerate}
+  \item Build a single canonical data schema and one reader per data source
+    (simulated ELAsTiCC2, real ZTF/BTSbot, live Fink) that converts each
+    source into it, so that a model trained on one source can be evaluated
+    on another without a source-specific code path.
+  \item Train a causal light-curve classifier on simulated data alone and
+    establish its ceiling performance and failure modes before any real
+    data is introduced.
+  \item Fine-tune that classifier on real, spectroscopically labelled data
+    and \emph{measure} the resulting sim-to-real accuracy gap, rather than
+    assume fine-tuning succeeds.
+  \item Build a separate anomaly-detection branch capable of ranking alerts
+    that do not resemble any of the three target classes, and evaluate it
+    against both a simulated held-out anomaly population and a real one.
+  \item Serve the trained models over a Kafka-based pipeline, first in
+    replay mode against archived data and then, unmodified, against a live
+    alert stream from at least one real broker.
+  \item Validate every stage against pre-registered acceptance criteria
+    (Section~\ref{sec:methodology}'s four gates) defined \emph{before} the
+    results they judge, rather than criteria chosen after the fact to match
+    whatever result was obtained.
+  \item Produce a results and monitoring interface that makes every reported
+    number traceable to the artifact that produced it.
+\end{enumerate}
+
+Sections~\ref{sec:data}--\ref{sec:results} report the outcome of each
+objective in turn; Section~\ref{sec:discussion} discusses which were fully
+met, which were only partially met, and why.

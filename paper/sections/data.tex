@@ -1,0 +1,245 @@
+\section{Model, Data Collection and Catalogue}
+\label{sec:data}
+
+\begin{table}[htb]
+\centering
+\caption{The three data tiers. Object counts are the full corpus read by
+each tier's reader (Section~\ref{sec:data}); ``labelled'' counts (used for
+training/evaluation) are given separately in Table~\ref{tab:classcounts}
+where they differ from the full corpus.}
+\label{tab:tiers}
+\begin{tabular}{lllll}
+\toprule
+Tier & Source & Bands & Cutouts & Role \\
+\midrule
+A & ELAsTiCC2 (simulated) & $ugrizy$ (6) & No & Pretraining
+  (\TierATotalObjects{} objects) \\
+B & BTSbot / ZTF BTS (real) & $g,r$ (2) & Yes & Fine-tuning
+  (\TierBNObjTotal{} objects) \\
+C & Fink live stream (real) & varies & Yes & Serving only (unlabelled) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tier A -- ELAsTiCC2}
+
+The Tier A training sample is drawn from the LSST Dark Energy Science
+Collaboration's public ELAsTiCC2 training-sample release on the NERSC data
+portal. Each of \TierANumModelDirs{} SNANA model directories used for the
+3-class target set holds 40 gzipped \texttt{\_HEAD.FITS} (per-object
+metadata) and 40 \texttt{\_PHOT.FITS} (per-observation photometry) file
+pairs, plus a truth-value \texttt{.DUMP} CSV; every directory's file count
+was asserted complete (40+40) before use, since a previously truncated
+download had silently removed part of one class without any row-level
+discard being recorded. Table~\ref{tab:modeldirs} gives the directory-to-
+class mapping actually used.
+
+\begin{table}[htb]
+\centering
+\caption{ELAsTiCC2 SNANA model directories mapped to each target class
+(Section~\ref{sec:data}). \texttt{SNIa-91bg} (taxonomy id 2226) and
+\texttt{SNIax} (2225) are separate taxonomy leaves and are \emph{not}
+folded into 2222 (Ia); neither has a model directory in this project's
+3-class training set. \texttt{SNIIb} maps to 2224 (II), not 2223 (Ib/c),
+verified empirically from \texttt{SIM\_TYPE\_INDEX} in the real HEAD files
+against the published gentype-to-classid mapping.}
+\label{tab:modeldirs}
+\begin{tabular}{L{2cm}L{9.5cm}c}
+\toprule
+Class & Model directories & $N$ directories \\
+\midrule
+Ia & \texttt{SNIa-SALT3} & \TierANumDirsIa{} \\
+Ib/c & \texttt{SNIb+HostXT\_V19}, \texttt{SNIb-Templates},
+  \texttt{SNIc+HostXT\_V19}, \texttt{SNIc-Templates},
+  \texttt{SNIcBL+HostXT\_V19} & \TierANumDirsIbc{} \\
+II & \texttt{SNII+HostXT\_V19}, \texttt{SNII-NMF},
+  \texttt{SNII-Templates}, \texttt{SNIIb+HostXT\_V19},
+  \texttt{SNIIn+HostXT\_V19}, \texttt{SNIIn-MOSFIT} & \TierANumDirsII{} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htb]
+\centering
+\caption{The ELAsTiCC2 taxonomy used, transcribed from the published
+scheme rather than invented locally, so results remain comparable to
+published broker benchmarks. The 4-digit id encodes the tree hierarchy
+positionally: zeroing a node's rightmost nonzero digit gives its parent
+(e.g.\ $2222 \to 2220 \to 2200 \to 2000$). Only the branches this project
+targets or discusses are shown; the full published taxonomy is wider
+(a Meta/Static branch and an \texttt{Other} sibling per category are
+omitted here, since no gentype in this project's data populates them).}
+\label{tab:taxonomy}
+\scriptsize
+\begin{tabular}{L{9cm}l}
+\toprule
+Node & id \\
+\midrule
+Variable & 2000 \\
+\quad Non-Recurring & 2200 \\
+\qquad SN-like & 2220 \\
+\qquad\quad Ia \textbf{(target)} & 2222 \\
+\qquad\quad Ib/c \textbf{(target, Ib and Ic merged)} & 2223 \\
+\qquad\quad II \textbf{(target)} & 2224 \\
+\qquad\quad Iax & 2225 \\
+\qquad\quad 91bg & 2226 \\
+\qquad Fast & 2230 \\
+\qquad\quad KN, M-dwarf Flare, Dwarf Novae, uLens & 2232/2233/2234/2235 \\
+\qquad Long & 2240 \\
+\qquad\quad SLSN, TDE, ILOT, CART, PISN & 2242/2243/2244/2245/2246 \\
+\quad Recurring & 2300 \\
+\qquad Periodic (Cepheid, RR Lyrae, $\delta$~Scuti, EB, LPV/Mira) & 2320--2326 \\
+\qquad Non-Periodic (AGN) & 2330/2332 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tier B -- BTSbot / ZTF Bright Transient Survey}
+
+Tier B is the Zenodo v10 BTSbot release's public-programme
+(\texttt{programid=1}) metadata split (\TierBNObjTrain{}/\TierBNObjVal{}/%
+\TierBNObjTest{} train/val/test objects), joined against the independently
+maintained BTS Sample Explorer's spectroscopic classifications to recover a
+real Ia/Ib-c/II label per object. The metadata release itself carries no
+spectroscopic subtype at all -- only BTSbot's own binary
+bright-transient/reject triage flag -- so the join against the Sample
+Explorer is the only source of ground truth for this tier. Table~\ref{tab:btsmapping}
+in Appendix~\ref{sec:appendixb} gives the complete raw-type-string-to-
+taxonomy mapping; two exclusions are worth stating in the main text because
+they were deliberate, not oversights:
+\begin{itemize}
+  \item \texttt{SN Ibn} and \texttt{SN Icn} (narrow-line, circumstellar-
+    interacting stripped-envelope events) are \emph{excluded} from the
+    Ib/c target class (2223) even though they are spectroscopically
+    stripped-envelope events. Their light curves are judged, on physical
+    grounds, to be shaped by the same interaction mechanism as Type IIn
+    rather than by the stripped envelope alone -- the ``n'' in their name
+    describes the light curve, not the progenitor. Ib/c is simultaneously
+    this project's rarest and most sensitive target class
+    (Section~\ref{sec:analysis}); admitting a photometrically distinct
+    population into it would risk contaminating exactly the class least
+    able to absorb it.
+  \item Peculiar (\texttt{-pec}), CSM-interacting-Ia (\texttt{Ia-CSM}),
+    and uncertain (\texttt{?}-suffixed) types are excluded from the
+    3-class set entirely rather than bucketed into their nearest ordinary
+    type, since the raw type string alone does not specify a single
+    family unambiguously.
+\end{itemize}
+Of \TierBNObjTest{} raw test-split objects, \TierBLabeledTest{} carry a
+usable 3-class label after this join (Table~\ref{tab:classcounts}); the
+remainder are objects the Sample Explorer has not yet classified, objects
+outside the 3-class target set (AGN, SLSN, TDE, 91bg, Iax, and the excluded
+CSM-interacting types above), or objects with no BTS Sample Explorer row at
+all.
+
+\begin{table}[htb]
+\centering
+\caption{Class counts per tier, and the resulting imbalance ratio. Tier
+A's composition is not a sky-rate estimate: it is an artefact of how many
+SNANA model directories the ELAsTiCC2 release happened to provide per
+class (one for Ia, five for Ib/c, six for II) -- a real sky rate is closer
+to 25--30\%/10--20\%/55--65\% for Ia/Ib-c/II respectively. Consequently,
+this pipeline's output probabilities carry the ELAsTiCC training prior,
+not the true sky prior (Section~\ref{sec:discussion}).}
+\label{tab:classcounts}
+\footnotesize
+\begin{tabular}{L{4.3cm}rrrr}
+\toprule
+& Ia & Ib/c & II & Ratio (II:Ia) \\
+\midrule
+Tier A (full corpus, \TierATotalObjects{} objects) &
+  \TierACountIa{} (\TierAFracIa{}\%) &
+  \TierACountIbc{} (\TierAFracIbc{}\%) &
+  \TierACountII{} (\TierAFracII{}\%) & \TierAImbalanceRatio{}:1 \\
+Tier B (BTS-joined, all splits, \TierBNObjTotal{} objects) &
+  \TierBJoinCountIa{} & \TierBJoinCountIbc{} & \TierBJoinCountII{} &
+  \TierBJoinRatio{}:1 (Ia:Ib/c) \\
+Tier B (test split only, 3-class labelled) &
+  \TierBSupportIa{} & \TierBSupportIbc{} & \TierBSupportII{} & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tier C -- Fink live stream}
+
+Tier C is not a static corpus: it is Fink's live Kafka relay of ZTF and
+LSST alerts, connected to directly for a bounded live-ingestion session
+(Section~\ref{sec:results}) rather than downloaded and stored. A real ZTF
+alert packet carries the same magnitude-based photometry convention as the
+BTSbot metadata (Section~\ref{sec:analysis}) plus science/template/
+difference cutout images, real detections and, from an object's second
+alert onward, forced photometry reaching back toward -- but not fully
+replicating -- Tier A's complete simulated history. Both surveys' brokers
+were reachable without a password: credentialled access (a username and
+consumer group id) was sufficient for topic listing and for consuming real
+alerts on both \texttt{kafka-ztf.fink-broker.org} and
+\texttt{kafka-lsst.fink-broker.org}.
+
+\subsection{Data quality}
+
+Four aspects of ELAsTiCC2's raw SNANA files required care that is not
+obvious from the format documentation alone.
+
+\paragraph{Sentinel values.} Missingness in ELAsTiCC2's raw FITS files is
+encoded by four different sentinel conventions across different fields
+(Table~\ref{tab:sentinels}), only two of which are documented in the
+format specification at all. \texttt{999} (host magnitude fields) is the
+most dangerous of the four: legitimate host magnitudes span roughly 18--28,
+so an unconverted \texttt{999} reads as ``a very faint host,'' not as
+``missing,'' and would train silently on a fabricated measurement rather
+than raising any error.
+
+\begin{table}[htb]
+\centering
+\caption{SNANA sentinel-value conventions, most undocumented in the
+format specification. Each reader converts a field's own sentinel to
+\texttt{None} by comparing against exactly that field's convention --
+never by inferring missingness from an unrelated field such as
+\texttt{HOSTGAL\_NMATCH}, which was found still carrying real host values
+for a sub-threshold nearest candidate even when equal to zero.}
+\label{tab:sentinels}
+\small
+\begin{tabular}{L{1.3cm}L{9.9cm}L{2.4cm}}
+\toprule
+Sentinel & Fields & Documented? \\
+\midrule
+$-9$ & \texttt{HOSTGAL\_PHOTOZ[\_ERR]}, \texttt{HOSTGAL\_SPECZ[\_ERR]},\newline
+  \texttt{HOSTGAL\_SNSEP}, \texttt{REDSHIFT\_HELIO[\_ERR]} & Yes \\
+$-999$ & \texttt{HOSTGAL2\_RA}, \texttt{HOSTGAL2\_DEC} & Partly \\
+$-9999$ & \texttt{\seqsplit{HOSTGAL\_ELLIPTICITY}}, \texttt{\seqsplit{HOSTGAL2\_ELLIPTICITY}} & No \\
+$999$ & \texttt{HOSTGAL\_MAG\_[band]}, \texttt{HOSTGAL2\_MAG\_[band]} & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Row-pointer convention.} A PHOT file's \texttt{PTROBS\_MIN}/
+\texttt{PTROBS\_MAX} pair is 1-indexed and inclusive on both ends
+(\texttt{PTROBS\_MAX - PTROBS\_MIN + 1 == NOBS}); the correct slice is
+\texttt{phot[PTROBS\_MIN-1:PTROBS\_MAX]}, and an \texttt{MJD=-777}
+terminator row sits immediately after \texttt{PTROBS\_MAX} and must never
+be included. This convention is not documented in the shipped format
+specification and was derived empirically, then cross-checked against the
+LSST DESC \texttt{elasticc} repository's own reference reader.
+
+\paragraph{Three coexisting numbering schemes.} A given object's HEAD file
+carries three unrelated integer identifiers -- its position in a MERGE
+list, \texttt{SIM\_MODEL\_INDEX}, and \texttt{SIM\_TYPE\_INDEX} (the true
+gentype) -- observed taking three different numeric values for the same
+object. Only \texttt{SIM\_TYPE\_INDEX} is the gentype; using either of the
+other two as a class label would train against scrambled, meaningless
+targets that would not crash and would not look obviously wrong.
+
+\paragraph{Fields excluded as leakage vectors.} \texttt{SNTYPE} and
+\texttt{REDSHIFT\_HELIO} are never read by any downstream code path.
+\texttt{SNTYPE} equal to a class's numeric type plus 100 conventionally
+marks the spectroscopically \emph{confirmed} subset of a class in SNANA
+(observed here as \texttt{10} and \texttt{110} for SNIa-SALT3), and
+\texttt{REDSHIFT\_HELIO} is documented as the spectroscopic redshift where
+available. Both therefore encode, indirectly, whether an object was
+spectroscopically confirmed at simulation time -- and spectroscopic
+confirmation is not random: brighter objects are followed up more often,
+and brightness itself correlates with class. Either field is consequently
+a partial shortcut to the label, and that selection effect is simulated
+into the data by construction, not merely a risk in principle. Labels are
+taken from \texttt{SIM\_TYPE\_INDEX} only; host redshift is taken from
+\texttt{HOSTGAL\_PHOTOZ}/\texttt{HOSTGAL\_PHOTOZ\_ERR} only.

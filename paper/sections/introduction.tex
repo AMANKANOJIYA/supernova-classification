@@ -1,0 +1,89 @@
+\section{Introduction, Literature Survey, Methodology, Objectives}
+
+\subsection{Introduction}
+\label{sec:introduction}
+
+A supernova is the catastrophic, once-per-object brightening of a star
+(or stellar remnant) at the end point of its evolution. For a period of
+days to months it can rival or exceed the integrated brightness of its
+entire host galaxy, which is what makes supernovae visible across cosmological
+distances and useful as tracers of the universe's structure and expansion.
+Astronomers group observed supernovae by \emph{spectroscopic type}: what
+absorption and emission features appear when the transient's light is
+dispersed through a spectrograph. This report is concerned with three of
+those types, and with a fourth category -- ``none of the above'' -- that a
+real alert stream inevitably also produces.
+
+\paragraph{Two unrelated physical channels, one shared naming scheme.}
+Type Ia supernovae arise from the thermonuclear disruption of a carbon-oxygen
+white dwarf, either through mass accretion from a companion star past a
+critical threshold or through the merger of two white dwarfs. The explosion
+consumes the star with no hydrogen involved at any stage, which is why a Ia
+spectrum shows no hydrogen lines. Type Ib/c and Type II supernovae, by
+contrast, are both \emph{core-collapse} events: a massive star ($\gtrsim
+8\,M_\odot$) exhausts its nuclear fuel, its iron core can no longer support
+itself against gravity, and the resulting collapse (typically to a neutron
+star) drives a shock that unbinds the star's outer layers. Type II
+supernovae still have their hydrogen envelope at the moment of collapse;
+Type Ib and Ic supernovae have already lost it (and, for Ic, their helium
+layer too) to strong stellar winds or to a binary companion. It is worth
+stating plainly, because the shared Roman-numeral naming scheme actively
+obscures it: \emph{Type Ia is not physically related to Type Ib or Ic}. The
+``I'' in each name refers only to the historical absence of hydrogen lines
+in the discovery-era spectroscopic classification scheme
+\citep{filippenko1997}, not to a shared progenitor or explosion mechanism.
+Type Ib and Ic are two flavours of the same core-collapse channel as Type
+II; Type Ia is a different channel entirely. This project follows
+convention (and its own taxonomy, Section~\ref{sec:data}) in merging Ib and
+Ic into one target class, since distinguishing a stripped-envelope
+supernova that has lost its hydrogen from one that has lost its helium as
+well requires spectroscopy this pipeline does not have.
+
+\paragraph{Why Type Ia matters beyond stellar physics.}
+Because a Type Ia explosion detonates a white dwarf at (or close to) a
+common physical trigger mass, the resulting explosions are photometrically
+similar to one another: their peak absolute brightness is
+\emph{standardisable} through empirical relations between peak luminosity,
+light-curve decline rate, and colour. That standardisability is what turns
+a Type Ia supernova into a ``standard candle'' -- an object whose true
+brightness can be inferred well enough from its light curve alone that
+comparing it to its \emph{observed} brightness yields a distance. Type Ia
+supernovae were the tool used to discover the accelerating expansion of the
+universe, and they remain a primary distance-ladder rung today. Recovering
+Ia identity from photometry alone, quickly, is therefore not merely a
+pattern-recognition exercise: it is a prerequisite for using a given object
+cosmologically at all.
+
+\paragraph{Spectroscopy is definitive; photometry is what scales.}
+A spectrum directly measures the physics -- the elements present, their
+ionisation state, the ejecta's expansion velocity -- and is the only fully
+reliable way to assign a supernova's type. It is also expensive: it requires
+a sufficiently large telescope, a spectrograph, and dedicated observing time
+allocated to one object at a time. What a wide-field synoptic survey
+produces automatically, for every object, every time it is observed, is a
+\emph{light curve}: a sequence of calibrated flux measurements at a handful
+of timestamps and wavelength filters (``bands''). The central question this
+project asks is how much of the spectroscopic answer -- Ia, Ib/c, or II --
+can be recovered from a light curve's shape alone: how fast it rises, how
+it declines, whether it plateaus, all without ever taking a spectrum. Doing
+this \emph{early}, before the light curve has finished playing out, is the
+useful case in practice: a system that can say ``point a spectrograph at
+this one'' while the transient is still spectroscopically interesting is
+worth far more than one that can only classify a supernova after it has
+faded.
+
+\paragraph{The scale problem.}
+The Zwicky Transient Facility (ZTF) already produces alert volumes that
+strain manual and even semi-automated triage
+\citep{bellm2019ztf}. The Vera C.\ Rubin Observatory's Legacy Survey of
+Space and Time (LSST), whose main ten-year survey began operations on 30
+June 2026, is designed to generate on the order of $10^7$ transient and
+variable-source alerts per night at full operational cadence
+\citep{ivezic2019lsst} -- a volume no spectroscopic follow-up programme,
+however well resourced, can classify object by object. Automated,
+photometry-only triage is therefore not an optional convenience for the
+LSST era; it is the only mechanism by which a human-in-the-loop follow-up
+programme can be pointed at the right handful of objects out of millions.
+This report describes one such triage system, built and measured against
+both simulated LSST-like data and real ZTF data, and served, briefly, over
+a live alert stream from both surveys.

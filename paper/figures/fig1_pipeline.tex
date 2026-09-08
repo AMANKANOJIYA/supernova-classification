@@ -1,0 +1,54 @@
+% Figure 1: pipeline architecture. Included via \input{figures/fig1_pipeline}
+% from paper/sections/methodology.tex.
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners, align=center, minimum height=0.9cm, inner sep=5pt},
+  tier/.style={box, minimum width=3.4cm, fill=gray!8},
+  funnel/.style={draw, rounded corners, minimum width=2.9cm, minimum height=2.6cm, align=center, fill=gray!15},
+  enc/.style={box, minimum width=4.8cm, fill=blue!6},
+  head/.style={box, minimum width=3.6cm},
+  serve/.style={box, minimum width=2.0cm, fill=gray!5, font=\scriptsize},
+  arr/.style={-{Stealth[length=2.2mm]}, thick},
+  >=Stealth,
+]
+
+% --- data tiers (left column) ---
+\node[tier] (tiera) at (0, 5.4) {Tier A\\ELAsTiCC2 (simulated)\\843{,}617 objects};
+\node[tier] (tierb) at (0, 3.6) {Tier B\\BTSbot / ZTF BTS (real)\\19{,}511 objects};
+\node[tier] (tierc) at (0, 1.8) {Tier C\\Fink live stream (real)\\unlabelled};
+
+% --- canonical schema funnel ---
+\node[funnel] (schema) at (4.3, 3.6) {\textbf{CanonicalAlert}\\(frozen schema)};
+
+\draw[arr] (tiera.east) -- (schema.north west);
+\draw[arr] (tierb.east) -- (schema.west);
+\draw[arr] (tierc.east) -- (schema.south west);
+
+% --- encoder ---
+\node[enc] (encoder) at (9.7, 3.6) {Causal GRU light-curve encoder\\(+ optional static host branch)};
+\draw[arr] (schema) -- (encoder);
+
+% --- heads ---
+\node[head, draw=classIa, thick] (clshead) at (9.7, 6.0) {3-class head\\\textcolor{classIa}{Ia} / \textcolor{classIbc}{Ib/c} / \textcolor{classII}{II}};
+\node[head] (anomhead) at (9.7, 1.2) {Anomaly scorer\\recon.\ error + Mahalanobis + iso.\ forest};
+\draw[arr] (encoder.north) -- (clshead.south);
+\draw[arr] (encoder.south) -- (anomhead.north);
+
+% --- serving path (bottom row) ---
+\node[serve] (kafka) at (0.0, -1.4) {Kafka};
+\node[serve] (redis) at (2.15, -1.4) {Redis\\rolling state};
+\node[serve] (onnx) at (4.3, -1.4) {ONNX\\inference};
+\node[serve] (pg) at (6.45, -1.4) {Postgres};
+\node[serve] (api) at (8.6, -1.4) {API /\\dashboard};
+
+\draw[arr] (kafka) -- (redis);
+\draw[arr] (redis) -- (onnx);
+\draw[arr] (onnx) -- (pg);
+\draw[arr] (pg) -- (api);
+
+\draw[arr] (tierc.south) .. controls +(0,-1.6) and +(-2.2,1.0) .. (kafka.north)
+  node[midway, below left, font=\scriptsize] {replay or live};
+\draw[arr] (clshead.south east) .. controls +(1.2,-2.0) and +(1.0,3.4) .. (onnx.north east);
+\draw[arr] (anomhead.south east) .. controls +(0.8,-0.6) and +(1.4,0.9) .. (onnx.north east);
+
+\end{tikzpicture}

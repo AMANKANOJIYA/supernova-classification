@@ -1,0 +1,29 @@
+{
+  "TDE": {
+    "n_objects_read": 94285,
+    "n_objects_discarded": 0,
+    "mean_detection_span_days": 41.458137894681016,
+    "median_detection_span_days": 33.048900000001595,
+    "mean_nobs_per_object": 172.17937105584133,
+    "median_nobs_per_object": 174,
+    "elapsed_seconds": 164.16215896606445
+  },
+  "EB": {
+    "n_objects_read": 94934,
+    "n_objects_discarded": 0,
+    "mean_detection_span_days": 702.6930497661533,
+    "median_detection_span_days": 827.7671499999997,
+    "mean_nobs_per_object": 255.86364210925484,
+    "median_nobs_per_object": 254.0,
+    "elapsed_seconds": 168.43339896202087
+  },
+  "CLAGN": {
+    "n_objects_read": 108939,
+    "n_objects_discarded": 0,
+    "mean_detection_span_days": 774.5296328275457,
+    "median_detection_span_days": 858.8136000000013,
+    "mean_nobs_per_object": 259.80691028924446,
+    "median_nobs_per_object": 257,
+    "elapsed_seconds": 207.5853681564331
+  }
+}
