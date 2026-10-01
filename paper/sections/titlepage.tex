@@ -1,0 +1,51 @@
+% Cover page, matching "Project Report Front Page  SSAA2026 .pdf" exactly:
+% header, Indian Space School logo, "Project Report" title, two-author
+% "Prepared By" block (name + institution each), full project title, and
+% the "Submitted To" block for the project guide/mentor.
+% A manual equivalent of the standard `titlepage` environment, deliberately
+% not using that environment: its automatic \setcounter{page}{0} collides
+% with hyperref's page-destination naming once \pagenumbering{roman} is
+% already active (produces a harmless but avoidable "Object @page.i already
+% defined" warning at the xdvipdfmx stage). Skipping the reset and just
+% suppressing this one page's own visible folio has the same visual effect.
+\thispagestyle{empty}
+\begin{center}
+
+{\LARGE\bfseries Summer School of Astronomy \&\\[2pt] Astrophysics 2026\par}
+
+\vspace{1.1cm}
+\includegraphics[width=3.6cm]{figures/assets/isslogo.png}
+
+\vspace{1.1cm}
+{\LARGE\bfseries\underline{Project Report}\par}
+
+\vspace{1.6cm}
+{Prepared By:\par}
+
+\vspace{0.5cm}
+\begin{tabular}{@{}ll@{\hspace{1.2cm}}ll@{}}
+Student Name: & Aman Kanojiya & Institution Name: & Cuebus \\[8pt]
+Student Name: & Ayushi Patel  & Institution Name: & Uka Tarsadia University, Bardoli \\
+\end{tabular}
+
+\vspace{1.6cm}
+{\bfseries\underline{Project Name}\par}
+
+\vspace{0.5cm}
+\parbox{0.85\linewidth}{\centering\large
+Supervised Classification and Anomaly Detection of Transient Supernovae
+in ZTF and LSST Alert Streams: An End-to-End Pipeline with Measured
+Sim-to-Real Transfer\par}
+
+\vspace{1.8cm}
+{\bfseries\underline{Submitted To}\par}
+
+\vspace{0.5cm}
+\begin{tabular}{@{}ll@{}}
+Name: & \textbf{Ravi Raja Pothineni} \\[6pt]
+Designation: & \textbf{Project Guide \& Mentor} \\[6pt]
+Institution: & \textbf{Indian Space School, Jaipur, Rajasthan, India (303002)} \\
+\end{tabular}
+
+\end{center}
+\clearpage

@@ -470,12 +470,14 @@ gap(
     "own 'full' value, 0.6727254, differs from the git-tracked, originally- "
     "reported 'full' value in reports/gate_c/gate_c_report.json, 0.6715774, "
     "by 0.0011 -- a real, unresolved run-to-run non-determinism, not a typo. "
-    "Figure 4 (phase curve) therefore plots the Tier B LC+static variant's "
-    "phase curve instead (reports/gate_c/gate_c_report.json's own "
-    "with_static.phase_curve, fully intact and git-tracked at every cutoff), "
-    "not the deployed LC-only variant's phase curve, and says so in its "
-    "caption. The deployed model's headline full-cutoff number (0.6716) is "
-    "still the one used everywhere else in the paper."
+    "Figure 4 (phase curve) plots the deployed LC-only variant using this "
+    "file for cutoffs 0/5/15/30 (the only place they exist) but pins its "
+    "full-cutoff point to the original, git-tracked scalar "
+    "(reports/gate_c/gate_c_report.json's lc_only.macro_f1_full, 0.6716) "
+    "rather than this file's own drifted 'full' value, so the plotted curve "
+    "matches the deployed model's headline number used everywhere else in "
+    "the paper. The figure's caption states this sourcing and the 0.0011 "
+    "discrepancy explicitly."
 )
 
 # ---------------------------------------------------------------------------

@@ -18,6 +18,27 @@ outputs/
 multirun/
 .hydra/
 
+# video/ demo-prep artifacts (generated; video/.venv_extract alone is 17k+ files)
+video/.venv_extract/
+video/out/
+video/data_extracted/
+
+# paper/ LaTeX build byproducts (main.tex etc. stay tracked)
+paper/main.pdf
+paper/*.aux
+paper/*.log
+paper/*.blg
+paper/*.bbl
+paper/*.out
+paper/*.toc
+paper/*.synctex.gz
+paper/sections/*.aux
+
+# frontend build/dev artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+
 # OS
 .DS_Store
 

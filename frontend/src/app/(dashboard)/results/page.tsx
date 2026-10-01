@@ -43,13 +43,23 @@ export default function ResultsPage() {
   const confusion = metricsSource?.[safeCutoffKey]?.confusion;
 
   const phaseCurveData = useMemo(() => {
-    if (!tierAMetrics || !gateC) return [];
+    if (!tierAMetrics || !tierBMetrics || !gateC) return [];
+    // Tier B here must be the DEPLOYED LC-only fine-tune, not LC+static.
+    // Intermediate cutoffs come from tierBMetrics (outputs/finetune_bts/
+    // lc_only/eval/metrics.json) -- the only place they exist. That file
+    // is itself a later, non-deterministic re-run of the fine-tuning
+    // script, whose own full-cutoff value (0.6727) drifted 0.0011 from
+    // the original, git-tracked 0.6716 quoted everywhere else (gate_c_
+    // report.json, the paper, RESULTS.md). So the "full" point is pinned
+    // to that original scalar (gateC.lc_only.macro_f1_full), not the
+    // re-run file's own drifted "full" entry, keeping this curve's
+    // endpoint consistent with every other reported number.
     return ["-5", "0", "5", "15", "30", "full"].map((c) => ({
       cutoff: c,
       tierA: tierAMetrics[c]?.macro_f1 ?? null,
-      tierB: gateC.with_static.phase_curve[c] ?? (c === "full" ? gateC.with_static.macro_f1_full : null),
+      tierB: c === "full" ? gateC.lc_only.macro_f1_full : (tierBMetrics[c]?.macro_f1 ?? null),
     }));
-  }, [tierAMetrics, gateC]);
+  }, [tierAMetrics, tierBMetrics, gateC]);
 
   return (
     <div className="flex flex-col gap-12">
@@ -72,14 +82,18 @@ export default function ResultsPage() {
                 data={phaseCurveData}
                 series={[
                   { key: "tierA", name: "Tier A (LC + static, sim)", color: "var(--color-primary)" },
-                  { key: "tierB", name: "Tier B (fine-tuned, real ZTF)", color: "var(--color-ii)" },
+                  { key: "tierB", name: "Tier B (LC-only, deployed, real ZTF)", color: "var(--color-ii)" },
                 ]}
               />
               <p className="text-caption mt-2">
                 Tier B has no cutoff=-5 point — BTSbot alerts carry no pre-detection forced photometry (§5.1
                 Day-8 finding), so that comparison is dropped rather than plotted as a meaningless number.
+                Tier B&apos;s full-cutoff point is pinned to the original, git-tracked scalar
+                (gate_c_report.json:lc_only.macro_f1_full = 0.6716) rather than the intermediate-cutoffs
+                file&apos;s own re-run value (0.6727) — the two differ by 0.0011 due to a documented
+                non-deterministic re-run (paper/NUMBERS_GAPS.md).
               </p>
-              <SourceCite path="outputs/train_static/eval/metrics.json[cutoff].macro_f1 · gate_c_report.json:with_static.phase_curve" />
+              <SourceCite path="outputs/train_static/eval/metrics.json[cutoff].macro_f1 · outputs/finetune_bts/lc_only/eval/metrics.json[cutoff].macro_f1 · gate_c_report.json:lc_only.macro_f1_full" />
             </CardContent>
           </Card>
         )}

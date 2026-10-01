@@ -69,3 +69,14 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src", "src.*"]
+# `where=["."]` + `include` filters the discovered package LIST, but
+# setuptools still walks every sibling directory under root to build that
+# list in the first place -- exclude prunes recursion into each of these
+# before that happens, so `pip install -e .` doesn't walk data/ (raw
+# ELAsTiCC2/BTSbot files), outputs/ (checkpoints), frontend/node_modules,
+# or .venv itself. Without this, an editable install's dependency-resolution
+# step silently becomes an unbounded directory walk over gitignored data.
+exclude = [
+    "data*", "outputs*", "reports*", "frontend*", "notebooks*",
+    "infra*", "ui*", "tests*", "video*", "paper*", ".venv*",
+]

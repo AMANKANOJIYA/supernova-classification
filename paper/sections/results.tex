@@ -1,7 +1,7 @@
-\section{Results}
+\chapter{Results \& Analysis}
 \label{sec:results}
 
-\subsection{Main classification results}
+\section{Main classification results}
 
 Table~\ref{tab:mainresults} reports macro-F1 and Ia-vs-rest ROC-AUC for
 every trained configuration. The majority-class and logistic-regression
@@ -63,41 +63,44 @@ $\TransferGain{}$ macro-F1 over the zero-shot baseline on Tier B
 measurable work, not merely re-labelling an already-adequate zero-shot
 model.
 
-\subsection{Phase curve}
+\section{Phase curve}
 
 \begin{figure}[htb]
 \centering
 \includegraphics[width=0.78\linewidth]{figures/fig4_phase_curve}
 \caption{Macro-F1 as a function of days since first detection, Tier A test
-(LC+static) against Tier B test (LC+static fine-tune). Tier B has no
-pre-detection ($-5$\,d) point because its source metadata contains no
-forced-photometry row type at all (Section~\ref{sec:discussion}); the
-comparison is therefore restricted to cutoffs $\geq 0$. Conflating ``the
-model degrades on real data'' with ``the model was evaluated on an easier
-phase slice'' would compare a full Tier A curve (which includes $-5$\,d)
-against a necessarily truncated Tier B one and misstate the size of the
-sim-to-real gap for reasons that have nothing to do with sim-to-real
-generalisation. This figure shows the LC+static Tier B variant specifically,
-not the deployed LC-only variant, because its own per-cutoff phase curve
-survives on disk fully intact and git-tracked
-(\texttt{reports/gate\_c/gate\_c\_report.json}); the deployed variant's
-intermediate cutoffs exist only in a since-superseded, non-deterministic
-re-run of the fine-tuning script (Section~\ref{sec:results}, Table
-\ref{tab:mainresults} gives the deployed variant's own, unaffected
-full-cutoff numbers).}
+(LC+static) against Tier B test (LC-only fine-tune, the deployed
+configuration). Tier B has no pre-detection ($-5$\,d) point because its
+source metadata contains no forced-photometry row type at all
+(Section~\ref{sec:discussion}); the comparison is therefore restricted to
+cutoffs $\geq 0$. Conflating ``the model degrades on real data'' with ``the
+model was evaluated on an easier phase slice'' would compare a full Tier A
+curve (which includes $-5$\,d) against a necessarily truncated Tier B one
+and misstate the size of the sim-to-real gap for reasons that have nothing
+to do with sim-to-real generalisation. Tier B's intermediate cutoffs (0,
+5, 15, 30\,d) are read from \texttt{outputs/finetune\_bts/lc\_only/eval/%
+metrics.json}, the only place they exist; that file is itself the product
+of a later, non-deterministic re-run of the fine-tuning script, whose own
+full-cutoff value (0.6727) drifted 0.0011 from the original, git-tracked
+0.6716 reported everywhere else in this document
+(\texttt{paper/NUMBERS\_GAPS.md}). This figure's own full-cutoff point is
+therefore pinned to that original, git-tracked scalar
+(\texttt{reports/gate\_c/gate\_c\_report.json}, \texttt{"lc\_only"."macro\_f1\_full"}),
+not the re-run file's own drifted value, so the curve's endpoint matches
+every other reported number for the deployed configuration.}
 \label{fig:phasecurve}
 \end{figure}
 
 Both curves in Figure~\ref{fig:phasecurve} rise monotonically with more of
 the light curve observed, from \TierLCStaticMacroFZero{} (Tier A, $0$\,d) to
-\TierLCStaticMacroFFull{} (full) and from \TierBWithStaticPhaseZero{} (Tier B,
-$0$\,d) to \TierBWithStaticPhaseFull{} (full). A model that got \emph{worse}
+\TierLCStaticMacroFFull{} (full) and from 0.2839 (Tier B, LC-only,
+$0$\,d) to \LCOnlyMacroF{} (full). A model that got \emph{worse}
 with more data would itself indicate a bug -- leakage that only helps a
 truncated input, or an architecture unable to use a long sequence -- so the
 monotonic shape is a sanity check that passed, not merely a pleasant
 picture.
 
-\subsection{Confusion matrices}
+\section{Confusion matrices}
 
 \begin{figure}[htb]
 \centering
@@ -122,7 +125,7 @@ Ia at $0$\,d); the diagonal emerges as photometry accumulates.}
 \label{fig:confgrid}
 \end{figure}
 
-\subsection{Prediction panels}
+\section{Prediction panels}
 
 \begin{figure}[htb]
 \centering
@@ -150,7 +153,7 @@ Ia at 94\% confidence while its spectroscopic type is Ib/c -- exactly the
 kind of case the sim-to-real gap and the Ib/c F1 figure in
 Table~\ref{tab:mainresults} are summarising as a single number.
 
-\subsection{Anomaly branch under domain shift}
+\section{Anomaly branch under domain shift}
 
 \begin{figure}[htb]
 \centering
@@ -203,7 +206,7 @@ Combined (with entropy) & \AnomalyTierACombined{} & \AnomalyTierBCombined{} \\
 \end{tabular}
 \end{table}
 
-\subsection{Serving benchmarks}
+\section{Serving benchmarks}
 
 A serving-layer latency and throughput benchmark (Kafka consume through
 Postgres write, one alert at a time) exists in this project's development
@@ -221,7 +224,7 @@ LC-only macro-F1 to within 0.0011 (Section~\ref{sec:discussion}), evidence
 that the serving path introduces no correctness regression relative to the
 harness these headline numbers otherwise come from.
 
-\subsection{Live stream results}
+\section{Live stream results}
 
 \paragraph{ZTF.} \LiveZtfTotalAlerts{} real alerts were ingested end to end
 through the unmodified replay-mode pipeline across two live sessions
@@ -247,7 +250,7 @@ pipeline's LSST reader, therefore remains built and defensively tested
 against synthetic packets, but unverified against a single real LSST
 alert -- a real, stated gap, not a claimed success.
 
-\subsection{Gate outcomes}
+\section{Gate outcomes}
 
 \begin{table}[htb]
 \centering

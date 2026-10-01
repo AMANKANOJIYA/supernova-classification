@@ -1,0 +1,52 @@
+\chapter{Conclusion \& Future Work}
+\label{sec:conclusion}
+
+\section{Conclusions}
+
+\begin{enumerate}
+  \item A causal, wavelength-conditioned light-curve encoder trained on
+    simulated LSST-like data and fine-tuned on real ZTF data reaches
+    $\LCOnlyMacroF{}$ macro-F1 on real, held-out test data, a
+    $\SimToRealGapLCOnly{}$ drop from its own simulated-data ceiling of
+    $\TierAFullMacroF{}$ (Table~\ref{tab:mainresults}).
+  \item Fine-tuning on a comparatively small real labelled set
+    (\TierBLabeledTrain{} objects) recovers $\TransferGain{}$ macro-F1 over
+    a zero-shot, simulation-only baseline (Table~\ref{tab:mainresults}) --
+    the sim-to-real transfer strategy this project depends on is doing
+    real, measurable work.
+  \item Host-galaxy static features improve simulated-data performance but
+    measurably \emph{degrade} real-data fine-tuning
+    (Section~\ref{sec:discussion}); the leading explanation tested for this
+    (missing photometric redshift) is refuted, not confirmed, and the true
+    cause remains an open question.
+  \item An anomaly-detection ensemble combining reconstruction error,
+    Mahalanobis distance, and an isolation forest reaches
+    $\AnomalyTierACombinedThreeRecomputed{}$ ROC-AUC on held-out simulated
+    exotic classes and $\AnomalyTierBCombinedThreeRecomputed{}$ on real,
+    spectroscopically confirmed non-supernova objects
+    (Table~\ref{tab:anomaly}) -- a smaller but still useful score under
+    real domain shift, not the best score on either individual set alone.
+  \item Classifier confidence is not a usable anomaly signal: it becomes
+    \emph{more} confident, not less, on inputs unlike anything the model
+    was trained on (Table~\ref{tab:entropybyclass}), and including it in
+    the anomaly combination measurably hurt performance on both evaluation
+    sets.
+  \item Gate D, the manual inspection of top-ranked anomalies against a
+    published real-bogus-artifact anchor, could not be meaningfully
+    evaluated this project: every population available was pre-cleaned of
+    bogus candidates before the ranker ever saw it, at two independent
+    pipeline stages (Table~\ref{tab:gateoutcomes}).
+\end{enumerate}
+
+\section{Future Work}
+
+In order of what would most directly close an open item in this report:
+closing Gate D against a genuinely unfiltered (or reject/candidate)
+alert stream; verifying the LSST reader against real traffic, whenever
+Fink's relay next carries it during a live session; isolating the static-
+encoder inversion with its own controlled ablation (a static branch trained
+alone, at a different learning rate, on the same Tier B split); revisiting
+WHXE now that Tier B fine-tuning has introduced a genuine population of
+non-SN-like real objects for its hierarchy to be tested against; and
+batching the serving state layer's per-alert database round trips, since
+the classifier itself is not the throughput bottleneck.

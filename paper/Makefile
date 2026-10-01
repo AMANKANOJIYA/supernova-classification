@@ -24,4 +24,4 @@ figures:
 	cd .. && PYTHONPATH=. $(PYTHON) paper/scripts/make_anomaly_slope.py
 
 clean:
-	rm -f main.aux main.bbl main.blg main.log main.out main.toc main.xdv
+	rm -f main.aux main.bbl main.blg main.log main.out main.toc main.lof main.lot main.xdv

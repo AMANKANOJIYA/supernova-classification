@@ -1,0 +1,20 @@
+\chapter*{Project Visual}
+\addcontentsline{toc}{chapter}{Project Visual}
+
+\begin{center}
+\resizebox{\linewidth}{!}{\input{figures/fig1_pipeline}}
+\end{center}
+
+\bigskip
+\noindent\textit{Pipeline architecture.} Three data tiers (simulated
+ELAsTiCC2 for pretraining, real ZTF/BTSbot for fine-tuning, live Fink for
+serving) convert into one canonical alert schema, which every downstream
+stage consumes identically regardless of source. A shared causal GRU
+light-curve encoder (optionally fused with a static host-context branch)
+feeds both the flat 3-class classification head and a separate
+anomaly-scoring branch. The serving path (Kafka $\to$ Redis rolling state
+$\to$ ONNX inference $\to$ Postgres $\to$ API) is the same consumer code
+whether its producer is an archived-data replay or the live Fink stream.
+This same diagram recurs as Figure~\ref{fig:pipeline} in
+Chapter~\ref{sec:methodology-chapter}, where each stage is discussed in
+detail.

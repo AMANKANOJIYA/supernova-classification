@@ -1,7 +1,7 @@
-\section{Discussion and Conclusions}
+\chapter{Discussion}
 \label{sec:discussion}
 
-\subsection{The sim-to-real gap}
+\section{The sim-to-real gap}
 
 The deployed model's sim-to-real drop ($\TierAFullMacroF{} \to
 \LCOnlyMacroF{}$, $\SimToRealGapLCOnly{}$ macro-F1) is read here as a
@@ -21,7 +21,7 @@ consequence of Ib/c being simultaneously the rarest class in the real sky
 and the class Tier B's own test split supports least (\TierBSupportIbc{}
 objects against \TierBSupportIa{} Ia).
 
-\subsection{The Tier B static-encoder inversion (unresolved)}
+\section{The Tier B static-encoder inversion (unresolved)}
 
 Adding host/static features helped substantially on Tier A
 ($\TierLCOnlyMacroFFull{} \to \TierLCStaticMacroFFull{}$) but made the Tier
@@ -44,7 +44,7 @@ plausible, untested alternative. The deployed model sidesteps this by using
 no static branch at all; the inversion is a property of the static branch
 specifically, not of the model actually shipped.
 
-\subsection{Windowing: one mechanism, three symptoms}
+\section{Windowing: one mechanism, three symptoms}
 
 The train/serve sequence-length mismatch (Section~\ref{sec:windowing}), the
 unbounded right edge for non-fading sources (Table~\ref{tab:spans}), and
@@ -66,7 +66,7 @@ distinction this project's own span cap addresses for training-distribution
 matching but does not, by itself, solve for a serving-time rolling window
 (Section~\ref{sec:analysis}).
 
-\subsection{Confidently wrong on out-of-distribution input}
+\section{Confidently wrong on out-of-distribution input}
 
 Table~\ref{tab:entropybyclass} makes the general pattern explicit across
 every held-out simulated exotic class: mean entropy is markedly lower --
@@ -106,7 +106,7 @@ CLAGN & \ExoticNCLAGN{} & \ExoticEntropyCLAGN{} \\
 \end{tabular}
 \end{table}
 
-\subsection{Anomaly components under domain shift}
+\section{Anomaly components under domain shift}
 
 The two latent-space methods (isolation forest, Mahalanobis distance) do
 not survive the shift from simulated to real data because the latent space
@@ -123,7 +123,7 @@ individual set (isolation forest on Tier A, reconstruction error on Tier B)
 and is the only score that stays useful, above \num{0.74} ROC-AUC, on both.
 That is the honest, and more useful, claim to make about it.
 
-\subsection{Systems findings}
+\section{Systems findings}
 
 The classifier itself is a small fraction of what an end-to-end serving
 pipeline actually spends time on: ONNX inference measured separately at a
@@ -134,7 +134,7 @@ restated here). The implication for a broker-scale deployment is that
 batching the state-layer writes, not further optimising the model, is the
 obvious next lever if higher throughput is ever required.
 
-\subsection{Validation findings: what would have failed silently}
+\section{Validation findings: what would have failed silently}
 
 Table~\ref{tab:silentfailures} is, in its way, this report's methodological
 contribution: every item in it would have produced a plausible, confident,
@@ -194,7 +194,7 @@ that would have to pass them existed, and pre-registered gates
 project's actual methodological contribution, and is presented as such
 rather than as an apology.
 
-\subsection{Limitations}
+\section{Limitations}
 
 Tier B is a systematically cleaner slice of the real sky than a live
 stream, not a representative sample of one: it is pre-filtered to
@@ -215,53 +215,3 @@ against real traffic. The image encoder was cut, not deferred: Tier B
 image data was never loaded across the project, and no schedule remained
 to build, fuse, and retrain around it once that became clear. Gate D
 remains unresolved, for the reason given in Table~\ref{tab:gateoutcomes}.
-
-\subsection{Future work}
-
-In order of what would most directly close an open item in this report:
-closing Gate D against a genuinely unfiltered (or reject/candidate)
-alert stream; verifying the LSST reader against real traffic, whenever
-Fink's relay next carries it during a live session; isolating the static-
-encoder inversion with its own controlled ablation (a static branch trained
-alone, at a different learning rate, on the same Tier B split); revisiting
-WHXE now that Tier B fine-tuning has introduced a genuine population of
-non-SN-like real objects for its hierarchy to be tested against; and
-batching the serving state layer's per-alert database round trips, since
-the classifier itself is not the throughput bottleneck.
-
-\subsection{Conclusions}
-
-\begin{enumerate}
-  \item A causal, wavelength-conditioned light-curve encoder trained on
-    simulated LSST-like data and fine-tuned on real ZTF data reaches
-    $\LCOnlyMacroF{}$ macro-F1 on real, held-out test data, a
-    $\SimToRealGapLCOnly{}$ drop from its own simulated-data ceiling of
-    $\TierAFullMacroF{}$ (Table~\ref{tab:mainresults}).
-  \item Fine-tuning on a comparatively small real labelled set
-    (\TierBLabeledTrain{} objects) recovers $\TransferGain{}$ macro-F1 over
-    a zero-shot, simulation-only baseline (Table~\ref{tab:mainresults}) --
-    the sim-to-real transfer strategy this project depends on is doing
-    real, measurable work.
-  \item Host-galaxy static features improve simulated-data performance but
-    measurably \emph{degrade} real-data fine-tuning
-    (Section~\ref{sec:discussion}); the leading explanation tested for this
-    (missing photometric redshift) is refuted, not confirmed, and the true
-    cause remains an open question.
-  \item An anomaly-detection ensemble combining reconstruction error,
-    Mahalanobis distance, and an isolation forest reaches
-    $\AnomalyTierACombinedThreeRecomputed{}$ ROC-AUC on held-out simulated
-    exotic classes and $\AnomalyTierBCombinedThreeRecomputed{}$ on real,
-    spectroscopically confirmed non-supernova objects
-    (Table~\ref{tab:anomaly}) -- a smaller but still useful score under
-    real domain shift, not the best score on either individual set alone.
-  \item Classifier confidence is not a usable anomaly signal: it becomes
-    \emph{more} confident, not less, on inputs unlike anything the model
-    was trained on (Table~\ref{tab:entropybyclass}), and including it in
-    the anomaly combination measurably hurt performance on both evaluation
-    sets.
-  \item Gate D, the manual inspection of top-ranked anomalies against a
-    published real-bogus-artifact anchor, could not be meaningfully
-    evaluated this project: every population available was pre-cleaned of
-    bogus candidates before the ranker ever saw it, at two independent
-    pipeline stages (Table~\ref{tab:gateoutcomes}).
-\end{enumerate}

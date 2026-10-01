@@ -1,4 +1,7 @@
-\subsection{Methodology}
+\chapter{Methodology, Data \& Observations}
+\label{sec:methodology-chapter}
+
+\section{Methodology}
 \label{sec:methodology}
 
 This section states the design principles adopted \emph{before} any model
@@ -10,7 +13,7 @@ considered, the choice made, and the evidence that settled it. Most write-ups
 of a pipeline like this present only the final configuration; the
 alternatives that were rejected, and why, are at least as informative.
 
-\subsubsection{Design principles}
+\subsection{Design principles}
 
 \paragraph{Wavelength conditioning, not band identity.}
 ZTF alerts carry three photometric filters; LSST alerts carry six
@@ -129,7 +132,7 @@ Field & Meaning \\
 \end{tabular}
 \end{table}
 
-\subsubsection{Figure 1: pipeline architecture}
+\subsection{Figure 1: pipeline architecture}
 
 Figure~\ref{fig:pipeline} is the anchor figure for this report: the three
 data tiers on the left, the canonical schema as the single conversion
@@ -152,7 +155,7 @@ archived-data replay or the live Fink stream.}
 \label{fig:pipeline}
 \end{figure}
 
-\subsubsection{Model architecture}
+\subsection{Model architecture}
 
 The light-curve encoder (Figure~\ref{fig:pipeline}) is a 2-layer causal GRU,
 hidden size 128, with a \texttt{LayerNorm} and dropout ($p=0.2$) applied to
@@ -193,7 +196,7 @@ untransformed scale as well; the indicator lets the downstream MLP learn to
 treat a filled value differently from a measured one, which a silent
 imputation would not allow it to do at all.
 
-\subsubsection{Anomaly branch}
+\subsection{Anomaly branch}
 
 The anomaly score combines three components, computed over the encoder's
 own latent representation and the observed light curve:
@@ -216,7 +219,7 @@ statistics and combined by an equal-weighted average
 (Section~\ref{sec:results} discusses why entropy, a fourth candidate
 component, was tried and dropped).
 
-\subsubsection{Hierarchical loss (WHXE)}
+\subsection{Hierarchical loss (WHXE)}
 
 Weighted hierarchical cross-entropy \citep{villar2023whxe} was implemented
 and compared, in one controlled run (same encoder, data, split, seed, and
@@ -262,7 +265,7 @@ resolved implementation decision, not an unresolved ambiguity, but is
 reported explicitly rather than silently, since a reader implementing the
 same loss from the same equation could reasonably make the opposite choice.
 
-\subsubsection{Serving architecture}
+\subsection{Serving architecture}
 
 The serving path (Figure~\ref{fig:pipeline}) is Kafka
 $\to$ a stateless normalisation step $\to$ Redis (rolling per-object
@@ -274,7 +277,7 @@ producer swap plus new reader modules, not a rewrite of the consumer -- the
 same consumer code was verified, unmodified, against both an archived-data
 replay and real Fink alert traffic (Section~\ref{sec:results}).
 
-\subsubsection{Deviation from the specified toolchain}
+\subsection{Deviation from the specified toolchain}
 
 The programme brief specified the Fink client, TensorFlow, and LightGBM.
 The Fink client was used as specified, against real ZTF and LSST broker
@@ -293,7 +296,7 @@ recurrent-network framing specifies. Substituting a gradient-boosted-tree
 method for a sequence model would have been a different architecture
 entirely, not an equivalent implementation choice.
 
-\subsubsection{Validation protocol}
+\subsection{Validation protocol}
 
 Four gates (Table~\ref{tab:gates}) were defined \emph{before} the results
 they judge, as pre-registered acceptance criteria rather than criteria
