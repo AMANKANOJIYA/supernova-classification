@@ -43,8 +43,9 @@ photometry service means non-detections here carry an actual measured flux,
 unlike ZTF's limiting-magnitude-only upper limits; see avro_ztf.py's
 docstring for that contrast).
 
-Per-source fields assumed: `diaSourceId`, `ra`, `decl` (LSST DPDD convention
--- NOT `dec`, unlike ZTF), `band` (single character, one of ugrizy -- NOT a
+Per-source fields assumed: `diaSourceId`, `ra`, `dec` (the live Fink LSST
+schema; older DPDD drafts used `decl` -- verified against a real archived
+packet 2026-11-06), `band` (single character, one of ugrizy -- NOT a
 numeric `fid` the way ZTF encodes it), `midpointMjdTai` (already MJD, NOT JD
 -- no `-2400000.5` conversion needed, unlike ZTF/BTSbot), `psfFlux`,
 `psfFluxErr` (already **calibrated flux**, nanojansky, AB zeropoint 31.4 --
@@ -194,7 +195,7 @@ def lsst_alert_to_canonical(alert: dict) -> CanonicalAlert:
 
     Raises:
         ValueError: if the triggering `diaSource` itself cannot be converted,
-            or if `diaObjectId`/`ra`/`decl` (needed for object_id and static
+            or if `diaObjectId`/`ra`/`dec` (needed for object_id and static
             context) are absent -- CLAUDE.md §5.1: every real alert
             originates from a detection, this is not a normal edge case.
     """
@@ -231,10 +232,10 @@ def lsst_alert_to_canonical(alert: dict) -> CanonicalAlert:
     observations.sort(key=lambda o: o.mjd)
 
     ra = dia_source.get("ra")
-    decl = dia_source.get("decl")
-    if ra is None or decl is None:
-        raise ValueError(f"object_id={object_id!r}: diaSource missing ra/decl")
-    mw_ebv, gal_lat = _mw_ebv_and_gal_lat(float(ra), float(decl))
+    dec = dia_source.get("dec")
+    if ra is None or dec is None:
+        raise ValueError(f"object_id={object_id!r}: diaSource missing ra/dec")
+    mw_ebv, gal_lat = _mw_ebv_and_gal_lat(float(ra), float(dec))
 
     # diaObject-level fields: no DPDD-standard host offset/mag/ellipticity/
     # real-bogus field name is confidently known without a live packet to

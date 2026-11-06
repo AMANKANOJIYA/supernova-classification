@@ -26,7 +26,7 @@ def _dia_source(**overrides):
         "diaSourceId": 111,
         "diaObjectId": 42,
         "ra": 150.0,
-        "decl": 2.0,
+        "dec": 2.0,
         "band": "r",
         "midpointMjdTai": 60123.5,
         "psfFlux": 500.0,
@@ -153,10 +153,10 @@ class TestFailsLoudlyOnMalformedInput:
         # only the triggering source survives; the bad prv row was skipped
         assert len(canonical.observations) == 1
 
-    def test_missing_ra_decl_raises(self):
+    def test_missing_ra_dec_raises(self):
         alert = _make_alert()
         alert["diaSource"]["ra"] = None
-        with pytest.raises(ValueError, match="missing ra/decl"):
+        with pytest.raises(ValueError, match="missing ra/dec"):
             avro_lsst.lsst_alert_to_canonical(alert)
 
 
