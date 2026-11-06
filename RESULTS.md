@@ -30,11 +30,11 @@ with an anomaly-ranking side branch and a results/monitoring UI.
 - **Model** — causal GRU light-curve encoder plus a static/host branch.
   **Deployed: LC+static**, fine-tuned on corrected Tier B
   (`outputs/finetune_bts_zpfix/with_static_{checkpoint.pt,model.onnx}`, seed 42).
-- **Anomaly branch** — reconstruction-error decoder + Mahalanobis distance
-  + isolation forest (PineForest), combined by z-score average; fitted
+- **Anomaly branch** — reconstruction-error decoder, Mahalanobis distance
+  and isolation forest (PineForest), combined by z-score average; fitted
   scorers persisted and served.
 - **Serving** — Kafka → Redis (rolling per-object state) → ONNX classifier
-  + anomaly scorer → Postgres → FastAPI, in replay and live mode with the
+  and anomaly scorer → Postgres → FastAPI, in replay and live mode with the
   same consumer code.
 - **UI** — Next.js dashboard (`frontend/`) plus the older single page (`ui/`).
 
@@ -43,27 +43,27 @@ with an anomaly-ranking side branch and a results/monitoring UI.
 Macro-F1 at the full light-curve cutoff unless stated. Tier B fine-tuned
 rows are the mean over 5 seeds (± SD), test n = 658.
 
-| Measurement | Value | Context |
-| --- | --- | --- |
-| Tier A, LC+static: macro-F1 / Ia-vs-rest ROC-AUC | **0.7169 / 0.9301** | ROC-AUC inside the pre-registered 0.93–0.96 band, at its bottom |
-| Tier A, LC-only: macro-F1 / Ia-vs-rest ROC-AUC | 0.6981 / 0.9185 | |
-| Tier B, **LC+static fine-tune (deployed)** | **0.6210 ± 0.0067**, ROC-AUC 0.8823 | served seed-42 checkpoint: 0.6201 |
-| Tier B, LC-only fine-tune | 0.5647 ± 0.0012, ROC-AUC 0.8685 | |
-| Tier B, LC+static+DRB fine-tune | 0.5358 ± 0.0059 | |
-| Tier B baselines: majority class / logistic regression | 0.2839 / 0.4687 | frozen `src/eval/baselines.py` |
-| Sim-to-real gap, matched LC+static | 0.7169 → 0.6210 (**−0.0959**) | |
-| Sim-to-real gap, matched LC-only | 0.6981 → 0.5647 (**−0.1333**) | |
-| Transfer gain over matching zero-shot | LC+static **+0.1970** (0.4240 → 0.6210); LC-only **+0.2910** (0.2737 → 0.5647) | |
-| Host-feature gain on Tier B | +0.0563 (LC+static over LC-only) | the earlier "inversion" was the bug, see below |
-| Ib/c F1, Tier B, deployed config | **0.2864** (seed 42: 0.2857) | **misses** the pre-registered 0.40–0.60 band; 35 Ib/c test objects |
-| Anomaly, combined (entropy dropped) | Tier A **0.8146** / Tier B **0.7793** | Tier B pre-fix was 0.7622 |
-| Replay through the full serving stack vs offline | 0.6213 vs 0.6201 | same checkpoint; difference is the serving-only 200-day span cap |
-| Serving latency (uncontended, single node) | p50 **37.6 ms**, p95 54.1 ms, p99 65.6 ms | `reports/zeropoint_fix_2026-11-05/serving_lc_static/` |
-| Serving throughput | **575** alerts/s (busy interval) | |
-| ONNX classifier alone | **0.174 ms**/alert (batch 1, median) | `reports/serving_2026-11-06/` |
-| Live ZTF (2026-11-06, corrected model) | 578 alerts, 0 skipped, 330 objects; negative flux 5.7% | `reports/live_2026-11-06/` |
-| Live LSST (2026-11-06, first real ingestion) | 1817 alerts, 0 skipped, 853 objects; negative flux 19.1% | **unlabelled — no accuracy claim** |
-| Real vs simulated brightness | median detection FLUXCAL 2629 (Tier B) vs 73 (Tier A), ~36× | the bug hid ~10.3× of it |
+| Measurement                                            | Value                                                                          | Context                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Tier A, LC+static: macro-F1 / Ia-vs-rest ROC-AUC       | **0.7169 / 0.9301**                                                            | ROC-AUC inside the pre-registered 0.93–0.96 band, at its bottom    |
+| Tier A, LC-only: macro-F1 / Ia-vs-rest ROC-AUC         | 0.6981 / 0.9185                                                                |                                                                    |
+| Tier B, **LC+static fine-tune (deployed)**             | **0.6210 ± 0.0067**, ROC-AUC 0.8823                                            | served seed-42 checkpoint: 0.6201                                  |
+| Tier B, LC-only fine-tune                              | 0.5647 ± 0.0012, ROC-AUC 0.8685                                                |                                                                    |
+| Tier B, LC+static+DRB fine-tune                        | 0.5358 ± 0.0059                                                                |                                                                    |
+| Tier B baselines: majority class / logistic regression | 0.2839 / 0.4687                                                                | frozen `src/eval/baselines.py`                                     |
+| Sim-to-real gap, matched LC+static                     | 0.7169 → 0.6210 (**−0.0959**)                                                  |                                                                    |
+| Sim-to-real gap, matched LC-only                       | 0.6981 → 0.5647 (**−0.1333**)                                                  |                                                                    |
+| Transfer gain over matching zero-shot                  | LC+static **+0.1970** (0.4240 → 0.6210); LC-only **+0.2910** (0.2737 → 0.5647) |                                                                    |
+| Host-feature gain on Tier B                            | +0.0563 (LC+static over LC-only)                                               | the earlier "inversion" was the bug, see below                     |
+| Ib/c F1, Tier B, deployed config                       | **0.2864** (seed 42: 0.2857)                                                   | **misses** the pre-registered 0.40–0.60 band; 35 Ib/c test objects |
+| Anomaly, combined (entropy dropped)                    | Tier A **0.8146** / Tier B **0.7793**                                          | Tier B pre-fix was 0.7622                                          |
+| Replay through the full serving stack vs offline       | 0.6213 vs 0.6201                                                               | same checkpoint; difference is the serving-only 200-day span cap   |
+| Serving latency (uncontended, single node)             | p50 **37.6 ms**, p95 54.1 ms, p99 65.6 ms                                      | `reports/zeropoint_fix_2026-11-05/serving_lc_static/`              |
+| Serving throughput                                     | **575** alerts/s (busy interval)                                               |                                                                    |
+| ONNX classifier alone                                  | **0.174 ms**/alert (batch 1, median)                                           | `reports/serving_2026-11-06/`                                      |
+| Live ZTF (2026-11-06, corrected model)                 | 578 alerts, 0 skipped, 330 objects; negative flux 5.7%                         | `reports/live_2026-11-06/`                                         |
+| Live LSST (2026-11-06, first real ingestion)           | 1817 alerts, 0 skipped, 853 objects; negative flux 19.1%                       | **unlabelled — no accuracy claim**                                 |
+| Real vs simulated brightness                           | median detection FLUXCAL 2629 (Tier B) vs 73 (Tier A), ~36×                    | the bug hid ~10.3× of it                                           |
 
 The Day-12 serving figures (27.2 ms p50, 730 alerts/s) could not be matched
 to any stored run and have been replaced by the stored benchmark above.
