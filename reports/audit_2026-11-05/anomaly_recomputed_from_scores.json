@@ -1,0 +1,22 @@
+{
+ "tier_a": {
+  "combined_3": 0.8145906689909843,
+  "combined_4": 0.7644304158959768,
+  "n_normal": 126542,
+  "n_anomalous": 442303,
+  "reconstruction_error": 0.5643056662176085,
+  "mahalanobis": 0.7859581837492,
+  "isoforest": 0.8427762445059773,
+  "entropy": 0.25781585514425587
+ },
+ "tier_b": {
+  "combined_3": 0.762171870682509,
+  "combined_4": 0.7418260351071101,
+  "n_normal": 658,
+  "n_anomalous": 1045,
+  "reconstruction_error": 0.8382309739532584,
+  "mahalanobis": 0.523641308299763,
+  "isoforest": 0.6399746949578976,
+  "entropy": 0.42028766306481874
+ }
+}

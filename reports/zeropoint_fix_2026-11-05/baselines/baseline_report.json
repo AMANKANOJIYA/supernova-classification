@@ -1,0 +1,776 @@
+{
+ "protocol": "Part B: fit + persist the two Table-4.1 baselines (majority-class, 5-feature\nmultinomial logistic regression), on BOTH tiers, using the frozen\nsrc/eval/baselines.py implementations and the frozen src/eval/report.py\nharness -- no new metric code.\n\nSplits are the model's own:\n  Tier A: split_by_object_id(seed=42, 0.7/0.15) over\n          data/interim/elasticc2/train_02_full_3class.parquet (configs/train/*.yaml)\n  Tier B: src.train.finetune_bts.load_tier_b (shipped BTSbot splits + BTS\n          Sample Explorer join), 3-class-labelled objects only.\n\nProtocol (stated, not hidden):\n  * Both baselines are FIT on full-light-curve training features (all\n    detections). Each is EVALUATED at the same phase cutoffs as the models,\n    with features recomputed from detections with\n    mjd <= first_detection_mjd + cutoff only.\n  * A cutoff with zero detections available (always the case at -5) yields no\n    prediction for that object -> counted in n_excluded by the frozen harness.\n  * extract_five_features raises on an object with zero detections; such\n    objects are counted and logged, never silently dropped (CLAUDE.md 2.5).\n\nUsage: python run_baselines.py <repo_root_for_src> <output_dir>\n",
+ "class_order": [
+  "Ia",
+  "Ib/c",
+  "II"
+ ],
+ "lr_hyperparams": {
+  "learning_rate": 0.1,
+  "n_iter": 2000,
+  "l2": 0.001,
+  "seed": 0
+ },
+ "tier_a": {
+  "split_sizes": {
+   "train": 590532,
+   "val": 126543,
+   "test": 126542
+  },
+  "n_train_fit": 590532,
+  "n_test_scored": 126542,
+  "n_zero_detection_skipped": {
+   "train": 0,
+   "test": 0
+  },
+  "majority_class": "II",
+  "results": {
+   "majority": {
+    "-5": {
+     "n_objects": 0,
+     "n_excluded": 126542,
+     "macro_f1": null,
+     "ia_vs_rest_roc_auc": null,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "support": [
+      0,
+      0,
+      0
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       0
+      ],
+      [
+       0,
+       0,
+       0
+      ],
+      [
+       0,
+       0,
+       0
+      ]
+     ]
+    },
+    "0": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2253493619588682,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.6760480858766046
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       25872
+      ],
+      [
+       0,
+       0,
+       36054
+      ],
+      [
+       0,
+       0,
+       64616
+      ]
+     ]
+    },
+    "5": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2253493619588682,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.6760480858766046
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       25872
+      ],
+      [
+       0,
+       0,
+       36054
+      ],
+      [
+       0,
+       0,
+       64616
+      ]
+     ]
+    },
+    "15": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2253493619588682,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.6760480858766046
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       25872
+      ],
+      [
+       0,
+       0,
+       36054
+      ],
+      [
+       0,
+       0,
+       64616
+      ]
+     ]
+    },
+    "30": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2253493619588682,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.6760480858766046
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       25872
+      ],
+      [
+       0,
+       0,
+       36054
+      ],
+      [
+       0,
+       0,
+       64616
+      ]
+     ]
+    },
+    "full": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2253493619588682,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.6760480858766046
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       25872
+      ],
+      [
+       0,
+       0,
+       36054
+      ],
+      [
+       0,
+       0,
+       64616
+      ]
+     ]
+    }
+   },
+   "logreg": {
+    "-5": {
+     "n_objects": 0,
+     "n_excluded": 126542,
+     "macro_f1": null,
+     "ia_vs_rest_roc_auc": null,
+     "per_class_f1": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "support": [
+      0,
+      0,
+      0
+     ],
+     "confusion_raw": [
+      [
+       0,
+       0,
+       0
+      ],
+      [
+       0,
+       0,
+       0
+      ],
+      [
+       0,
+       0,
+       0
+      ]
+     ]
+    },
+    "0": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.23145253068601412,
+     "ia_vs_rest_roc_auc": 0.5447714471206184,
+     "per_class_f1": [
+      0.0,
+      0.019447453954496208,
+      0.6749101381035462
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       0,
+       106,
+       25766
+      ],
+      [
+       0,
+       359,
+       35695
+      ],
+      [
+       0,
+       401,
+       64215
+      ]
+     ]
+    },
+    "5": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.2950649105310487,
+     "ia_vs_rest_roc_auc": 0.55385978627027,
+     "per_class_f1": [
+      0.0006170458927882761,
+      0.2048255511195973,
+      0.6797521345807606
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       8,
+       2268,
+       23596
+      ],
+      [
+       20,
+       4720,
+       31314
+      ],
+      [
+       30,
+       3046,
+       61540
+      ]
+     ]
+    },
+    "15": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.3099022064671848,
+     "ia_vs_rest_roc_auc": 0.5539313330355757,
+     "per_class_f1": [
+      0.0009260331056835283,
+      0.2488805666368151,
+      0.6799000196590558
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       12,
+       2895,
+       22965
+      ],
+      [
+       9,
+       6114,
+       29931
+      ],
+      [
+       24,
+       4069,
+       60523
+      ]
+     ]
+    },
+    "30": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.3169813757501364,
+     "ia_vs_rest_roc_auc": 0.526055319587582,
+     "per_class_f1": [
+      0.0010037834916222683,
+      0.27219887680163374,
+      0.6777414669571532
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       13,
+       3063,
+       22796
+      ],
+      [
+       7,
+       6931,
+       29116
+      ],
+      [
+       10,
+       4878,
+       59728
+      ]
+     ]
+    },
+    "full": {
+     "n_objects": 126542,
+     "n_excluded": 0,
+     "macro_f1": 0.3093335264011235,
+     "ia_vs_rest_roc_auc": 0.5400719704111089,
+     "per_class_f1": [
+      0.00023183925811437402,
+      0.24903941938238225,
+      0.6787293205628738
+     ],
+     "support": [
+      25872,
+      36054,
+      64616
+     ],
+     "confusion_raw": [
+      [
+       3,
+       2808,
+       23061
+      ],
+      [
+       3,
+       6125,
+       29926
+      ],
+      [
+       2,
+       4202,
+       60412
+      ]
+     ]
+    }
+   }
+  }
+ },
+ "tier_b": {
+  "n_train_fit": 5407,
+  "n_test_scored": 658,
+  "n_zero_detection_skipped": {
+   "train": 0,
+   "test": 0
+  },
+  "majority_class": "Ia",
+  "results": {
+   "majority": {
+    "0": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    },
+    "5": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    },
+    "15": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    },
+    "30": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    },
+    "full": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.5,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    }
+   },
+   "logreg": {
+    "0": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.28388598022105876,
+     "ia_vs_rest_roc_auc": 0.4138138862102218,
+     "per_class_f1": [
+      0.8516579406631762,
+      0.0,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       488,
+       0,
+       0
+      ],
+      [
+       35,
+       0,
+       0
+      ],
+      [
+       135,
+       0,
+       0
+      ]
+     ]
+    },
+    "5": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.31190662493479393,
+     "ia_vs_rest_roc_auc": 0.5839079074252652,
+     "per_class_f1": [
+      0.8468309859154929,
+      0.08888888888888888,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       481,
+       7,
+       0
+      ],
+      [
+       33,
+       2,
+       0
+      ],
+      [
+       134,
+       1,
+       0
+      ]
+     ]
+    },
+    "15": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.3622293974196537,
+     "ia_vs_rest_roc_auc": 0.6381750241080039,
+     "per_class_f1": [
+      0.8541300527240774,
+      0.23255813953488372,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       486,
+       2,
+       0
+      ],
+      [
+       30,
+       5,
+       0
+      ],
+      [
+       134,
+       1,
+       0
+      ]
+     ]
+    },
+    "30": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.3769590174876518,
+     "ia_vs_rest_roc_auc": 0.674566055930569,
+     "per_class_f1": [
+      0.8581497797356827,
+      0.27272727272727276,
+      0.0
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       487,
+       1,
+       0
+      ],
+      [
+       27,
+       6,
+       2
+      ],
+      [
+       133,
+       2,
+       0
+      ]
+     ]
+    },
+    "full": {
+     "n_objects": 658,
+     "n_excluded": 0,
+     "macro_f1": 0.4687284707952745,
+     "ia_vs_rest_roc_auc": 0.7550385728061717,
+     "per_class_f1": [
+      0.878316559926807,
+      0.19999999999999998,
+      0.3278688524590164
+     ],
+     "support": [
+      488,
+      35,
+      135
+     ],
+     "confusion_raw": [
+      [
+       480,
+       0,
+       8
+      ],
+      [
+       21,
+       4,
+       10
+      ],
+      [
+       104,
+       1,
+       30
+      ]
+     ]
+    }
+   }
+  }
+ },
+ "elapsed_seconds": 124.92678570747375
+}

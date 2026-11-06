@@ -6,9 +6,12 @@ Tier A anomaly-reconstruction component (CLAUDE.md §6 step 12,
 Why ONNX only wraps the CLASSIFIER, not the anomaly score
 -----------------------------------------------------------------------------
 The task is specifically "ONNX export of the Tier B model" -- the shipped
-classifier (`outputs/finetune_bts/lc_only_checkpoint.pt`, CLAUDE.md §11 Day
-9: LC-only fine-tune, Tier B test macro-F1 0.6716, the variant that beat
-LC+static). The anomaly branch (CLAUDE.md §11 Day 10) is a separate system
+classifier. Since 2026-11-05 that is the LC+static fine-tune on
+zeropoint-corrected Tier B data
+(`outputs/finetune_bts_zpfix/with_static_checkpoint.pt`, Tier B test
+macro-F1 0.6201; CLAUDE.md §11 2026-11-05 entry). Before that it was the
+LC-only fine-tune (0.6716), chosen on Day 9 on mis-scaled input -- with
+correct fluxes LC-only drops to ~0.565 and LC+static wins. The anomaly branch (CLAUDE.md §11 Day 10) is a separate system
 built on a DIFFERENT, frozen checkpoint (`outputs/train/checkpoint.pt`, the
 Tier A LC-only encoder -- never fine-tuned, still sees the negative-flux
 distribution Tier B's `isdiffpos` filter never included) plus a small
@@ -59,7 +62,7 @@ import json
 import logging
 import pickle
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 import onnxruntime as ort
@@ -75,13 +78,20 @@ from src.anomaly.decoder import (
 from src.anomaly.pineforest import EngineeredFeatureNormalizer, engineered_features
 from src.anomaly.scoring import MahalanobisScorer, combine_equal_weight, zscore
 from src.features.tensorize import NUM_FEATURES
+from src.models.fusion import LCStaticFusionModel
 from src.models.lc_encoder import LCEncoder
-from src.schema import CanonicalAlert
+from src.models.static_encoder import StaticFeatureNormalizer, build_static_vector
+from src.schema import CanonicalAlert, StaticContext
 
 logger = logging.getLogger(__name__)
 
-TIER_B_CHECKPOINT = Path("outputs/finetune_bts/lc_only_checkpoint.pt")
-TIER_B_ONNX_PATH = Path("outputs/finetune_bts/lc_only_model.onnx")
+# Deployed classifier: Tier B LC+static fine-tune, retrained 2026-11-05 on
+# zeropoint-corrected Tier B data (CLAUDE.md §3 correction, §11 2026-11-05
+# entry). It replaced the LC-only model: with correct fluxes LC+static wins
+# (macro-F1 0.6210 vs 0.5647, 5-seed means), reversing the Day-9 choice,
+# which had been made on mis-scaled input.
+TIER_B_CHECKPOINT = Path("outputs/finetune_bts_zpfix/with_static_checkpoint.pt")
+TIER_B_ONNX_PATH = Path("outputs/finetune_bts_zpfix/with_static_model.onnx")
 TIER_A_ENCODER_CHECKPOINT = Path("outputs/train/checkpoint.pt")
 ANOMALY_DECODER_CHECKPOINT = Path("outputs/anomaly/decoder_checkpoint.pt")
 ANOMALY_RESULTS_JSON = Path("outputs/anomaly/anomaly_results.json")
@@ -95,75 +105,121 @@ FOREST_PKL = Path("outputs/anomaly/forest.pkl")
 CLASS_NAMES = ("Ia", "Ib/c", "II")  # src.taxonomy.TARGET_CLASS_IDS order
 
 
-class _ONNXExportableLCEncoder(nn.Module):
-    """Same computation as `LCEncoder.forward`, minus `pack_padded_sequence`/
-    `pad_packed_sequence`. Those ops exist purely to skip wasted compute on
-    padded timesteps during TRAINING; at inference they change nothing about
-    the values at real timesteps (a causal GRU's output at t depends only on
-    inputs at <=t, so extra zero-padded steps after a sequence's real length
-    cannot affect any real timestep's output -- they only produce outputs at
-    positions the caller must simply not read). Dropping them is what makes
-    this exportable: `torch.onnx.export` traces control flow it doesn't like,
-    and the pack/pad pair introduces exactly that."""
+class _ONNXExportableLCStatic(nn.Module):
+    """Same computation as `LCStaticFusionModel.forward` in eval mode, minus
+    `pack_padded_sequence`/`pad_packed_sequence`. Those ops exist purely to
+    skip wasted compute on padded timesteps during TRAINING; at inference
+    they change nothing about the values at real timesteps (a causal GRU's
+    output at t depends only on inputs at <=t, so zero-padded steps after a
+    sequence's real length cannot affect any real timestep -- they only
+    produce outputs at positions the caller must not read). Dropping them is
+    what makes this exportable. Dropout is the identity in eval mode and is
+    omitted. The static branch is per-object, broadcast to every timestep,
+    exactly as in training."""
 
-    def __init__(self, gru: nn.GRU, layer_norm: nn.LayerNorm, head: nn.Linear) -> None:
+    def __init__(self, model: LCStaticFusionModel) -> None:
         super().__init__()
-        self.gru = gru
-        self.layer_norm = layer_norm
-        self.head = head
+        self.gru = model.gru
+        self.layer_norm = model.layer_norm
+        self.static_encoder = model.static_encoder
+        self.head = model.head
 
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        out, _ = self.gru(features)
-        out = self.layer_norm(out)
-        return self.head(out)
+    def forward(self, features: torch.Tensor, static_features: torch.Tensor) -> torch.Tensor:
+        lc_out, _ = self.gru(features)
+        lc_out = self.layer_norm(lc_out)
+        static_out = self.static_encoder(static_features)
+        static_broadcast = static_out.unsqueeze(1).expand(-1, lc_out.shape[1], -1)
+        return self.head(torch.cat([lc_out, static_broadcast], dim=-1))
+
+
+def load_lc_static_checkpoint(checkpoint_path: Path) -> tuple[LCStaticFusionModel, StaticFeatureNormalizer]:
+    """Rebuild the fine-tuned LC+static model and the Tier-B-refit static
+    normalizer it was trained with. Layer sizes are read from the weight
+    shapes, so this does not depend on any Tier A config file."""
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    sd = ckpt["model_state_dict"]
+    model = LCStaticFusionModel(
+        lc_input_size=NUM_FEATURES,
+        lc_hidden_size=sd["layer_norm.weight"].shape[0],
+        lc_num_layers=sum(1 for k in sd if k.startswith("gru.weight_ih_l")),
+        static_hidden_size=sd["static_encoder.mlp.0.weight"].shape[0],
+        static_output_size=sd["static_encoder.mlp.3.weight"].shape[0],
+        num_classes=sd["head.weight"].shape[0],
+        num_static_fields=sd["static_encoder.mlp.0.weight"].shape[1] // 2,
+    )
+    model.load_state_dict(sd)
+    model.eval()
+    normalizer = StaticFeatureNormalizer(
+        mean=np.array(ckpt["static_normalizer_mean"]), std=np.array(ckpt["static_normalizer_std"])
+    )
+    return model, normalizer
 
 
 def export_tier_b_classifier_to_onnx(
     checkpoint_path: Path = TIER_B_CHECKPOINT, onnx_path: Path = TIER_B_ONNX_PATH
 ) -> None:
-    """One-time export. Idempotent -- `load_onnx_classifier` calls this only
-    if `onnx_path` doesn't already exist, so the export cost is paid once per
+    """One-time export. Idempotent -- `ONNXClassifier` calls this only if
+    `onnx_path` doesn't already exist, so the export cost is paid once per
     checkpoint, not once per worker process start."""
-    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    full_model = LCEncoder(input_size=NUM_FEATURES, hidden_size=128, num_layers=2, dropout=0.2, num_classes=3)
-    full_model.load_state_dict(ckpt["model_state_dict"])
-    full_model.eval()
-
-    export_model = _ONNXExportableLCEncoder(full_model.gru, full_model.layer_norm, full_model.head)
+    model, _ = load_lc_static_checkpoint(checkpoint_path)
+    export_model = _ONNXExportableLCStatic(model)
     export_model.eval()
 
-    dummy = torch.zeros(1, 5, NUM_FEATURES, dtype=torch.float32)
+    n_static_inputs = model.static_encoder.mlp[0].in_features
+    dummy = (torch.zeros(1, 5, NUM_FEATURES), torch.zeros(1, n_static_inputs))
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
         export_model,
-        (dummy,),
+        dummy,
         str(onnx_path),
-        input_names=["features"],
+        input_names=["features", "static_features"],
         output_names=["logits"],
-        dynamic_axes={"features": {0: "batch", 1: "seq_len"}, "logits": {0: "batch", 1: "seq_len"}},
+        dynamic_axes={
+            "features": {0: "batch", 1: "seq_len"},
+            "static_features": {0: "batch"},
+            "logits": {0: "batch", 1: "seq_len"},
+        },
         opset_version=17,
     )
-    logger.info("Exported Tier B classifier to %s", onnx_path)
+    logger.info("Exported Tier B LC+static classifier to %s", onnx_path)
 
 
 class ONNXClassifier:
-    """Wraps an `onnxruntime.InferenceSession` for the Tier B classifier.
-    Takes a zero-padded `(B, T, NUM_FEATURES)` batch + each sequence's real
-    `lengths`, returns softmax probabilities at each sequence's own last
-    real timestep -- the same "predict as of the object's own last
-    detection" convention `src.train.pretrain.collect_phase_predictions`
-    and `src.train.train_anomaly.score_dataset` both use."""
+    """Wraps an `onnxruntime.InferenceSession` for the Tier B LC+static
+    classifier. Takes a zero-padded `(B, T, NUM_FEATURES)` batch, each
+    sequence's real `lengths`, and each object's `StaticContext`; returns
+    softmax probabilities at each sequence's own last real timestep -- the
+    same "predict as of the object's own last detection" convention
+    `src.train.pretrain.collect_phase_predictions` uses.
 
-    def __init__(self, onnx_path: Path = TIER_B_ONNX_PATH) -> None:
+    Static vectors are built with the same `build_static_vector` and the
+    same Tier-B-refit normalizer the model was fine-tuned with (stored in
+    the checkpoint), so serving cannot drift from training here."""
+
+    def __init__(
+        self, onnx_path: Path = TIER_B_ONNX_PATH, checkpoint_path: Path = TIER_B_CHECKPOINT
+    ) -> None:
         if not onnx_path.exists():
             logger.info("%s not found -- exporting now", onnx_path)
-            export_tier_b_classifier_to_onnx(onnx_path=onnx_path)
+            export_tier_b_classifier_to_onnx(checkpoint_path=checkpoint_path, onnx_path=onnx_path)
+        _, self.normalizer = load_lc_static_checkpoint(checkpoint_path)
         self.session = ort.InferenceSession(str(onnx_path), providers=["CPUExecutionProvider"])
 
-    def predict_probs(self, features: np.ndarray, lengths: np.ndarray) -> np.ndarray:
+    def static_matrix(self, statics: Sequence[StaticContext]) -> np.ndarray:
+        return np.stack([build_static_vector(s, self.normalizer) for s in statics]).astype(np.float32)
+
+    def predict_probs(
+        self, features: np.ndarray, lengths: np.ndarray, statics: Sequence[StaticContext]
+    ) -> np.ndarray:
         """`features`: `(B, T, NUM_FEATURES)` float32. `lengths`: `(B,)` int.
+        `statics`: `B` `StaticContext`s, one per row.
         Returns `(B, len(CLASS_NAMES))` float32 softmax probabilities."""
-        (logits,) = self.session.run(["logits"], {"features": features.astype(np.float32)})
+        if len(statics) != features.shape[0]:
+            raise ValueError(f"got {len(statics)} StaticContexts for a batch of {features.shape[0]}")
+        (logits,) = self.session.run(
+            ["logits"],
+            {"features": features.astype(np.float32), "static_features": self.static_matrix(statics)},
+        )
         idx = np.clip(lengths - 1, 0, None)
         last_logits = logits[np.arange(logits.shape[0]), idx]
         exp = np.exp(last_logits - last_logits.max(axis=1, keepdims=True))

@@ -67,7 +67,7 @@ class TestBasicConversion:
         computed independently here (not via convert_zeropoint) as the
         golden check."""
         canonical = avro_lsst.lsst_alert_to_canonical(_make_alert())
-        scale = 10 ** ((31.4 - 27.5) / 2.5)
+        scale = 10 ** ((27.5 - 31.4) / 2.5)  # nJy -> FLUXCAL: divide by ~36.3
         expected_flux = 500.0 * scale
         expected_flux_err = 25.0 * scale
         obs = canonical.observations[0]

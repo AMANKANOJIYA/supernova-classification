@@ -156,7 +156,7 @@ def classify(alert_in: AlertIn) -> dict:
     features = tensorized.features.unsqueeze(0).numpy().astype(np.float32)
     lengths = np.array([tensorized.features.shape[0]], dtype=np.int64)
 
-    probs = _resources["classifier"].predict_probs(features, lengths)[0]
+    probs = _resources["classifier"].predict_probs(features, lengths, [canonical.static])[0]
 
     features_t = torch.from_numpy(features)
     lengths_t = torch.from_numpy(lengths)

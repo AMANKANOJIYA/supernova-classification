@@ -82,7 +82,7 @@ def _score_batch(
     t0 = time.monotonic()
     features, lengths = _build_batch_tensor(pending)
 
-    probs = classifier.predict_probs(features, lengths)
+    probs = classifier.predict_probs(features, lengths, [p.alert.static for p in pending])
 
     features_t = torch.from_numpy(features)
     lengths_t = torch.from_numpy(lengths)

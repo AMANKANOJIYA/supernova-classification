@@ -1,0 +1,119 @@
+{
+ "checked_utc": "2026-11-05T03:29Z",
+ "broker": "kafka-lsst.fink-broker.org:24499",
+ "note": "transcribed from console output; ZTF broker listing returned nothing within 150 s",
+ "topics": [
+  {
+   "topic": "fink_early_snia_candidate_lsst",
+   "partitions": 10,
+   "low": 1299,
+   "high": 1299,
+   "retained": 0
+  },
+  {
+   "topic": "fink_extragalactic_lt20mag_candidate_lsst",
+   "partitions": 10,
+   "low": 1720,
+   "high": 1736,
+   "retained": 16
+  },
+  {
+   "topic": "fink_extragalactic_new_candidate_lsst",
+   "partitions": 10,
+   "low": 377468,
+   "high": 377469,
+   "retained": 1
+  },
+  {
+   "topic": "fink_extragalactic_svom_lsst",
+   "partitions": 10,
+   "low": 293977,
+   "high": 294076,
+   "retained": 99
+  },
+  {
+   "topic": "fink_faint_trails_lsst",
+   "partitions": 10,
+   "low": 23,
+   "high": 23,
+   "retained": 0
+  },
+  {
+   "topic": "fink_fast_transient_gvom_lsst",
+   "partitions": 10,
+   "low": 2,
+   "high": 2,
+   "retained": 0
+  },
+  {
+   "topic": "fink_hostless_candidate_lsst",
+   "partitions": 10,
+   "low": 2892,
+   "high": 2892,
+   "retained": 0
+  },
+  {
+   "topic": "fink_in_tns_lsst",
+   "partitions": 10,
+   "low": 43809,
+   "high": 43862,
+   "retained": 53
+  },
+  {
+   "topic": "fink_is_solar_system_lsst",
+   "partitions": 10,
+   "low": 46050,
+   "high": 46061,
+   "retained": 11
+  },
+  {
+   "topic": "fink_mdwarf_flare_lsst",
+   "partitions": 10,
+   "low": 15,
+   "high": 79,
+   "retained": 64
+  },
+  {
+   "topic": "fink_most_likely_sn_lsst",
+   "partitions": 10,
+   "low": 370168,
+   "high": 370242,
+   "retained": 74
+  },
+  {
+   "topic": "fink_remove_unlikely_transients_lsst",
+   "partitions": 10,
+   "low": 608832,
+   "high": 609528,
+   "retained": 696
+  },
+  {
+   "topic": "fink_sn_near_galaxy_candidate_lsst",
+   "partitions": 10,
+   "low": 484480,
+   "high": 484480,
+   "retained": 0
+  },
+  {
+   "topic": "fink_sso_ztf_candidates_ztf",
+   "partitions": 10,
+   "low": 0,
+   "high": 0,
+   "retained": 0
+  },
+  {
+   "topic": "fink_uniform_sample_lsst",
+   "partitions": 10,
+   "low": 54111,
+   "high": 54127,
+   "retained": 16
+  },
+  {
+   "topic": "ftransfer_lsst_2026-02-24_268480",
+   "partitions": 10,
+   "low": 426199,
+   "high": 426199,
+   "retained": 0
+  }
+ ]
+}
