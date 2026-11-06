@@ -27,12 +27,12 @@ favours results that are correct and verified over feature count.
 | [`reports/audit_2026-11-05/AUDIT.md`](reports/audit_2026-11-05/AUDIT.md) | Audit that found the zeropoint bug |
 | [`paper/`](paper/) | LaTeX report (`main.tex`), figures and presentation |
 
-> **Heads-up: some docs predate a bug fix.** On 2026-11-05 the flux-zeropoint
-> conversion for real ZTF data was found to be inverted, and it has been fixed.
-> Every real-data (Tier B) number in `RESULTS.md`, `GUIDE.md` and the paper
-> was measured on mis-scaled input and is superseded. The corrected numbers are
-> [below](#results) and in `reports/zeropoint_fix_2026-11-05/`. Simulated-data
-> (Tier A) numbers are unaffected.
+> **Revised 2026-11-06 after a bug fix.** On 2026-11-05 the flux-zeropoint
+> conversion for real ZTF and LSST data was found to be inverted, and it has
+> been fixed. The paper, `RESULTS.md` and this README carry the corrected
+> numbers; `GUIDE.md`'s operational instructions still hold, but its quoted
+> real-data (Tier B) numbers predate the fix — use `RESULTS.md` for those.
+> Simulated-data (Tier A) numbers are unaffected.
 
 ---
 
@@ -93,18 +93,18 @@ well and is useless. Real-data (Tier B) numbers are **post-fix**: the mean
 | --- | --- |
 | Tier A (sim), light curve + host features | **0.7169**, Ia-vs-rest ROC-AUC **0.9301** |
 | Tier A (sim), light curve only | 0.6981 |
-| Tier B (real ZTF), light curve + host, fine-tuned — **deployed** | **0.6210 ± 0.0067**, Ia-vs-rest ROC-AUC 0.882 |
+| Tier B (real ZTF), light curve + host, fine-tuned — **deployed** | **0.6210 ± 0.0067**, Ia-vs-rest ROC-AUC 0.8823 |
 | Tier B (real ZTF), light curve only, fine-tuned | 0.5647 ± 0.0012 |
 | Tier B zero-shot (Tier A weights, no fine-tuning) | 0.4240 |
 | Logistic-regression baseline / majority class | 0.4687 / 0.2839 |
-| Sim-to-real gap (light curve + host) | 0.7169 → 0.6210 (−0.096) |
-| Ib/c F1, deployed model | 0.286 (below the 0.40–0.60 literature anchor) |
+| Sim-to-real gap, matched configurations | light curve + host 0.7169 → 0.6210 (−0.0959); light curve only 0.6981 → 0.5647 (−0.1333) |
+| Ib/c F1, deployed model | 0.2864 (misses the pre-registered 0.40–0.60 band) |
 | Anomaly detection, combined ROC-AUC | Tier A 0.8146 / Tier B 0.7793 |
 | Replay through the full serving stack vs offline | 0.6213 vs 0.6201 |
-| Serving latency / throughput (single node) | p50 37.6 ms, p99 65.6 ms, 575 alerts/s |
+| Serving latency / throughput (single node) | p50 37.6 ms, p99 65.6 ms, 575 alerts/s; ONNX alone 0.174 ms/alert |
 
 A drop from simulated to real data is the expected result. Real BTS objects
-are about 41× brighter than the simulated training population. Details and
+are about 36× brighter than the simulated training population (the bug had hidden ~10× of that). Details and
 open questions are in `CLAUDE.md` §11.
 
 ---
@@ -229,12 +229,11 @@ paper/               # LaTeX report and presentation
 
 - **Ib/c is the weak class.** After the fix its F1 sits below the literature
   band.
-- **LSST live ingestion is unverified.** No live LSST traffic was captured.
-  `avro_lsst.py` also needs to read `dec` instead of `decl` to match the live
-  schema.
-- **Raw outputs carry the training prior.** Predicted probabilities reflect
-  ELAsTiCC's class mix, not real sky rates. Correcting for that is a
-  deployment-time step.
+- **LSST is unlabelled.** Live LSST alerts now ingest end to end (1,817 alerts,
+  0 skipped, on 2026-11-06), but there are no labels, so accuracy on LSST is
+  untested. LSST cutout stamps vary in size (30–102 px) and are not stored.
+- **Probabilities are not calibrated.** Live predictions under-represent Ib/c,
+  and a simple prior correction does not fix it; calibration is still to do.
 - **Gate D is deferred.** Artifact-rate inspection of top anomalies needs an
   unfiltered alert stream, which hasn't been ingested yet.
 - **The image encoder was cut from scope.** Cutouts are displayed in the UI

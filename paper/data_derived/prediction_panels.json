@@ -1,0 +1,35 @@
+{
+  "checkpoint": "outputs/finetune_bts_zpfix/with_static_checkpoint.pt",
+  "misclassification_pattern": "true Ib/c -> predicted Ia",
+  "min_obs_well_sampled": 25,
+  "panels": {
+    "correct_Ia": {
+      "object_id": "ZTF20abucvpo",
+      "true": "Ia",
+      "predicted": "Ia",
+      "confidence": 0.99919193983078,
+      "n_obs": 95
+    },
+    "correct_Ib/c": {
+      "object_id": "ZTF19abztknu",
+      "true": "Ib/c",
+      "predicted": "Ib/c",
+      "confidence": 0.7318288087844849,
+      "n_obs": 76
+    },
+    "correct_II": {
+      "object_id": "ZTF21aaowaxx",
+      "true": "II",
+      "predicted": "II",
+      "confidence": 0.9961155652999878,
+      "n_obs": 160
+    },
+    "misclassified": {
+      "object_id": "ZTF21aadatfg",
+      "true": "Ib/c",
+      "predicted": "Ia",
+      "confidence": 0.954973578453064,
+      "n_obs": 20
+    }
+  }
+}

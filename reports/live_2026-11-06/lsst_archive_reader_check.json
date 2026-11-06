@@ -1,0 +1,18 @@
+{
+  "archive": "data/raw/fink_lsst_archive",
+  "n_packets": 2033,
+  "n_converted": 2033,
+  "errors": {},
+  "topics": {
+    "fink_remove_unlikely_transients_lsst": 1784,
+    "fink_extragalactic_lt20mag_candidate_lsst": 32,
+    "fink_uniform_sample_lsst": 38,
+    "fink_most_likely_sn_lsst": 179
+  },
+  "max_abs_dmag_trigger": 3.552713678800501e-15,
+  "negative_flux_fraction_detections": 0.10437767714673571,
+  "stamp_size_px_min": 30,
+  "stamp_size_px_max": 102,
+  "n_stamps_63px": 6,
+  "n_stamps": 2033
+}

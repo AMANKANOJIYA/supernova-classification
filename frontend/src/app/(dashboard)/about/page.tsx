@@ -73,14 +73,14 @@ const DATA_TIERS = [
     cutouts: true,
     labels: "None",
     detail:
-      "Live ZTF and LSST alerts via Fink's own SN-candidate-filtered topics. LSST relay confirmed reachable but showed no traffic during this session's observation windows.",
+      "Live ZTF and LSST alerts via Fink's own SN-candidate-filtered topics. Both ingest end to end (2026-11-06: 578 ZTF and 1,817 LSST alerts, 0 skipped). LSST alerts are unlabelled, so no accuracy is claimed for them.",
   },
 ];
 
 const UNRESOLVED = [
   {
-    title: "Tier B static-feature inversion has no confirmed cause",
-    body: "LC+static fine-tuning underperforms LC-only on real ZTF (0.634 vs 0.672 macro-F1) — the opposite of Tier A. A photo-z ablation refuted the leading hypothesis (standard-candle distance information): only 33% of Tier A's static gain survives removing photo-z, not the 'most of it' originally guessed. Small-sample overfitting (5,407 labeled training objects, 3 of 7 static fields permanently missing at Tier B) remains plausible but unverified.",
+    title: "Ib/c misses its pre-registered band on real data",
+    body: "With correctly scaled fluxes, Ib/c F1 on Tier B is 0.2864 (deployed LC+static, mean of 5 seeds), below the 0.40–0.60 band set before any result. The test split has only 35 Ib/c objects and the band came from models with far more Ib/c support, but the band is not being widened. (The earlier 'static features hurt on Tier B' finding was an artifact of the inverted flux conversion and has been withdrawn.)",
   },
   {
     title: "WHXE hierarchical loss: provisional, not rejected",
@@ -91,8 +91,8 @@ const UNRESOLVED = [
     body: "Enabled without meeting its own stated precondition (Ia underperforming) — Ib/c was actually the worst class at the time. No controlled ablation was run (a rerun costs ~2.5h). Documented as unvalidated rather than silently assumed fine.",
   },
   {
-    title: "LSST relay: reachable, but no traffic observed",
-    body: "Every subscribed Fink LSST topic showed real historical throughput (hundreds of thousands of cumulative messages) but zero currently-queued messages across two observation windows. avro_lsst.py remains unverified against real traffic — it fails loudly by name on any schema mismatch, which is the right place to leave it.",
+    title: "LSST: ingestion verified, accuracy unknown",
+    body: "After reading declination as `dec` (the live schema) and fixing the zeropoint direction, all 2,033 archived live LSST packets convert with magnitudes preserved, and a live session ingested 1,817 alerts with 0 skipped. LSST alerts carry no labels, so classifier accuracy on LSST is untested. LSST cutout stamps vary in size (30–102 px) and are not stored.",
   },
   {
     title: "Gate D's real question is still unanswered",

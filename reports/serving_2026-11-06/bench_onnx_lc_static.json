@@ -1,0 +1,20 @@
+{
+  "model": "outputs/finetune_bts_zpfix/with_static_model.onnx",
+  "n_objects": 658,
+  "onnx_isolated": {
+    "1": {
+      "n_batches": 658,
+      "per_alert_ms_p50": 0.17447899881517515,
+      "per_alert_ms_p95": 0.4561893001664427,
+      "per_alert_ms_mean": 0.21050304417603855
+    },
+    "32": {
+      "n_batches": 21,
+      "per_alert_ms_p50": 0.17531118737679208,
+      "per_alert_ms_p95": 0.2949713750695082,
+      "per_alert_ms_mean": 0.18460727265346336
+    }
+  },
+  "machine": "macOS-26.6.2-arm64-arm-64bit",
+  "note": "isolated = ONNXClassifier.predict_probs only (includes building the normalised static matrix), Tier B test labelled objects, full tensorized sequences with the 200-day serving cap, CPU, warm"
+}

@@ -34,7 +34,7 @@ fine-tuned variant: zero-shot, LC-only, LC+static, LC+static+DRB).}
 \toprule
 Parameter & Value \\
 \midrule
-Seed & 42 \\
+Seeds & 42 (deployed checkpoint); 42, 1, 2, 3, 4 for the reported means \\
 Phase 1 (epochs 1--2) & GRU trunk frozen; head (+static/DRB branch) at LR $3\times10^{-4}$ \\
 Phase 2 (epochs 3--8) & Trunk unfrozen at LR $3\times10^{-6}$; head continues at $3\times10^{-4}$, cosine-annealed to 0 \\
 Weight decay & $1\times10^{-2}$ \\

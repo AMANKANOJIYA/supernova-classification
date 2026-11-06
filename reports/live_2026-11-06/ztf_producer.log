@@ -1,0 +1,40 @@
+2026-11-06 13:41:17,093 INFO live_fink[ztf]: subscribing to ['fink_sn_candidates_ztf'] on kafka-ztf.fink-broker.org:24499 as username=aman group.id=aman_kanojiya_dhanbad
+WARNING: VerifyWarning: Found a SIMPLE card but its format doesn't respect the FITS Standard [astropy.io.fits.hdu.hdulist]
+2026-11-06 13:41:22,970 WARNING VerifyWarning: Found a SIMPLE card but its format doesn't respect the FITS Standard
+2026-11-06 13:41:24,819 INFO live_fink[ztf]: 20 received, 20 produced, 0 skipped, 20 cutouts stored
+2026-11-06 13:41:45,131 INFO live_fink[ztf]: 40 received, 40 produced, 0 skipped, 40 cutouts stored
+2026-11-06 13:42:06,068 INFO live_fink[ztf]: 60 received, 60 produced, 0 skipped, 60 cutouts stored
+2026-11-06 13:42:09,188 INFO live_fink[ztf]: 80 received, 80 produced, 0 skipped, 80 cutouts stored
+2026-11-06 13:42:11,367 INFO live_fink[ztf]: 100 received, 100 produced, 0 skipped, 100 cutouts stored
+2026-11-06 13:42:12,449 INFO live_fink[ztf]: 120 received, 120 produced, 0 skipped, 120 cutouts stored
+2026-11-06 13:42:14,450 INFO live_fink[ztf]: 140 received, 140 produced, 0 skipped, 140 cutouts stored
+2026-11-06 13:42:16,747 INFO live_fink[ztf]: 160 received, 160 produced, 0 skipped, 160 cutouts stored
+2026-11-06 13:42:18,948 INFO live_fink[ztf]: 180 received, 180 produced, 0 skipped, 180 cutouts stored
+2026-11-06 13:42:20,908 INFO live_fink[ztf]: 200 received, 200 produced, 0 skipped, 200 cutouts stored
+2026-11-06 13:42:20,931 WARNING avro_ztf: object_id=ZTF26aceehga cutout stamp shape (63, 48) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:22,143 INFO live_fink[ztf]: 220 received, 220 produced, 0 skipped, 219 cutouts stored
+2026-11-06 13:42:24,249 INFO live_fink[ztf]: 240 received, 240 produced, 0 skipped, 239 cutouts stored
+2026-11-06 13:42:26,381 INFO live_fink[ztf]: 260 received, 260 produced, 0 skipped, 259 cutouts stored
+2026-11-06 13:42:28,589 INFO live_fink[ztf]: 280 received, 280 produced, 0 skipped, 279 cutouts stored
+2026-11-06 13:42:29,454 WARNING avro_ztf: object_id=ZTF26abwqgnd cutout stamp shape (63, 55) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:30,473 INFO live_fink[ztf]: 300 received, 300 produced, 0 skipped, 298 cutouts stored
+2026-11-06 13:42:31,488 WARNING avro_ztf: object_id=ZTF26acekvtg cutout stamp shape (63, 50) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:32,433 INFO live_fink[ztf]: 320 received, 320 produced, 0 skipped, 317 cutouts stored
+2026-11-06 13:42:32,442 WARNING avro_ztf: object_id=ZTF26abxjkem cutout stamp shape (45, 63) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:33,670 INFO live_fink[ztf]: 340 received, 340 produced, 0 skipped, 336 cutouts stored
+2026-11-06 13:42:35,779 INFO live_fink[ztf]: 360 received, 360 produced, 0 skipped, 356 cutouts stored
+2026-11-06 13:42:35,785 WARNING avro_ztf: object_id=ZTF26abxjkem cutout stamp shape (42, 63) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:35,799 WARNING avro_ztf: object_id=ZTF26abnlxlt cutout stamp shape (58, 63) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:37,810 INFO live_fink[ztf]: 380 received, 380 produced, 0 skipped, 374 cutouts stored
+2026-11-06 13:42:37,859 WARNING avro_ztf: object_id=ZTF26abwqgnd cutout stamp shape (63, 48) != the (63,63)-per-plane shape CanonicalAlert.validate() requires (likely a CCD-edge object) -- storing cutouts=None rather than discard the whole alert over it
+2026-11-06 13:42:39,797 INFO live_fink[ztf]: 400 received, 400 produced, 0 skipped, 393 cutouts stored
+2026-11-06 13:42:40,891 INFO live_fink[ztf]: 420 received, 420 produced, 0 skipped, 413 cutouts stored
+2026-11-06 13:42:42,866 INFO live_fink[ztf]: 440 received, 440 produced, 0 skipped, 433 cutouts stored
+2026-11-06 13:42:44,874 INFO live_fink[ztf]: 460 received, 460 produced, 0 skipped, 453 cutouts stored
+2026-11-06 13:42:46,826 INFO live_fink[ztf]: 480 received, 480 produced, 0 skipped, 473 cutouts stored
+2026-11-06 13:42:48,953 INFO live_fink[ztf]: 500 received, 500 produced, 0 skipped, 493 cutouts stored
+2026-11-06 13:42:50,210 INFO live_fink[ztf]: 520 received, 520 produced, 0 skipped, 513 cutouts stored
+2026-11-06 13:42:52,180 INFO live_fink[ztf]: 540 received, 540 produced, 0 skipped, 533 cutouts stored
+2026-11-06 13:42:54,310 INFO live_fink[ztf]: 560 received, 560 produced, 0 skipped, 553 cutouts stored
+2026-11-06 13:47:20,931 INFO live_fink[ztf]: max_seconds=360.0 reached, stopping
+2026-11-06 13:47:21,269 INFO live_fink[ztf]: done. {'survey': 'ztf', 'topics': ['fink_sn_candidates_ztf'], 'n_received': 578, 'n_produced': 578, 'n_skipped': 0, 'skip_reasons': {}, 'n_cutouts_stored': 571, 'n_detection_observations': 7438, 'n_negative_flux_detection_observations': 426, 'negative_flux_fraction': 0.05727346060769024, 'elapsed_seconds': 364.17527987500216}

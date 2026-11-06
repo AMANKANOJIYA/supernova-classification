@@ -1,0 +1,5 @@
+2026-11-06 13:45:23,909 INFO AnomalyScorer: persisted mahalanobis/isoforest scorers found -- serving the full 3-component combination
+2026-11-06 13:45:24,010 INFO Subscribed to topic=alerts bootstrap=localhost:9092
+2026-11-06 13:45:27,280 INFO scored batch of 4 alert(s) in 79.93ms model time (19.98ms/alert)
+2026-11-06 13:48:47,107 INFO idle for >200.0s with nothing pending, stopping
+2026-11-06 13:48:47,110 INFO Consumed 4 message(s), scored 4 alert(s); wall=203.1s busy=0.0s (190.3 alerts/sec over busy interval, 0.0 alerts/sec over wall time)

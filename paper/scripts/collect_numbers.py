@@ -20,6 +20,8 @@ project venv — `.venv/bin/python3 paper/scripts/collect_numbers.py`).
 import json
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[2]
 OUT_TEX = ROOT / "paper" / "numbers.tex"
 GAPS_MD = ROOT / "paper" / "NUMBERS_GAPS.md"
@@ -125,41 +127,108 @@ num("TierBObsBandR", gate_a_bts["observations_per_band"]["ztf_r"], "{:d}")
 num("TierBObsBandG", gate_a_bts["observations_per_band"]["ztf_g"], "{:d}")
 
 # ---------------------------------------------------------------------------
-# Gate C -- Tier B fine-tune report (reports/gate_c/gate_c_report.json is
-# the git-tracked, ORIGINAL run; outputs/finetune_bts/*/eval/*.json were
-# accidentally regenerated once this session (per GUIDE.md Sec 5/9) and are
-# NOT used for any headline number below -- only for the deployed model's
-# fully-intact Tier A comparator numbers, which were never touched).
+# Gate C -- Tier B, ZEROPOINT-CORRECTED (2026-11-05 fix; see
+# reports/zeropoint_fix_2026-11-05/README.md). The pre-fix Tier B numbers
+# (reports/gate_c/gate_c_report.json) were measured on fluxes stored ~10x too
+# faint and are superseded; they are kept below only as PreFix* / OldFlux*
+# macros so the paper can state what the conversion error produced.
+#
+# Fine-tuned variants: mean (and SD) over the 5-seed sweep (seeds 42/1/2/3/4,
+# seed_sweep.json "fixed_flux_seed*"). Zero-shot is inference-only and
+# seed-independent. The DEPLOYED checkpoint is the seed-42 LC+static run
+# (finetune_seed42/), which serving loads; Deployed* macros are that one seed.
 # ---------------------------------------------------------------------------
-gate_c = load("reports/gate_c/gate_c_report.json")
+FIX = "reports/zeropoint_fix_2026-11-05"
+gate_c = load(f"{FIX}/finetune_seed42/gate_c_report.json")
+sweep = load(f"{FIX}/seed_sweep.json")
+sweep_summary = load(f"{FIX}/seed_sweep_summary.json")
+fixed_runs = [sweep[k] for k in sorted(sweep) if k.startswith("fixed_flux_seed")]
+num("TierBNSeeds", len(fixed_runs), "{:d}")
 
 num("TierAFullMacroF", gate_c["tier_a_test_macro_f1_full"])
-num("SimToRealGapStatic", gate_c["sim_to_real_gap"])
-num("ZeroShotMacroF", gate_c["zero_shot"]["macro_f1_full"])
-num("WithStaticMacroF", gate_c["with_static"]["macro_f1_full"])
-num("LCOnlyMacroF", gate_c["lc_only"]["macro_f1_full"])
-num("WithStaticDRBMacroF", gate_c["with_static_drb"]["macro_f1_full"])
-num("TransferGain", gate_c["with_static"]["macro_f1_full"] - gate_c["zero_shot"]["macro_f1_full"])
-num("SimToRealGapLCOnly", gate_c["tier_a_test_macro_f1_full"] - gate_c["lc_only"]["macro_f1_full"])
-
-num("ZeroShotRocAucIa", gate_c["zero_shot"]["ia_vs_rest_roc_auc"])
-num("WithStaticRocAucIa", gate_c["with_static"]["ia_vs_rest_roc_auc"])
-num("LCOnlyRocAucIa", gate_c["lc_only"]["ia_vs_rest_roc_auc"])
-num("WithStaticDRBRocAucIa", gate_c["with_static_drb"]["ia_vs_rest_roc_auc"])
-
+tier_b_mean: dict[str, float] = {}
 for key, label in [("zero_shot", "ZeroShot"), ("with_static", "WithStatic"),
                     ("lc_only", "LCOnly"), ("with_static_drb", "WithStaticDRB")]:
-    f1s = gate_c[key]["per_class_f1_full"]
-    supports = gate_c[key]["per_class_support_full"]
+    macro = np.array([r[key]["macro_f1"] for r in fixed_runs])
+    summary = sweep_summary[f"fixed_flux/{key}"]
+    assert abs(macro.mean() - summary["macro_f1_mean"]) < 1e-12
+    tier_b_mean[key] = float(macro.mean())
+    num(f"{label}MacroF", macro.mean())
+    if key != "zero_shot":
+        num(f"{label}MacroFSD", summary["macro_f1_sd"])
+    num(f"{label}RocAucIa", float(np.mean([r[key]["roc"] for r in fixed_runs])))
+    f1s = np.mean([r[key]["f1"] for r in fixed_runs], axis=0)
     for i, cls in enumerate(["Ia", "Ibc", "II"]):
         num(f"{label}F{cls}", f1s[i])
-    if key == "zero_shot":
-        for i, cls in enumerate(["Ia", "Ibc", "II"]):
-            num(f"TierBSupport{cls}", supports[i], "{:d}")
 
-wstatic_phase = gate_c["with_static"]["phase_curve"]
+zs_lc = load(f"{FIX}/inference_only_evals/eval_extra.json")["zero_shot_lc_only"]
+num("ZeroShotLCOnlyMacroF", zs_lc["macro_f1_full"])
+num("ZeroShotLCOnlyRocAucIa", zs_lc["ia_vs_rest_roc_auc"])
+for i, cls in enumerate(["Ia", "Ibc", "II"]):
+    num(f"ZeroShotLCOnlyF{cls}", zs_lc["per_class_f1_full"][i])
+
+for i, cls in enumerate(["Ia", "Ibc", "II"]):
+    num(f"TierBSupport{cls}", gate_c["zero_shot"]["per_class_support_full"][i], "{:d}")
+
+deployed = gate_c["with_static"]
+num("DeployedMacroF", deployed["macro_f1_full"])
+num("DeployedRocAucIa", deployed["ia_vs_rest_roc_auc"])
+for i, cls in enumerate(["Ia", "Ibc", "II"]):
+    num(f"DeployedF{cls}", deployed["per_class_f1_full"][i])
+deployed_eval = load(f"{FIX}/finetune_seed42/with_static/eval/metrics.json")
+assert abs(deployed_eval["full"]["macro_f1"] - deployed["macro_f1_full"]) < 1e-12
 for cutoff_key, label in [("0", "Zero"), ("5", "Five"), ("15", "Fifteen"), ("30", "Thirty"), ("full", "Full")]:
-    num(f"TierBWithStaticPhase{label}", wstatic_phase[cutoff_key])
+    num(f"DeployedPhase{label}", deployed_eval[cutoff_key]["macro_f1"])
+num("DeployedPhaseZeroPredIaFrac",
+    sum(row[0] for row in deployed_eval["0"]["confusion"]["raw"]) / deployed_eval["0"]["n_objects"] * 100, "{:.0f}")
+
+# Matched-configuration sim-to-real gaps (LC+static vs LC+static, LC-only vs
+# LC-only) and like-for-like transfer gains. Tier A values are defined in the
+# Tier A section below; computed here from the same metrics files.
+_tier_a_static_full = load("outputs/train_static/eval/metrics.json")["full"]["macro_f1"]
+_tier_a_lc_full = load("outputs/train/eval/metrics.json")["full"]["macro_f1"]
+num("SimToRealGapStatic", _tier_a_static_full - tier_b_mean["with_static"])
+num("SimToRealGapLCOnly", _tier_a_lc_full - tier_b_mean["lc_only"])
+num("TransferGain", tier_b_mean["with_static"] - tier_b_mean["zero_shot"])
+num("TransferGainLCOnly", tier_b_mean["lc_only"] - zs_lc["macro_f1_full"])
+num("StaticGainTierB", tier_b_mean["with_static"] - tier_b_mean["lc_only"])
+num("StaticGainOverSD",
+    (tier_b_mean["with_static"] - tier_b_mean["lc_only"])
+    / max(sweep_summary["fixed_flux/with_static"]["macro_f1_sd"], sweep_summary["fixed_flux/lc_only"]["macro_f1_sd"]),
+    "{:.1f}")
+
+# Pre-fix values, for stating what the conversion error produced. OldFlux* is
+# the controlled comparison (same code, same object order, old fluxes, 5 seeds);
+# PreFix* is what the paper originally reported (reports/gate_c, git-tracked).
+for key, label in [("with_static", "WithStatic"), ("lc_only", "LCOnly")]:
+    num(f"OldFlux{label}MacroF", sweep_summary[f"old_flux_same_order/{key}"]["macro_f1_mean"])
+num("OldFluxStaticInversion",
+    sweep_summary["old_flux_same_order/lc_only"]["macro_f1_mean"]
+    - sweep_summary["old_flux_same_order/with_static"]["macro_f1_mean"])
+prefix_gate_c = load("reports/gate_c/gate_c_report.json")
+num("PreFixLCOnlyMacroF", prefix_gate_c["lc_only"]["macro_f1_full"])
+num("PreFixWithStaticMacroF", prefix_gate_c["with_static"]["macro_f1_full"])
+num("PreFixLCOnlyFIbc", prefix_gate_c["lc_only"]["per_class_f1_full"][1])
+num("PreFixWithStaticFIbc", prefix_gate_c["with_static"]["per_class_f1_full"][1])
+
+# Baselines (majority class, 5-feature logistic regression), both tiers, from
+# the frozen src/eval/baselines.py + report.py harness; Tier B on corrected flux.
+baselines = load(f"{FIX}/baselines/baseline_report.json")
+for tier, tlabel in [("tier_a", "TierA"), ("tier_b", "TierB")]:
+    for model, mlabel in [("majority", "Maj"), ("logreg", "LR")]:
+        full = baselines[tier]["results"][model]["full"]
+        num(f"Baseline{mlabel}{tlabel}MacroF", full["macro_f1"])
+        num(f"Baseline{mlabel}{tlabel}RocAucIa", full["ia_vs_rest_roc_auc"])
+        for i, cls in enumerate(["Ia", "Ibc", "II"]):
+            num(f"Baseline{mlabel}{tlabel}F{cls}", full["per_class_f1"][i])
+
+# Pre-registered anchors (CLAUDE.md §11 / Gate B) -- constants fixed before any
+# result, defined here so the prose carries no literal numbers.
+num("IbcBandLow", 0.40, "{:.2f}")
+num("IbcBandHigh", 0.60, "{:.2f}")
+num("RocCeilingLow", 0.93, "{:.2f}")
+num("RocCeilingHigh", 0.96, "{:.2f}")
+num("GateDArtifactAnchorPct", 68, "{:d}")
 
 js = gate_c["join_stats"]
 for split in ("train", "val", "test"):
@@ -242,6 +311,10 @@ for k, label in [("100", "Hundred"), ("200", "TwoHundred"), ("full", "Uncapped")
             frac = s["fraction_affected_per_class"][key]["fraction_affected"]
             pct(f"Span{label}Affected{cls}", frac, decimals=2)
 num("SpanChosenDefault", span["chosen_default"], "{:.0f}")
+num("SpanTwoHundredCost", span["span_settings"]["full"]["macro_f1_full"] - span["span_settings"]["200"]["macro_f1_full"])
+num("SpanTwoHundredMaxAffected",
+    max(v["fraction_affected"] for v in span["span_settings"]["200"]["fraction_affected_per_class"].values()) * 100,
+    "{:.2f}")
 
 clagn = span["clagn_entropy_check"]
 num("ClagnNObjects", clagn["n_clagn_objects"], "{:d}")
@@ -255,26 +328,25 @@ num("ClagnSeqLenCapped", clagn["capped"]["mean_seq_length"], "{:.1f}")
 # ---------------------------------------------------------------------------
 # Anomaly branch
 # ---------------------------------------------------------------------------
+# Tier A: outputs/anomaly/anomaly_results.json (simulated data, no zeropoint
+# conversion, unaffected by the fix). Tier B: the zeropoint-corrected re-score
+# with the same persisted scorers, reports/anomaly_tier_b_zpfix_2026-11-06/
+# (score_tier_b.py; it refuses to write unless the 3-component ROC-AUC
+# reproduces the fix pass's recorded 0.7793).
 anomaly = load("outputs/anomaly/anomaly_results.json")
-for tier, label in [("tier_a_roc_auc", "TierA"), ("tier_b_roc_auc", "TierB")]:
-    d = anomaly[tier]
+ANOMALY_B = "reports/anomaly_tier_b_zpfix_2026-11-06"
+anomaly_b = load(f"{ANOMALY_B}/tier_b_roc_auc.json")["tier_b_roc_auc"]
+for d, label in [(anomaly["tier_a_roc_auc"], "TierA"), (anomaly_b, "TierB")]:
     for comp in ["reconstruction_error", "entropy", "mahalanobis", "isoforest", "combined"]:
         cname = "".join(w.capitalize() for w in comp.split("_"))
         num(f"Anomaly{label}{cname}", d[comp])
     num(f"Anomaly{label}NNormal", d["n_normal"], "{:d}")
     num(f"Anomaly{label}NAnomalous", d["n_anomalous"], "{:d}")
-
-persisted = load("outputs/anomaly/persisted_scorers_meta.json")
-num("AnomalyTierBCombinedThreeVerified", persisted["verification_tier_b_roc_auc"]["combined_3component"])
-num("AnomalyTierBReconVerified", persisted["verification_tier_b_roc_auc"]["reconstruction_error"])
-num("AnomalyTierBMahalVerified", persisted["verification_tier_b_roc_auc"]["mahalanobis"])
-num("AnomalyTierBIsoVerified", persisted["verification_tier_b_roc_auc"]["isoforest"])
+num("AnomalyTierBEntropyDropGain", anomaly_b["combined_3component"] - anomaly_b["combined"])
 
 # Recompute the "entropy dropped" 3-component combined score directly from
 # the per-object score files, independently of anomaly_results.json's own
 # 4-component "combined" field (same method GUIDE.md Sec 7 verifies with).
-import numpy as np  # noqa: E402
-
 
 def zscore(x, mean, std):
     return (np.asarray(x, dtype=np.float64) - mean) / std
@@ -307,13 +379,20 @@ def binary_auc(normal_scores, anomalous_scores):
 ref_stats = anomaly["reference_zscore_stats"]
 tier_a_normal = load("outputs/anomaly/scores_tier_a_normal_test.json")
 tier_a_exotic = load("outputs/anomaly/scores_tier_a_exotic.json")
-tier_b_normal = load("outputs/anomaly/scores_tier_b_normal_test.json")
-tier_b_weird = load("outputs/anomaly/scores_tier_b_weird.json")
+tier_b_normal = load(f"{ANOMALY_B}/scores_tier_b_normal_test.json")
+tier_b_weird = load(f"{ANOMALY_B}/scores_tier_b_weird.json")
 
 combined3_tier_a = binary_auc(combine3(tier_a_normal, ref_stats), combine3(tier_a_exotic, ref_stats))
 combined3_tier_b = binary_auc(combine3(tier_b_normal, ref_stats), combine3(tier_b_weird, ref_stats))
 num("AnomalyTierACombinedThreeRecomputed", combined3_tier_a)
 num("AnomalyTierBCombinedThreeRecomputed", combined3_tier_b)
+
+# Pre-fix Tier B combined score (same Day-10 per-object files the paper used
+# before the fix), for the old-vs-new statement.
+prefix_b_normal = load("outputs/anomaly/scores_tier_b_normal_test.json")
+prefix_b_weird = load("outputs/anomaly/scores_tier_b_weird.json")
+num("PreFixAnomalyTierBCombinedThree",
+    binary_auc(combine3(prefix_b_normal, ref_stats), combine3(prefix_b_weird, ref_stats)))
 
 # entropy means per population (raw entropy stored per-object; no
 # max-softmax-probability is stored for these 4 populations except CLAGN
@@ -348,27 +427,36 @@ for cid, name in _EXOTIC_NAMES.items():
         num(f"ExoticN{name}", len(vals), "{:d}")
 
 # ---------------------------------------------------------------------------
-# Gate D
+# Gate D -- re-derived on zeropoint-corrected Tier B with the persisted
+# (deployed) scorers: reports/gate_d_zpfix_2026-11-06/. The pre-fix top 50
+# (reports/gate_d/) is kept for the composition comparison.
 # ---------------------------------------------------------------------------
-gate_d = load("reports/gate_d/gate_d_top50.json")
-bd = gate_d["breakdown"]
-num("GateDNTotal", len(gate_d["objects"]), "{:d}")
-num("GateDNArtifactLike", bd.get("artifact_like", 0), "{:d}")
-num("GateDNGenuineAnomaly", bd.get("genuine_anomaly", 0), "{:d}")
-num("GateDNShortSparse", bd.get("short_sparse", 0), "{:d}")
-n_no_tree_node = sum(1 for o in gate_d["objects"] if o["label"].startswith("no_tree_node"))
-n_agn = sum(1 for o in gate_d["objects"] if o["label"] == "AGN")
-n_91bg = sum(1 for o in gate_d["objects"] if o["label"] == "91bg")
-num("GateDNNoTreeNode", n_no_tree_node, "{:d}")
-num("GateDNAGN", n_agn, "{:d}")
-num("GateDNNinetyOneBG", n_91bg, "{:d}")
+gate_d = load("reports/gate_d_zpfix_2026-11-06/gate_d_top50.json")
+assert abs(gate_d["roc_auc_tier_b"]["combined_3component"] - anomaly_b["combined_3component"]) < 1e-12
+
+
+def _gate_d_counts(objects: list[dict], prefix: str) -> None:
+    num(f"{prefix}NTotal", len(objects), "{:d}")
+    for cat, cname in [("artifact_like", "ArtifactLike"), ("genuine_anomaly", "GenuineAnomaly"),
+                       ("short_sparse", "ShortSparse")]:
+        num(f"{prefix}N{cname}", sum(1 for o in objects if o["category"] == cat), "{:d}")
+    num(f"{prefix}NNoTreeNode", sum(1 for o in objects if o["label"].startswith("no_tree_node")), "{:d}")
+    for lab, lname in [("AGN", "AGN"), ("91bg", "NinetyOneBG"), ("TDE", "TDE")]:
+        num(f"{prefix}N{lname}", sum(1 for o in objects if o["label"] == lab), "{:d}")
+    num(f"{prefix}NFromNormal", sum(1 for o in objects if o["source"] == "normal_test"), "{:d}")
+
+
+_gate_d_counts(gate_d["objects"], "GateD")
+_gate_d_counts(load("reports/gate_d/gate_d_top50.json")["objects"], "GateDPreFix")
+num("GateDOverlapPreFix", gate_d["overlap_with_pre_fix_top50"], "{:d}")
 
 # ---------------------------------------------------------------------------
-# Live Fink ingestion
+# Live Fink ingestion. Day-13 runs (pre-fix model; kept for the CCD-edge
+# cutout bug they exposed) and the 2026-11-06 runs with the corrected,
+# deployed LC+static model.
 # ---------------------------------------------------------------------------
 ztf1 = load("reports/live_fink/ztf_run1.json")
 ztf2 = load("reports/live_fink/ztf_run2_fixed.json")
-lsst1 = load("reports/live_fink/lsst_run1.json")
 
 num("LiveZtfRunOneNReceived", ztf1["n_received"], "{:d}")
 num("LiveZtfRunOneNProduced", ztf1["n_produced"], "{:d}")
@@ -379,12 +467,86 @@ num("LiveZtfRunTwoNReceived", ztf2["n_received"], "{:d}")
 num("LiveZtfRunTwoNProduced", ztf2["n_produced"], "{:d}")
 num("LiveZtfRunTwoNSkipped", ztf2["n_skipped"], "{:d}")
 pct("LiveZtfRunTwoNegFluxFrac", ztf2["negative_flux_fraction"], decimals=1)
-num(
-    "LiveZtfTotalAlerts",
-    ztf1["n_produced"] + ztf2["n_produced"],
-    "{:d}",
-)
-num("LiveLsstNReceived", lsst1["n_received"], "{:d}")
+
+LIVE = "reports/live_2026-11-06"
+for survey, slabel in [("ztf", "Ztf"), ("lsst", "Lsst")]:
+    run = load(f"{LIVE}/live_{survey}_run.json")
+    dist = load(f"{LIVE}/live_{survey}_classdist.json")
+    prefix = f"LiveNov{slabel}"
+    num(f"{prefix}NReceived", run["n_received"], "{:d}")
+    num(f"{prefix}NProduced", run["n_produced"], "{:d}")
+    num(f"{prefix}NSkipped", run["n_skipped"], "{:d}")
+    num(f"{prefix}NDetObs", run["n_detection_observations"], "{:d}")
+    pct(f"{prefix}NegFluxFrac", run["negative_flux_fraction"], decimals=1)
+    num(f"{prefix}ElapsedMin", run["elapsed_seconds"] / 60.0, "{:.0f}")
+    num(f"{prefix}NObjects", dist["n_objects"], "{:d}")
+    for cls, cname in [("Ia", "Ia"), ("Ib/c", "Ibc"), ("II", "II")]:
+        num(f"{prefix}Raw{cname}", dist["raw_pct"][cls], "{:.1f}")
+        num(f"{prefix}ElasticcCorr{cname}", dist["elasticc_prior"]["midpoint"][cls], "{:.1f}")
+        num(f"{prefix}TierBCorr{cname}", dist["tier_b_effective_prior"]["midpoint"][cls], "{:.1f}")
+    for corr, clabel in [("elasticc_prior", "Elasticc"), ("tier_b_effective_prior", "TierB")]:
+        lo, hi = dist[corr]["ibc_range_pct"]
+        num(f"{prefix}{clabel}IbcRangeLow", lo, "{:.1f}")
+        num(f"{prefix}{clabel}IbcRangeHigh", hi, "{:.1f}")
+tb_prior = load(f"{LIVE}/live_ztf_classdist.json")["tier_b_effective_prior"]["train_prior"]
+for i, cname in enumerate(["Ia", "Ibc", "II"]):
+    pct(f"TierBEffectivePrior{cname}", tb_prior[i], decimals=1)
+lsst_archive = load(f"{LIVE}/lsst_archive_reader_check.json")
+num("LsstArchiveNPackets", lsst_archive["n_packets"], "{:d}")
+num("LsstArchiveNConverted", lsst_archive["n_converted"], "{:d}")
+_mant, _exp = f"{lsst_archive['max_abs_dmag_trigger']:.0e}".split("e")
+num("LsstArchiveMaxDmag", f"${_mant}\\times 10^{{{int(_exp)}}}$")
+num("LsstArchiveStampMin", lsst_archive["stamp_size_px_min"], "{:d}")
+num("LsstArchiveStampMax", lsst_archive["stamp_size_px_max"], "{:d}")
+
+# ---------------------------------------------------------------------------
+# Serving benchmark (deployed LC+static model, uncontended full Tier B test
+# replay, 2026-11-05) and isolated ONNX timing (2026-11-06).
+# ---------------------------------------------------------------------------
+bench = load(f"{FIX}/serving_lc_static/replay_benchmark_uncontended.json")["runs"][0]
+num("ServingNAlerts", bench["n_rows"], "{:d}")
+num("ServingNObjects", bench["n_objects"], "{:d}")
+num("ServingLatencyPFifty", bench["latency_ms"]["p50"], "{:.1f}")
+num("ServingLatencyPNinetyFive", bench["latency_ms"]["p95"], "{:.1f}")
+num("ServingLatencyPNinetyNine", bench["latency_ms"]["p99"], "{:.1f}")
+num("ServingThroughput", bench["throughput_alerts_per_sec_busy"], "{:.0f}")
+num("ReplayMacroF", bench["macro_f1_latest"])
+num("ReplayOfflineGap", bench["macro_f1_latest"] - deployed["macro_f1_full"])
+onnx = load("reports/serving_2026-11-06/bench_onnx_lc_static.json")["onnx_isolated"]
+num("OnnxMsPerAlertBatchOne", onnx["1"]["per_alert_ms_p50"], "{:.3f}")
+num("OnnxMsPerAlertBatchThirtyTwo", onnx["32"]["per_alert_ms_p50"], "{:.3f}")
+
+# ---------------------------------------------------------------------------
+# Flux scale per tier (paper/scripts/compute_flux_scale.py)
+# ---------------------------------------------------------------------------
+flux = json.load(open(DERIVED / "flux_scale.json"))
+num("FluxMedianTierA", flux["tier_a_median_detection_fluxcal"], "{:.0f}")
+num("FluxMedianTierB", flux["tier_b_corrected_median_detection_fluxcal"], "{:.0f}")
+num("FluxMedianTierBPreFix", flux["tier_b_prefix_median_detection_fluxcal"], "{:.0f}")
+num("FluxBrightnessRatio", flux["brightness_ratio_tier_b_corrected_over_tier_a"], "{:.0f}")
+num("FluxBugFactor", flux["row_ratio_corrected_over_prefix"]["median"], "{:.1f}")
+num("FluxBugFactorLow", flux["row_ratio_corrected_over_prefix"]["p05"], "{:.1f}")
+num("FluxBugFactorHigh", flux["row_ratio_corrected_over_prefix"]["p95"], "{:.1f}")
+
+# ---------------------------------------------------------------------------
+# Prediction panels (paper/scripts/make_prediction_panels.py)
+# ---------------------------------------------------------------------------
+panels_json = json.load(open(DERIVED / "prediction_panels.json"))
+panels = panels_json["panels"]
+num("PanelMinObs", panels_json["min_obs_well_sampled"], "{:d}")
+num("PanelMisclassConfidencePct", panels["misclassified"]["confidence"] * 100, "{:.0f}")
+num("PanelMisclassNObs", panels["misclassified"]["n_obs"], "{:d}")
+
+# ---------------------------------------------------------------------------
+# Test-suite counts around the zeropoint fix
+# (reports/zeropoint_fix_2026-11-05/test_counts.json)
+# ---------------------------------------------------------------------------
+tc = load(f"{FIX}/test_counts.json")
+num("TestsPassedPreFix", tc["prefix_suite"]["passed"], "{:d}")
+num("TestsFailedInvarianceOnOldCode", tc["new_tests_on_prefix_code"]["failed"], "{:d}")
+# Factor by which the inverted conversion mis-scaled LSST (nJy, AB zp 31.4):
+# it multiplied by 10**((31.4-27.5)/2.5) where it should have divided by it.
+num("LsstInversionFactor", 10 ** (2 * (31.4 - 27.5) / 2.5), "{:.0f}")
 
 # ---------------------------------------------------------------------------
 # Derived stats (produced by other paper/scripts/*.py from raw ELAsTiCC2 data)
@@ -398,6 +560,11 @@ if exotic_spans_path.exists():
         num(f"ExoticSpanMedian{name}", d["median_detection_span_days"], "{:.1f}")
         num(f"ExoticNobsMean{name}", d["mean_nobs_per_object"], "{:.1f}")
         num(f"ExoticNObjects{name}", d["n_objects_read"], "{:d}")
+    for name in ("EB", "CLAGN"):
+        num(f"ExoticSpanRatio{name}",
+            exotic[name]["mean_detection_span_days"] / exotic["TDE"]["mean_detection_span_days"], "{:.0f}")
+        num(f"ExoticNobsRatio{name}",
+            exotic[name]["mean_nobs_per_object"] / exotic["TDE"]["mean_nobs_per_object"], "{:.1f}")
 else:
     gap(
         "TDE/EB/CLAGN mean/median detection-span and NOBS/object figures "
@@ -416,6 +583,7 @@ if windowing_path.exists():
     num("WindowMeanSeqLenWindowed", w["mean_seq_len_windowed"], "{:.1f}")
     pct("WindowFracRemoved", w["fraction_observations_removed"], decimals=1)
     num("WindowNSampleObjects", w["n_sample_objects"], "{:d}")
+    num("WindowForcedToDetRatio", w["mean_forced_photometry_per_object"] / w["mean_detections_per_object"], "{:.0f}")
 else:
     gap(
         "Mean detections-per-object vs. forced-photometry-per-object and the "
@@ -424,61 +592,6 @@ else:
         "a sample of Tier A objects from the interim parquet; see "
         "paper/data_derived/windowing_stats.json."
     )
-
-# ---------------------------------------------------------------------------
-# Serving benchmarks -- NOT ON DISK. GUIDE.md Sec 7 itself states these
-# (p50/p99 latency, throughput) are reported only in CLAUDE.md prose from a
-# Day-12 benchmark, with no stored JSON artifact; GUIDE.md's own reproduction
-# attempt this session could not re-verify them either (Postgres port
-# occupied). No macro is defined for these -- Sec 5/Table 8 must say so.
-# ---------------------------------------------------------------------------
-gap(
-    "Serving latency (p50/p99/mean/max) and throughput (peak alerts/sec) are "
-    "reported only in CLAUDE.md Day-12 prose. No JSON artifact stores them "
-    "(confirmed: grepped reports/ and outputs/ for p50/p99/throughput, no "
-    "hits), and GUIDE.md's own attempt to re-verify them this session failed "
-    "(Postgres port occupied). No macro is defined for these numbers; Table "
-    "8 and the abstract say so explicitly rather than repeating the prose "
-    "figures as if they were freshly verified."
-)
-gap(
-    "Majority-class and logistic-regression baseline rows (Table 6) were "
-    "never run to completion or persisted anywhere on disk in this project "
-    "-- src/eval/baselines.py exists but reports/ and outputs/ contain no "
-    "baseline_report.json or equivalent. Producing one now would mean "
-    "running a new baseline classifier fit, which the paper-writing brief's "
-    "'no retraining' rule was read to forbid (baseline fitting is a form of "
-    "model training, not figure generation) -- see paper/NUMBERS_GAPS.md. "
-    "Table 6 marks these rows as unavailable rather than fabricating a "
-    "plausible baseline number."
-)
-gap(
-    "The Day-14 live-ZTF prior-correction analysis (raw vs. corrected "
-    "class-distribution percentages, e.g. 'Ib/c 34.6% -> 13.9%') was "
-    "computed once, live, against a Postgres query over that session's "
-    "prediction rows, and was never persisted to a JSON file. It cannot be "
-    "reproduced from any artifact in reports/ or outputs/ this session. The "
-    "Discussion section describes the qualitative finding (training-prior "
-    "leakage into output probabilities) without restating the specific "
-    "percentages as disk-verified numbers."
-)
-gap(
-    "The deployed Tier B LC-only model's intermediate phase-cutoff macro-F1 "
-    "values (cutoffs 0/5/15/30) exist only in "
-    "outputs/finetune_bts/lc_only/eval/metrics.json, which this session's "
-    "accidental re-run of finetune_bts.py overwrote (GUIDE.md Sec 5): its "
-    "own 'full' value, 0.6727254, differs from the git-tracked, originally- "
-    "reported 'full' value in reports/gate_c/gate_c_report.json, 0.6715774, "
-    "by 0.0011 -- a real, unresolved run-to-run non-determinism, not a typo. "
-    "Figure 4 (phase curve) plots the deployed LC-only variant using this "
-    "file for cutoffs 0/5/15/30 (the only place they exist) but pins its "
-    "full-cutoff point to the original, git-tracked scalar "
-    "(reports/gate_c/gate_c_report.json's lc_only.macro_f1_full, 0.6716) "
-    "rather than this file's own drifted 'full' value, so the plotted curve "
-    "matches the deployed model's headline number used everywhere else in "
-    "the paper. The figure's caption states this sourcing and the 0.0011 "
-    "discrepancy explicitly."
-)
 
 # ---------------------------------------------------------------------------
 # Write output

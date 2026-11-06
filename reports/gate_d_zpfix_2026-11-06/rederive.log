@@ -1,0 +1,39 @@
+2026-11-06 13:43:31,425 INFO Loaded frozen Tier A LC-only encoder from outputs/train/checkpoint.pt
+2026-11-06 13:43:31,502 INFO bts_labels: using cached BTS Sample Explorer sample at data/raw/btsbot/bts_sample_explorer_raw.csv
+2026-11-06 13:43:32,147 INFO Tier B category counts across train+val+test: {'not_in_bts_sample': 9565, 'mapped_2224': 1287, 'mapped_2222': 5024, 'unclassified': 2029, 'mapped_2223': 335, 'no_tree_node': 547, 'uncertain': 166, 'mapped_other_leaf': 469, 'ambiguous': 60, 'excluded_csm_interacting': 29}
+2026-11-06 13:43:32,147 INFO Tier B eval sets: normal_test(3-class, test split only)=658 weird(pooled)=1045
+ROC-AUC: {'reconstruction_error': 0.8141504631986155, 'mahalanobis': 0.44066258489550764, 'isoforest': 0.5371387850671165, 'combined_3component': 0.7793109466121784}
+{
+  "post_fix": {
+    "by_label": {
+      "no_tree_node (CV/nova/LBV/LRN)": 42,
+      "AGN": 6,
+      "91bg": 1,
+      "TDE": 1
+    },
+    "by_source": {
+      "weird": 50
+    },
+    "by_category": {
+      "artifact_like": 38,
+      "genuine_anomaly": 11,
+      "short_sparse": 1
+    }
+  },
+  "pre_fix": {
+    "by_label": {
+      "no_tree_node (CV/nova/LBV/LRN)": 46,
+      "AGN": 3,
+      "91bg": 1
+    },
+    "by_source": {
+      "weird": 50
+    },
+    "by_category": {
+      "artifact_like": 36,
+      "genuine_anomaly": 13,
+      "short_sparse": 1
+    }
+  },
+  "overlap_with_pre_fix_top50": 35
+}

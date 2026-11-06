@@ -4,30 +4,35 @@
 \section{Main classification results}
 
 Table~\ref{tab:mainresults} reports macro-F1 and Ia-vs-rest ROC-AUC for
-every trained configuration. The majority-class and logistic-regression
-baselines specified alongside these rows were never run to completion or
-persisted to any artifact in this project's \texttt{reports/} or
-\texttt{outputs/} directories; producing one now would require fitting a
-new baseline classifier, which this report's own rule against retraining
-during paper-writing was read to prohibit (Appendix, and
-\texttt{paper/NUMBERS\_GAPS.md}). Those two rows are left blank rather than
-filled with a plausible number.
+every trained configuration, alongside a majority-class and a five-feature
+logistic-regression baseline fit on each tier with the frozen evaluation
+harness. Every Tier B number is measured on zeropoint-corrected photometry
+(Section~\ref{sec:silentfailures}); fine-tuned Tier B rows are the mean over
+\TierBNSeeds{} seeds with identical data and object order, so a difference
+between configurations can be read against the seed-to-seed spread.
 
 \begin{table}[htb]
 \centering
-\caption{Main classification results. Per-class F1 columns are Ia/Ib-c/II
-in order. The deployed configuration is marked; ``sim.\ prior'' notes that
-a model's output probabilities carry the ELAsTiCC training-set class
-prior, not the real sky prior (Section~\ref{sec:discussion}).}
+\caption{Main classification results at the full light-curve cutoff.
+Per-class F1 columns are Ia/Ib-c/II in order. Fine-tuned Tier B rows are
+the mean over \TierBNSeeds{} seeds, with the standard deviation of
+macro-F1 in parentheses; zero-shot rows are inference-only and
+seed-independent. The deployed configuration is marked; its served
+checkpoint is the seed-42 run (macro-F1 \DeployedMacroF{}, Ia-vs-rest
+ROC-AUC \DeployedRocAucIa{}, Ib/c F1 \DeployedFIbc{}). Output probabilities
+carry the training-set class prior, not the real sky prior
+(Section~\ref{sec:discussion}).}
 \label{tab:mainresults}
 \small
 \begin{tabular}{L{4.6cm}rrrrr}
 \toprule
 Configuration & Macro-F1 & ROC-AUC (Ia) & F1 Ia & F1 Ib/c & F1 II \\
 \midrule
-Majority-class baseline & -- & -- & -- & -- & -- \\
-Logistic regression baseline & -- & -- & -- & -- & -- \\
-Tier A, LC-only & \TierLCOnlyMacroFFull{} & \LCOnlyRocAucIa{} &
+Tier A, majority class & \BaselineMajTierAMacroF{} & \BaselineMajTierARocAucIa{} &
+  \BaselineMajTierAFIa{} & \BaselineMajTierAFIbc{} & \BaselineMajTierAFII{} \\
+Tier A, logistic regression & \BaselineLRTierAMacroF{} & \BaselineLRTierARocAucIa{} &
+  \BaselineLRTierAFIa{} & \BaselineLRTierAFIbc{} & \BaselineLRTierAFII{} \\
+Tier A, LC-only & \TierLCOnlyMacroFFull{} & \TierLCOnlyRocAucIaFull{} &
   \TierLCOnlyFIaFull{} & \TierLCOnlyFIbcFull{} & \TierLCOnlyFIIFull{} \\
 Tier A, LC+static & \TierLCStaticMacroFFull{} & \TierLCStaticRocAucIaFull{} &
   \TierLCStaticFIaFull{} & \TierLCStaticFIbcFull{} & \TierLCStaticFIIFull{} \\
@@ -36,32 +41,47 @@ Tier A, LC+static, no photo-$z$ & \TierLCStaticNoPhotozMacroFFull{} &
   \TierLCStaticNoPhotozFIbcFull{} & \TierLCStaticNoPhotozFIIFull{} \\
 Tier A, WHXE head & \TierWHXEMacroFFull{} & \TierWHXERocAucIaFull{} &
   \TierWHXEFIaFull{} & \TierWHXEFIbcFull{} & \TierWHXEFIIFull{} \\
-Tier B, zero-shot (Tier A weights, no fine-tune) & \ZeroShotMacroF{} &
+\midrule
+Tier B, majority class & \BaselineMajTierBMacroF{} & \BaselineMajTierBRocAucIa{} &
+  \BaselineMajTierBFIa{} & \BaselineMajTierBFIbc{} & \BaselineMajTierBFII{} \\
+Tier B, logistic regression & \BaselineLRTierBMacroF{} & \BaselineLRTierBRocAucIa{} &
+  \BaselineLRTierBFIa{} & \BaselineLRTierBFIbc{} & \BaselineLRTierBFII{} \\
+Tier B, zero-shot, LC-only weights & \ZeroShotLCOnlyMacroF{} &
+  \ZeroShotLCOnlyRocAucIa{} & \ZeroShotLCOnlyFIa{} & \ZeroShotLCOnlyFIbc{} &
+  \ZeroShotLCOnlyFII{} \\
+Tier B, zero-shot, LC+static weights & \ZeroShotMacroF{} &
   \ZeroShotRocAucIa{} & \ZeroShotFIa{} & \ZeroShotFIbc{} & \ZeroShotFII{} \\
-Tier B, LC-only fine-tune \textbf{(deployed)} & \LCOnlyMacroF{} &
+Tier B, LC-only fine-tune & \LCOnlyMacroF{} (\LCOnlyMacroFSD{}) &
   \LCOnlyRocAucIa{} & \LCOnlyFIa{} & \LCOnlyFIbc{} & \LCOnlyFII{} \\
-Tier B, LC+static fine-tune & \WithStaticMacroF{} & \WithStaticRocAucIa{} &
-  \WithStaticFIa{} & \WithStaticFIbc{} & \WithStaticFII{} \\
-Tier B, LC+static+DRB fine-tune & \WithStaticDRBMacroF{} &
-  \WithStaticDRBRocAucIa{} & \WithStaticDRBFIa{} & \WithStaticDRBFIbc{} &
-  \WithStaticDRBFII{} \\
+Tier B, LC+static fine-tune \textbf{(deployed)} & \WithStaticMacroF{}
+  (\WithStaticMacroFSD{}) & \WithStaticRocAucIa{} & \WithStaticFIa{} &
+  \WithStaticFIbc{} & \WithStaticFII{} \\
+Tier B, LC+static+DRB fine-tune & \WithStaticDRBMacroF{}
+  (\WithStaticDRBMacroFSD{}) & \WithStaticDRBRocAucIa{} & \WithStaticDRBFIa{} &
+  \WithStaticDRBFIbc{} & \WithStaticDRBFII{} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The sim-to-real gap for the deployed configuration is
-$\TierAFullMacroF{} \to \LCOnlyMacroF{}$, a drop of $\SimToRealGapLCOnly{}$
-macro-F1; the (not deployed) LC+static variant shows a larger drop,
-$\TierAFullMacroF{} \to \WithStaticMacroF{}$
-($\SimToRealGapStatic{}$). Both are the expected direction: simulated data
-has no instrument noise, no real-bogus artifacts, and no mislabelled hosts,
-so it is strictly easier than reality, and a model that scored identically
-on both would be the stronger signal of a broken (leaking) evaluation
-split, not of a better model. Fine-tuning itself recovers
-$\TransferGain{}$ macro-F1 over the zero-shot baseline on Tier B
-($\ZeroShotMacroF{} \to \WithStaticMacroF{}$) -- fine-tuning is doing real,
-measurable work, not merely re-labelling an already-adequate zero-shot
-model.
+The sim-to-real gap is measured between matched configurations, so that it
+isolates the change of data rather than a change of model. For the
+deployed LC+static configuration it is
+$\TierLCStaticMacroFFull{} \to \WithStaticMacroF{}$, a drop of
+$\SimToRealGapStatic{}$ macro-F1; for LC-only it is
+$\TierLCOnlyMacroFFull{} \to \LCOnlyMacroF{}$, a drop of
+$\SimToRealGapLCOnly{}$. Both are the expected direction: simulated data has
+no instrument noise, no real-bogus artifacts, and no mislabelled hosts, so
+it is strictly easier than reality, and a model that scored identically on
+both would be the stronger signal of a broken (leaking) evaluation split,
+not of a better model. Fine-tuning recovers $\TransferGain{}$ macro-F1 over
+the matching zero-shot model for LC+static
+($\ZeroShotMacroF{} \to \WithStaticMacroF{}$) and $\TransferGainLCOnly{}$ for
+LC-only ($\ZeroShotLCOnlyMacroF{} \to \LCOnlyMacroF{}$) -- fine-tuning is
+doing real, measurable work, not re-labelling an already-adequate zero-shot
+model. Host features help on both tiers: by $\PhotozGainWith{}$ macro-F1 on
+Tier A and by $\StaticGainTierB{}$ on Tier B, \StaticGainOverSD{} times the larger of
+the two configurations' seed-to-seed standard deviations, which is why
+LC+static is the deployed configuration.
 
 \section{Phase curve}
 
@@ -69,36 +89,26 @@ model.
 \centering
 \includegraphics[width=0.78\linewidth]{figures/fig4_phase_curve}
 \caption{Macro-F1 as a function of days since first detection, Tier A test
-(LC+static) against Tier B test (LC-only fine-tune, the deployed
-configuration). Tier B has no pre-detection ($-5$\,d) point because its
-source metadata contains no forced-photometry row type at all
+(LC+static) against Tier B test (LC+static fine-tune, the deployed
+checkpoint; every point, including the full cutoff, read from that one
+run's own evaluation). Tier B has no pre-detection ($-5$\,d) point because
+its source metadata contains no forced-photometry row type at all
 (Section~\ref{sec:discussion}); the comparison is therefore restricted to
 cutoffs $\geq 0$. Conflating ``the model degrades on real data'' with ``the
 model was evaluated on an easier phase slice'' would compare a full Tier A
 curve (which includes $-5$\,d) against a necessarily truncated Tier B one
 and misstate the size of the sim-to-real gap for reasons that have nothing
-to do with sim-to-real generalisation. Tier B's intermediate cutoffs (0,
-5, 15, 30\,d) are read from \texttt{outputs/finetune\_bts/lc\_only/eval/%
-metrics.json}, the only place they exist; that file is itself the product
-of a later, non-deterministic re-run of the fine-tuning script, whose own
-full-cutoff value (0.6727) drifted 0.0011 from the original, git-tracked
-0.6716 reported everywhere else in this document
-(\texttt{paper/NUMBERS\_GAPS.md}). This figure's own full-cutoff point is
-therefore pinned to that original, git-tracked scalar
-(\texttt{reports/gate\_c/gate\_c\_report.json}, \texttt{"lc\_only"."macro\_f1\_full"}),
-not the re-run file's own drifted value, so the curve's endpoint matches
-every other reported number for the deployed configuration.}
+to do with sim-to-real generalisation.}
 \label{fig:phasecurve}
 \end{figure}
 
 Both curves in Figure~\ref{fig:phasecurve} rise monotonically with more of
 the light curve observed, from \TierLCStaticMacroFZero{} (Tier A, $0$\,d) to
-\TierLCStaticMacroFFull{} (full) and from 0.2839 (Tier B, LC-only,
-$0$\,d) to \LCOnlyMacroF{} (full). A model that got \emph{worse}
-with more data would itself indicate a bug -- leakage that only helps a
-truncated input, or an architecture unable to use a long sequence -- so the
-monotonic shape is a sanity check that passed, not merely a pleasant
-picture.
+\TierLCStaticMacroFFull{} (full) and from \DeployedPhaseZero{} (Tier B, $0$\,d)
+to \DeployedPhaseFull{} (full). A model that got \emph{worse} with more data
+would itself indicate a bug -- leakage that only helps a truncated input,
+or an architecture unable to use a long sequence -- so the monotonic shape
+is a sanity check that passed, not merely a pleasant picture.
 
 \section{Confusion matrices}
 
@@ -106,22 +116,11 @@ picture.
 \centering
 \includegraphics[width=\linewidth]{figures/fig5_confusion_grid}
 \caption{Row-normalised confusion matrices (raw counts in parentheses) at
-each phase cutoff. Top row: Tier A test, LC+static, read directly from its
-own untouched evaluation artifact. Bottom row: Tier B test, LC+static
-fine-tune, reproduced in this same paper-writing session because no
-original confusion-matrix artifact survives on disk for any Tier B
-variant (every \texttt{outputs/finetune\_bts/*/eval/*.json} file was
-overwritten by an unrelated, accidental full re-run of the fine-tuning
-script during a previous documentation session, and only the git-tracked
-scalar summary in \texttt{reports/gate\_c/gate\_c\_report.json} -- used
-for every other Tier B number in this report -- survived that overwrite
-intact). This reproduction's own full-cutoff macro-F1 (0.6354) differs from
-the original, git-tracked figure used everywhere else in this report
-(\WithStaticMacroF{}) by 0.0011 -- an unresolved, small run-to-run
-non-determinism in the fine-tuning script, not a transcription error; see
-\texttt{paper/NUMBERS\_GAPS.md}. At the earliest cutoff the
-model collapses onto the majority class (Tier B: every object predicted
-Ia at $0$\,d); the diagonal emerges as photometry accumulates.}
+each phase cutoff. Top row: Tier A test, LC+static. Bottom row: Tier B
+test, the deployed LC+static fine-tune (seed 42), read from that run's own
+evaluation. At the earliest cutoffs the Tier B model predicts Ia for
+\DeployedPhaseZeroPredIaFrac{}\% of objects at $0$\,d, the majority class;
+the diagonal emerges as photometry accumulates.}
 \label{fig:confgrid}
 \end{figure}
 
@@ -131,27 +130,26 @@ Ia at $0$\,d); the diagonal emerges as photometry accumulates.}
 \centering
 \includegraphics[width=0.92\linewidth]{figures/fig6_prediction_panels}
 \caption{Four real Tier B test-split objects, run through the deployed
-checkpoint (LC-only fine-tune) at inference time: the light curve as
+checkpoint (LC+static fine-tune) at inference time: the light curve as
 tensorized (detections filled, forced photometry as small crosses, ZTF
 $g$/$r$ in distinct colours), the real science/template/difference cutout
 triplet (ZScale-rendered), and the model's own class-probability bars.
 \emph{Selection}: for each class, the highest-confidence correctly
-classified test object with at least 25 observations (falling back to the
+classified test object with at least \PanelMinObs{} observations (falling back to the
 best available if no such object exists for a class); for the
 misclassification panel, among test objects truly Ib/c but predicted Ia --
 this project's own recorded dominant confusion -- the most confident wrong
 call, tie-broken toward the sparser light curve. All four objects shown
-were found by this selection rule on the first pass (a true-Ib/c-as-Ia
-case did exist in the candidate pool); none were cherry-picked from a
-larger, unreported set of alternatives.}
+were found by this selection rule on the first pass; none were
+cherry-picked from a larger, unreported set of alternatives.}
 \label{fig:predpanels}
 \end{figure}
 
 The misclassified panel in Figure~\ref{fig:predpanels} is instructive on
-its own: a 23-observation light curve, evenly sampled but sparse, is called
-Ia at 94\% confidence while its spectroscopic type is Ib/c -- exactly the
-kind of case the sim-to-real gap and the Ib/c F1 figure in
-Table~\ref{tab:mainresults} are summarising as a single number.
+its own: a \PanelMisclassNObs{}-observation light curve is called Ia at
+\PanelMisclassConfidencePct{}\% confidence while its spectroscopic type is
+Ib/c -- exactly the kind of case the Ib/c F1 figure in
+Table~\ref{tab:mainresults} summarises as a single number.
 
 \section{Anomaly branch under domain shift}
 
@@ -186,10 +184,12 @@ population an anomaly score is supposed to flag.
 \centering
 \caption{Anomaly-component ROC-AUC (normal test objects vs.\ held-out
 anomalous objects), each component and the combination with and without
-classifier entropy. ``Combined (recomputed)'' is this component
-combination recomputed directly from the per-object score files in this
-same session, independently of the single stored summary number, and
-agrees with it to four decimal places.}
+classifier entropy. Tier B is scored on zeropoint-corrected photometry
+with the same persisted scorers fitted on Tier A. The entropy-dropped
+combination is recomputed directly from the per-object score files,
+independently of the stored summary number, and agrees with it to four
+decimal places. Before the zeropoint correction the Tier B entropy-dropped
+combination was \PreFixAnomalyTierBCombinedThree{}.}
 \label{tab:anomaly}
 \begin{tabular}{lrr}
 \toprule
@@ -206,49 +206,89 @@ Combined (with entropy) & \AnomalyTierACombined{} & \AnomalyTierBCombined{} \\
 \end{tabular}
 \end{table}
 
+\section{Gate D: the top-ranked anomalies}
+\label{sec:gated}
+
+The top \GateDNTotal{} of the pooled corrected Tier B evaluation set
+(\AnomalyTierBNNormal{} normal supernovae and \AnomalyTierBNAnomalous{}
+confirmed non-supernova objects), ranked by the deployed three-component
+score, are \GateDNNoTreeNode{} cataclysmic variables, novae, luminous blue
+variables or luminous red novae, \GateDNAGN{} AGN, \GateDNNinetyOneBG{}
+91bg-like supernova and \GateDNTDE{} tidal disruption event;
+\GateDNFromNormal{} come from the normal supernova population. Before the
+zeropoint correction the same ranking gave \GateDPreFixNNoTreeNode{},
+\GateDPreFixNAGN{}, \GateDPreFixNNinetyOneBG{} and \GateDPreFixNTDE{}
+respectively, also with \GateDPreFixNFromNormal{} normal objects;
+\GateDOverlapPreFix{} objects appear in both lists. The composition shifted
+slightly toward AGN, but its character did not change. A photometric
+heuristic built without pixel data tags \GateDNArtifactLike{} of the
+\GateDNTotal{} as ``artifact-like'' (\GateDPreFixNArtifactLike{} before the
+correction), but every one of them is a spectroscopically confirmed real
+object, and inspection of the light curves shows multi-season sequences of
+repeated outbursts or stochastic AGN variability rather than isolated
+single-epoch spikes. The heuristic's label is a limitation of a proxy
+without cutouts, not evidence of artifacts.
+
 \section{Serving benchmarks}
 
-A serving-layer latency and throughput benchmark (Kafka consume through
-Postgres write, one alert at a time) exists in this project's development
-record, but no JSON or other artifact recording it survives in either
-\texttt{reports/} or \texttt{outputs/} -- confirmed by direct search of
-both directories for the relevant field names. Per this report's rule that
-every number must be traceable to a stored artifact, that benchmark is not
-restated here as a verified figure; a reader wanting it should treat it as
-an unverified project-log claim rather than a result of this report. What
-\emph{is} verifiable from a stored artifact is the replay-mode pipeline's
-agreement with the offline evaluation harness on the same data: replaying
-the full Tier B test split through the complete ingest~$\to$~state~$\to$~
-tensorize~$\to$~ONNX~$\to$~anomaly-score path reproduces the offline
-LC-only macro-F1 to within 0.0011 (Section~\ref{sec:discussion}), evidence
-that the serving path introduces no correctness regression relative to the
-harness these headline numbers otherwise come from.
+The deployed LC+static model was benchmarked by replaying the full Tier B
+test split (\ServingNAlerts{} alerts, \ServingNObjects{} objects) through the
+complete Kafka~$\to$~Redis~$\to$~tensorize~$\to$~ONNX~$\to$~anomaly
+score~$\to$~Postgres path, one alert at a time, with nothing else running.
+Per-alert latency, from Kafka receipt to just before that alert's database
+insert, is \ServingLatencyPFifty{}\,ms at the median,
+\ServingLatencyPNinetyFive{}\,ms at the 95th percentile and
+\ServingLatencyPNinetyNine{}\,ms at the 99th, at \ServingThroughput{}
+alerts per second over the busy interval. The ONNX classifier on its own
+takes \OnnxMsPerAlertBatchOne{}\,ms per alert at batch size one (median),
+so the model is a small fraction of the per-alert cost; the remainder is
+the unbatched Redis and Postgres round trips. Both figures are read from
+stored benchmark artifacts. An earlier, lower-latency serving figure that
+appears in this project's development log could not be matched to any
+stored run and is not used. The same replay reproduces the offline
+evaluation: the latest prediction per object scores macro-F1
+\ReplayMacroF{} against the offline \DeployedMacroF{} for the same
+checkpoint, a difference of \ReplayOfflineGap{} that comes from the
+serving-only \SpanChosenDefault{}-day span cap.
 
 \section{Live stream results}
 
-\paragraph{ZTF.} \LiveZtfTotalAlerts{} real alerts were ingested end to end
-through the unmodified replay-mode pipeline across two live sessions
-against Fink's \texttt{fink\_sn\_candidates\_ztf} topic
-(\LiveZtfRunOneNReceived{} and \LiveZtfRunTwoNReceived{} alerts received,
-\LiveZtfRunOneNSkipped{} and \LiveZtfRunTwoNSkipped{} skipped). The first
-session's \LiveZtfRunOneNSkipped{} skips were traced to a real bug -- an
-undersized, CCD-edge cutout stamp raising an exception that discarded an
-alert's entire light curve, not merely its cutout -- fixed to degrade to
-``no cutout'' instead, and confirmed at 0 skips on the second session.
-Negative-flux detections, structurally absent from Tier B by construction
-(BTS pre-filters to brightening subtractions before a candidate ever
-reaches its public metadata release), appeared in \LiveZtfRunOneNegFluxFrac{}--\LiveZtfRunTwoNegFluxFrac{}\%
-of live detections across the two sessions -- the first direct, quantified
-confirmation of that filtering's effect on data Tier B's own construction
-never included.
+\paragraph{ZTF.} With the corrected, deployed LC+static model, a
+\LiveNovZtfElapsedMin{}-minute session on Fink's \texttt{fink\_sn\_\allowbreak candidates\_\allowbreak ztf}
+topic received \LiveNovZtfNReceived{} alerts and scored all of them
+(\LiveNovZtfNSkipped{} skipped) through the unmodified replay-mode pipeline,
+covering \LiveNovZtfNObjects{} objects. Negative-flux detections, which are
+absent from Tier B by construction (BTS pre-filters to brightening
+subtractions before a candidate reaches its public release), made up
+\LiveNovZtfNegFluxFrac{}\% of live detections. The latest prediction per
+object is Ia \LiveNovZtfRawIa{}\%, Ib/c \LiveNovZtfRawIbc{}\% and II
+\LiveNovZtfRawII{}\%; these objects carry no labels, so this is a
+prediction-shape observation, not an accuracy measurement
+(Section~\ref{sec:limitations} discusses the class prior). An earlier pair
+of live sessions, run before the zeropoint correction with the previous
+model, exposed a real bug: an undersized, CCD-edge cutout stamp raised an
+exception that discarded the alert's entire light curve, not merely its
+cutout (\LiveZtfRunOneNSkipped{} of \LiveZtfRunOneNReceived{} alerts lost).
+It was fixed to degrade to ``no cutout'' and confirmed at
+\LiveZtfRunTwoNSkipped{} skips on the following session.
 
-\paragraph{LSST.} \LiveLsstNReceived{} messages were received across every
-subscribed LSST topic during this project's live-ingestion windows, despite
-cumulative topic offsets in the hundreds of thousands confirming genuine
-historical production on Fink's LSST relay. \texttt{avro\_lsst.py}, this
-pipeline's LSST reader, therefore remains built and defensively tested
-against synthetic packets, but unverified against a single real LSST
-alert -- a real, stated gap, not a claimed success.
+\paragraph{LSST.} The LSST reader first met real traffic in the
+pre-correction audit, where every alert was rejected because the live
+schema names declination \texttt{dec} rather than the \texttt{decl} the
+reader expected. With that field and the zeropoint corrected, the reader
+converts all \LsstArchiveNConverted{} of \LsstArchiveNPackets{} archived live
+packets, and the AB magnitude of each triggering source is preserved
+through the conversion to within \LsstArchiveMaxDmag{}\,mag. A
+\LiveNovLsstElapsedMin{}-minute live session on
+\texttt{fink\_most\_\allowbreak likely\_sn\_\allowbreak lsst} then received \LiveNovLsstNReceived{}
+alerts and scored all of them (\LiveNovLsstNSkipped{} skipped), covering
+\LiveNovLsstNObjects{} objects, through the same unmodified pipeline;
+\LiveNovLsstNegFluxFrac{}\% of detections had negative flux. The latest
+prediction per object is Ia \LiveNovLsstRawIa{}\%, Ib/c
+\LiveNovLsstRawIbc{}\% and II \LiveNovLsstRawII{}\%. \textbf{These alerts are
+unlabelled, so no accuracy claim is possible for LSST}: the result shows
+that LSST photometry flows end to end on the corrected flux scale, not
+that the classifier is right about it.
 
 \section{Gate outcomes}
 
@@ -269,15 +309,17 @@ A & Plausible light curves per class; negative flux present;
 B & Shuffled labels collapse to chance; causal truncation-invariance;
   ROC-AUC within pre-registered band & Passed \\
 C & Measurable sim-to-real accuracy drop & Passed
-  ($\SimToRealGapLCOnly{}$ macro-F1, deployed configuration) \\
-D & Top-50 ranked anomalies are artifact-dominated (68\% anchor,
+  ($\SimToRealGapStatic{}$ macro-F1 for LC+static, $\SimToRealGapLCOnly{}$
+  for LC-only, matched configurations) \\
+D & Top-\GateDNTotal{} ranked anomalies are artifact-dominated (\GateDArtifactAnchorPct{}\% anchor,
   \citealp{malanchev2021}) & \textbf{Deferred, not passed or failed}: the
-  only evaluation population available (\GateDNTotal{} Tier B ``weird''
-  objects: \GateDNNoTreeNode{} confirmed non-tree-node real classes,
-  \GateDNAGN{} AGN, \GateDNNinetyOneBG{} 91bg) is spectroscopically confirmed real
-  objects only, pre-filtered by construction at two separate stages
-  (Section~\ref{sec:discussion}) -- there was no bogus/artifact candidate
-  in the pool for the ranker to have possibly found \\
+  top \GateDNTotal{} on corrected Tier B (\GateDNNoTreeNode{} confirmed
+  non-tree-node real classes, \GateDNAGN{} AGN, \GateDNNinetyOneBG{} 91bg,
+  \GateDNTDE{} TDE; \GateDNFromNormal{} from the normal supernova test set)
+  are spectroscopically confirmed real objects only, because the only
+  evaluation population available was pre-filtered by construction at two
+  separate stages (Section~\ref{sec:gated}) -- there was no bogus/artifact
+  candidate in the pool for the ranker to have possibly found \\
 \bottomrule
 \end{tabular}
 \end{table}

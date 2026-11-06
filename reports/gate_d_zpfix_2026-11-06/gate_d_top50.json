@@ -1,0 +1,779 @@
+{
+  "definition": "combined = equal-weight z-score average of reconstruction_error, mahalanobis, isoforest (persisted scorers, no refit); Tier B normal_test (n=658) + weird (n=1045) pooled, top 50",
+  "roc_auc_tier_b": {
+    "reconstruction_error": 0.8141504631986155,
+    "mahalanobis": 0.44066258489550764,
+    "isoforest": 0.5371387850671165,
+    "combined_3component": 0.7793109466121784
+  },
+  "n_normal": 658,
+  "n_weird": 1045,
+  "post_fix": {
+    "by_label": {
+      "no_tree_node (CV/nova/LBV/LRN)": 42,
+      "AGN": 6,
+      "91bg": 1,
+      "TDE": 1
+    },
+    "by_source": {
+      "weird": 50
+    },
+    "by_category": {
+      "artifact_like": 38,
+      "genuine_anomaly": 11,
+      "short_sparse": 1
+    }
+  },
+  "pre_fix": {
+    "by_label": {
+      "no_tree_node (CV/nova/LBV/LRN)": 46,
+      "AGN": 3,
+      "91bg": 1
+    },
+    "by_source": {
+      "weird": 50
+    },
+    "by_category": {
+      "artifact_like": 36,
+      "genuine_anomaly": 13,
+      "short_sparse": 1
+    }
+  },
+  "overlap_with_pre_fix_top50": 35,
+  "entered_top50": [
+    "ZTF17aaazdba",
+    "ZTF18aahfohe",
+    "ZTF18abkojhi",
+    "ZTF18abucnqk",
+    "ZTF18abwqbxc",
+    "ZTF18abzbukt",
+    "ZTF18acaktuk",
+    "ZTF19aaklfkk",
+    "ZTF19aalxsfe",
+    "ZTF19aavdioh",
+    "ZTF19abasxmh",
+    "ZTF19abhbiqq",
+    "ZTF20abnsqsr",
+    "ZTF21aatscez",
+    "ZTF21aaxgowh"
+  ],
+  "left_top50": [
+    "ZTF18aaixulp",
+    "ZTF18abehrdw",
+    "ZTF18ablvazp",
+    "ZTF18abnouoo",
+    "ZTF18absmoql",
+    "ZTF18absxczg",
+    "ZTF18abtrvrj",
+    "ZTF18abxxngn",
+    "ZTF18abznndg",
+    "ZTF18acaptmo",
+    "ZTF18acawxza",
+    "ZTF18actwrnh",
+    "ZTF18aczfdlm",
+    "ZTF19abqivge",
+    "ZTF19acpmpvh"
+  ],
+  "objects": [
+    {
+      "rank": 1,
+      "object_id": "ZTF19aakiygv",
+      "combined": 20.00187680200674,
+      "components": {
+        "reconstruction_error": 35.81901931762695,
+        "mahalanobis": 307.94647357649393,
+        "isoforest": 0.5359268859545041
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 35
+    },
+    {
+      "rank": 2,
+      "object_id": "ZTF17aaaocpq",
+      "combined": 19.29711426395072,
+      "components": {
+        "reconstruction_error": 33.939205169677734,
+        "mahalanobis": 347.42579222719564,
+        "isoforest": 0.5353314121989211
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 24
+    },
+    {
+      "rank": 3,
+      "object_id": "ZTF19abrougq",
+      "combined": 18.661950714418122,
+      "components": {
+        "reconstruction_error": 33.13529968261719,
+        "mahalanobis": 319.4355620489681,
+        "isoforest": 0.5325602785114824
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 12
+    },
+    {
+      "rank": 4,
+      "object_id": "ZTF19aaodojg",
+      "combined": 17.94913833727207,
+      "components": {
+        "reconstruction_error": 31.691110610961914,
+        "mahalanobis": 307.7045230474611,
+        "isoforest": 0.5435875346191965
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 42
+    },
+    {
+      "rank": 5,
+      "object_id": "ZTF18abhdxwz",
+      "combined": 17.367038938130666,
+      "components": {
+        "reconstruction_error": 30.650663375854492,
+        "mahalanobis": 321.18863993144464,
+        "isoforest": 0.5300893652309313
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 11
+    },
+    {
+      "rank": 6,
+      "object_id": "ZTF21abibafp",
+      "combined": 17.084041288583446,
+      "components": {
+        "reconstruction_error": 31.76464080810547,
+        "mahalanobis": 236.3173248083977,
+        "isoforest": 0.5031810147173469
+      },
+      "source": "weird",
+      "label": "91bg",
+      "category": "short_sparse",
+      "n_obs": 6
+    },
+    {
+      "rank": 7,
+      "object_id": "ZTF18acxwtbe",
+      "combined": 16.672166880486348,
+      "components": {
+        "reconstruction_error": 29.50400161743164,
+        "mahalanobis": 315.13034529045797,
+        "isoforest": 0.5240444678981309
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 16
+    },
+    {
+      "rank": 8,
+      "object_id": "ZTF19aatwljq",
+      "combined": 16.432039766016096,
+      "components": {
+        "reconstruction_error": 28.35582733154297,
+        "mahalanobis": 337.4891661120462,
+        "isoforest": 0.5434829178818197
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 8
+    },
+    {
+      "rank": 9,
+      "object_id": "ZTF18abotthj",
+      "combined": 16.322639123508917,
+      "components": {
+        "reconstruction_error": 27.779172897338867,
+        "mahalanobis": 327.3966057037462,
+        "isoforest": 0.5686633325249802
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "artifact_like",
+      "n_obs": 96
+    },
+    {
+      "rank": 10,
+      "object_id": "ZTF19abzwbxy",
+      "combined": 16.290529662573828,
+      "components": {
+        "reconstruction_error": 28.43649673461914,
+        "mahalanobis": 335.0057653588734,
+        "isoforest": 0.5272332598662158
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 15
+    },
+    {
+      "rank": 11,
+      "object_id": "ZTF18abvoyen",
+      "combined": 16.150442287830213,
+      "components": {
+        "reconstruction_error": 28.075210571289062,
+        "mahalanobis": 317.6282858658649,
+        "isoforest": 0.543434034203363
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 39
+    },
+    {
+      "rank": 12,
+      "object_id": "ZTF19aavajub",
+      "combined": 16.038662740996532,
+      "components": {
+        "reconstruction_error": 28.365739822387695,
+        "mahalanobis": 288.1589004718984,
+        "isoforest": 0.5376274359811873
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 30
+    },
+    {
+      "rank": 13,
+      "object_id": "ZTF19aauptux",
+      "combined": 15.35121011337214,
+      "components": {
+        "reconstruction_error": 26.7700138092041,
+        "mahalanobis": 302.00654492984523,
+        "isoforest": 0.5416034922910957
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 23
+    },
+    {
+      "rank": 14,
+      "object_id": "ZTF18abvarea",
+      "combined": 15.243018155548848,
+      "components": {
+        "reconstruction_error": 26.40268898010254,
+        "mahalanobis": 320.58115108359846,
+        "isoforest": 0.5370810092872462
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 36
+    },
+    {
+      "rank": 15,
+      "object_id": "ZTF17aaaikab",
+      "combined": 15.219084197038335,
+      "components": {
+        "reconstruction_error": 26.491310119628906,
+        "mahalanobis": 314.2992692453569,
+        "isoforest": 0.534485700217736
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 36
+    },
+    {
+      "rank": 16,
+      "object_id": "ZTF18abwjzpq",
+      "combined": 15.117161605619065,
+      "components": {
+        "reconstruction_error": 25.939756393432617,
+        "mahalanobis": 326.0543341773051,
+        "isoforest": 0.5444559341934173
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 57
+    },
+    {
+      "rank": 17,
+      "object_id": "ZTF18acbxphq",
+      "combined": 14.876755434232594,
+      "components": {
+        "reconstruction_error": 25.55301856994629,
+        "mahalanobis": 306.9912429401845,
+        "isoforest": 0.5532578305627257
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 24
+    },
+    {
+      "rank": 18,
+      "object_id": "ZTF19aanepuf",
+      "combined": 14.81237193552797,
+      "components": {
+        "reconstruction_error": 25.764877319335938,
+        "mahalanobis": 305.8481381991442,
+        "isoforest": 0.537032825435239
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 24
+    },
+    {
+      "rank": 19,
+      "object_id": "ZTF19aabyoce",
+      "combined": 14.760819577344664,
+      "components": {
+        "reconstruction_error": 25.495403289794922,
+        "mahalanobis": 316.65007614374167,
+        "isoforest": 0.5383342826546239
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 33
+    },
+    {
+      "rank": 20,
+      "object_id": "ZTF18abvnsmh",
+      "combined": 14.596441257535034,
+      "components": {
+        "reconstruction_error": 25.266368865966797,
+        "mahalanobis": 297.5377808863842,
+        "isoforest": 0.5466483949313868
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 46
+    },
+    {
+      "rank": 21,
+      "object_id": "ZTF18aczygck",
+      "combined": 14.587338832405656,
+      "components": {
+        "reconstruction_error": 25.013933181762695,
+        "mahalanobis": 325.6604469988489,
+        "isoforest": 0.5396091378959544
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 25
+    },
+    {
+      "rank": 22,
+      "object_id": "ZTF19abhbiqq",
+      "combined": 14.402520955602947,
+      "components": {
+        "reconstruction_error": 24.51924705505371,
+        "mahalanobis": 318.72425272892053,
+        "isoforest": 0.5511530044372722
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 57
+    },
+    {
+      "rank": 23,
+      "object_id": "ZTF19aaklfkk",
+      "combined": 14.372833891225795,
+      "components": {
+        "reconstruction_error": 24.182899475097656,
+        "mahalanobis": 348.23947980502874,
+        "isoforest": 0.5453995657354743
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 32
+    },
+    {
+      "rank": 24,
+      "object_id": "ZTF21aaxgowh",
+      "combined": 14.367971430819567,
+      "components": {
+        "reconstruction_error": 24.733806610107422,
+        "mahalanobis": 327.26756520578925,
+        "isoforest": 0.5312044695367203
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 22
+    },
+    {
+      "rank": 25,
+      "object_id": "ZTF20aaewhin",
+      "combined": 14.317190799228797,
+      "components": {
+        "reconstruction_error": 24.64273452758789,
+        "mahalanobis": 320.73900896450004,
+        "isoforest": 0.535217730664895
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 13
+    },
+    {
+      "rank": 26,
+      "object_id": "ZTF19abagewd",
+      "combined": 14.300119495993023,
+      "components": {
+        "reconstruction_error": 24.752992630004883,
+        "mahalanobis": 309.6719238157482,
+        "isoforest": 0.5354160134480618
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 18
+    },
+    {
+      "rank": 27,
+      "object_id": "ZTF19aaytisr",
+      "combined": 14.218747232337472,
+      "components": {
+        "reconstruction_error": 24.339303970336914,
+        "mahalanobis": 325.9078594750806,
+        "isoforest": 0.537428720389226
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 47
+    },
+    {
+      "rank": 28,
+      "object_id": "ZTF18acbvmhq",
+      "combined": 14.047350966390063,
+      "components": {
+        "reconstruction_error": 23.984167098999023,
+        "mahalanobis": 314.0195305734039,
+        "isoforest": 0.5465686521035028
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 55
+    },
+    {
+      "rank": 29,
+      "object_id": "ZTF18abyzdoo",
+      "combined": 13.963182397878251,
+      "components": {
+        "reconstruction_error": 23.571067810058594,
+        "mahalanobis": 307.8121003038873,
+        "isoforest": 0.5633531213011883
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 94
+    },
+    {
+      "rank": 30,
+      "object_id": "ZTF19acymuht",
+      "combined": 13.959789105926795,
+      "components": {
+        "reconstruction_error": 23.83812713623047,
+        "mahalanobis": 297.4101729218646,
+        "isoforest": 0.5565286820783242
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 32
+    },
+    {
+      "rank": 31,
+      "object_id": "ZTF18abzpxel",
+      "combined": 13.938295522868062,
+      "components": {
+        "reconstruction_error": 23.893413543701172,
+        "mahalanobis": 317.65678959815295,
+        "isoforest": 0.5380355831203034
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 68
+    },
+    {
+      "rank": 32,
+      "object_id": "ZTF21aatscez",
+      "combined": 13.927098176668155,
+      "components": {
+        "reconstruction_error": 23.13252830505371,
+        "mahalanobis": 369.19870648307,
+        "isoforest": 0.5407238374627162
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 10
+    },
+    {
+      "rank": 33,
+      "object_id": "ZTF18abvlgyt",
+      "combined": 13.910401386422366,
+      "components": {
+        "reconstruction_error": 23.514474868774414,
+        "mahalanobis": 339.2353839117002,
+        "isoforest": 0.5399382881206627
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 18
+    },
+    {
+      "rank": 34,
+      "object_id": "ZTF18aahfohe",
+      "combined": 13.901584548955073,
+      "components": {
+        "reconstruction_error": 23.608238220214844,
+        "mahalanobis": 298.89289107359747,
+        "isoforest": 0.5614409443659012
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 52
+    },
+    {
+      "rank": 35,
+      "object_id": "ZTF20abnsqsr",
+      "combined": 13.895733280216328,
+      "components": {
+        "reconstruction_error": 23.757654190063477,
+        "mahalanobis": 325.066664295569,
+        "isoforest": 0.535746101224681
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 11
+    },
+    {
+      "rank": 36,
+      "object_id": "ZTF19abasxmh",
+      "combined": 13.868735592685416,
+      "components": {
+        "reconstruction_error": 23.51047706604004,
+        "mahalanobis": 343.99239445394346,
+        "isoforest": 0.5328680033713912
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 27
+    },
+    {
+      "rank": 37,
+      "object_id": "ZTF18acaktuk",
+      "combined": 13.859386637581968,
+      "components": {
+        "reconstruction_error": 23.823335647583008,
+        "mahalanobis": 261.4060179447069,
+        "isoforest": 0.571635185690464
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 85
+    },
+    {
+      "rank": 38,
+      "object_id": "ZTF18abwqbxc",
+      "combined": 13.81242346492275,
+      "components": {
+        "reconstruction_error": 23.29132080078125,
+        "mahalanobis": 304.37482658094547,
+        "isoforest": 0.5650306094691881
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 67
+    },
+    {
+      "rank": 39,
+      "object_id": "ZTF18abzbukt",
+      "combined": 13.79578329890053,
+      "components": {
+        "reconstruction_error": 23.87470245361328,
+        "mahalanobis": 308.14765929633506,
+        "isoforest": 0.5314230821236212
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 27
+    },
+    {
+      "rank": 40,
+      "object_id": "ZTF19aavantx",
+      "combined": 13.75566486852133,
+      "components": {
+        "reconstruction_error": 23.14484405517578,
+        "mahalanobis": 335.1159248480132,
+        "isoforest": 0.5462215371642263
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 32
+    },
+    {
+      "rank": 41,
+      "object_id": "ZTF19aalxsfe",
+      "combined": 13.737027495494168,
+      "components": {
+        "reconstruction_error": 23.070932388305664,
+        "mahalanobis": 315.98393125956454,
+        "isoforest": 0.5609793997746197
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "artifact_like",
+      "n_obs": 100
+    },
+    {
+      "rank": 42,
+      "object_id": "ZTF19aaticbv",
+      "combined": 13.708105626584427,
+      "components": {
+        "reconstruction_error": 23.56650733947754,
+        "mahalanobis": 312.3334949583941,
+        "isoforest": 0.5355882338498624
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 39
+    },
+    {
+      "rank": 43,
+      "object_id": "ZTF18abthvpk",
+      "combined": 13.70360033355224,
+      "components": {
+        "reconstruction_error": 23.073585510253906,
+        "mahalanobis": 332.2196791879819,
+        "isoforest": 0.5466693128586202
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 62
+    },
+    {
+      "rank": 44,
+      "object_id": "ZTF18abtvlxd",
+      "combined": 13.684022777129627,
+      "components": {
+        "reconstruction_error": 23.196971893310547,
+        "mahalanobis": 330.4048308075032,
+        "isoforest": 0.5397450547426157
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 23
+    },
+    {
+      "rank": 45,
+      "object_id": "ZTF17aaazdba",
+      "combined": 13.669498616971588,
+      "components": {
+        "reconstruction_error": 22.49272918701172,
+        "mahalanobis": 332.7320734962242,
+        "isoforest": 0.5723061539858646
+      },
+      "source": "weird",
+      "label": "TDE",
+      "category": "genuine_anomaly",
+      "n_obs": 55
+    },
+    {
+      "rank": 46,
+      "object_id": "ZTF18abkojhi",
+      "combined": 13.660705069271877,
+      "components": {
+        "reconstruction_error": 22.012714385986328,
+        "mahalanobis": 377.5931425406251,
+        "isoforest": 0.5655406619792651
+      },
+      "source": "weird",
+      "label": "AGN",
+      "category": "genuine_anomaly",
+      "n_obs": 85
+    },
+    {
+      "rank": 47,
+      "object_id": "ZTF19abpwygn",
+      "combined": 13.640967408899527,
+      "components": {
+        "reconstruction_error": 23.204322814941406,
+        "mahalanobis": 323.42090127317374,
+        "isoforest": 0.5398523399689655
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 21
+    },
+    {
+      "rank": 48,
+      "object_id": "ZTF19aavdioh",
+      "combined": 13.597069427096585,
+      "components": {
+        "reconstruction_error": 23.127124786376953,
+        "mahalanobis": 325.25230880470497,
+        "isoforest": 0.5382234148141214
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 16
+    },
+    {
+      "rank": 49,
+      "object_id": "ZTF18abucnqk",
+      "combined": 13.563524596723282,
+      "components": {
+        "reconstruction_error": 22.78807258605957,
+        "mahalanobis": 294.47774308831595,
+        "isoforest": 0.5727254244777286
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "artifact_like",
+      "n_obs": 84
+    },
+    {
+      "rank": 50,
+      "object_id": "ZTF19acyexee",
+      "combined": 13.526131247530143,
+      "components": {
+        "reconstruction_error": 23.130895614624023,
+        "mahalanobis": 317.51271191824685,
+        "isoforest": 0.5362907751036095
+      },
+      "source": "weird",
+      "label": "no_tree_node (CV/nova/LBV/LRN)",
+      "category": "genuine_anomaly",
+      "n_obs": 29
+    }
+  ]
+}

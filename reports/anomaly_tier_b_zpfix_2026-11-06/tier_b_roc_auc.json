@@ -1,0 +1,17 @@
+{
+  "definition": "persisted Tier-A-fitted scorers, no refit; every component z-scored against outputs/anomaly/anomaly_results.json reference_zscore_stats; 'combined' = 4-component equal-weight average (Day-10 definition), 'combined_3component' drops entropy",
+  "tier_b_roc_auc": {
+    "reconstruction_error": 0.8141504631986155,
+    "entropy": 0.31752301449949827,
+    "mahalanobis": 0.44066258489550764,
+    "isoforest": 0.5371387850671165,
+    "combined": 0.7532380273701662,
+    "combined_3component": 0.7793109466121784,
+    "n_normal": 658,
+    "n_anomalous": 1045
+  },
+  "mean_entropy": {
+    "normal_test": 0.720655346799968,
+    "weird": 0.5268203350907529
+  }
+}
