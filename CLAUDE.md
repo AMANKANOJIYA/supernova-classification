@@ -394,9 +394,12 @@ next time:
 | `SFD_dust_4096_ngp.fits`  | `50b6aaad0b880762d0fd081177802dcc17c39d7044a410dd5649e2dfd0503e97` |
 | `SFD_dust_4096_sgp.fits`  | `84891a59054adab44a7be54051e4dcf0e66e3f13eee0d845ce3739242f553b83` |
 
-**The exact mirror URL used for this fetch was not recorded at fetch time and
-is not otherwise reconstructable this session — needs the user to supply it
-so this table can be completed with provenance, not just checksums.**
+**Provenance recorded 2026-11-06.** The Day-8 mirror URL was never written
+down. On a fresh checkout `dustmaps.sfd.fetch()` still returned 403, and
+both files were re-fetched from
+`https://github.com/kbarbary/sfddata/raw/master/SFD_dust_4096_{ngp,sgp}.fits`.
+Both SHA-256 values match the table above exactly (67,115,520 bytes each).
+Use this URL, and check the hashes again after downloading.
 
 **Read `data/raw/elasticc2/A_FORMAT.TXT` before writing the SNANA reader.** It is
 the format spec. SNANA ships HEAD and PHOT FITS file pairs; they are readable as
