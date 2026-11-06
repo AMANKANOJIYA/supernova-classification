@@ -1,0 +1,22 @@
+{
+  "method": "git worktrees with data/ and outputs/ symlinked; `python -m pytest -q` from inside each worktree so its own src/ is imported (verified). Run 2026-11-06.",
+  "prefix_suite": {
+    "commit": "3117138",
+    "description": "pre-fix code and pre-fix tests",
+    "passed": 414,
+    "failed": 0,
+    "skipped": 0
+  },
+  "new_tests_on_prefix_code": {
+    "commit": "10d5c27 with src/readers/zeropoint.py reverted to 3117138",
+    "description": "post-fix tests (magnitude invariance) against the old, inverted conversion",
+    "passed": 420,
+    "failed": 31,
+    "failed_by_file": {
+      "tests/test_zeropoint_conversion.py": 27,
+      "tests/test_readers_btsbot.py": 2,
+      "tests/test_readers_avro_ztf.py": 1,
+      "tests/test_readers_avro_lsst.py": 1
+    }
+  }
+}
