@@ -5,8 +5,9 @@ science/template/difference cutout triplet, and the model's own class
 probabilities.
 
 This runs the ALREADY-TRAINED, deployed checkpoint
-(outputs/finetune_bts/lc_only_checkpoint.pt, the LC-only fine-tune -- see
-CLAUDE.md/RESULTS.md "deployed") forward, in eval mode, no gradient, on real
+(outputs/finetune_bts_zpfix/with_static_checkpoint.pt, the LC+static
+fine-tune on zeropoint-corrected Tier B, seed 42 -- the model serving runs)
+forward, in eval mode, no gradient, on real
 held-out test objects -- this is INFERENCE with an existing frozen
 checkpoint, not training or metric recomputation. It is the only way to put
 real probabilities on this figure, since no per-object prediction file was
@@ -14,7 +15,8 @@ ever persisted anywhere in outputs/ or reports/ (only aggregate metrics.json
 files exist) -- see paper/NUMBERS_GAPS.md.
 
 Object selection (documented, not hidden -- see this script's `main` and the
-printed selection log):
+printed selection log, and paper/data_derived/prediction_panels.json, which
+collect_numbers.py reads for the caption/prose numbers):
   - Candidate pool: Tier B test-split objects with a 3-class label (Ia/Ibc/II
     from the BTS Sample Explorer join) AND a precomputed cutout triplet
     under data/interim/btsbot_cutouts/test/{object_id}.json.
@@ -44,14 +46,16 @@ from PIL import Image
 
 from src import taxonomy
 from src.features import tensorize
-from src.models.lc_encoder import LCEncoder
+from src.models.static_encoder import build_static_vector
 from src.readers import bts_labels
+from src.serve.model import load_lc_static_checkpoint
 from src.train.dataset import load_alerts
 
 PARQUET = "data/interim/btsbot_test.parquet"
-CHECKPOINT = "outputs/finetune_bts/lc_only_checkpoint.pt"
+CHECKPOINT = Path("outputs/finetune_bts_zpfix/with_static_checkpoint.pt")
 CUTOUT_DIR = Path("data/interim/btsbot_cutouts/test")
 OUT_PATH = "paper/figures/fig6_prediction_panels.pdf"
+SELECTION_JSON = Path("paper/data_derived/prediction_panels.json")
 
 PRE_DETECTION_WINDOW_DAYS = 30.0  # matches src.train.finetune_bts.PRE_DETECTION_WINDOW_DAYS
 MIN_OBS_WELL_SAMPLED = 25
@@ -66,22 +70,19 @@ def band_name(lam_eff: float) -> str:
     return min(BAND_NAMES.items(), key=lambda kv: abs(kv[0] - lam_eff))[1]
 
 
-def load_model() -> LCEncoder:
-    ckpt = torch.load(CHECKPOINT, map_location="cpu", weights_only=False)
-    model = LCEncoder(input_size=tensorize.NUM_FEATURES, hidden_size=128, num_layers=2, dropout=0.2, num_classes=3)
-    model.load_state_dict(ckpt["model_state_dict"])
-    model.eval()
-    return model
+def load_model():
+    return load_lc_static_checkpoint(CHECKPOINT)
 
 
 @torch.no_grad()
-def predict_full(model: LCEncoder, alert) -> np.ndarray:
+def predict_full(model, normalizer, alert) -> np.ndarray:
     """Softmax probabilities at the object's own last real timestep ("full"
     cutoff, matching src.eval.phase_curves' cutoff=None convention)."""
     t = tensorize.tensorize_alert(alert, pre_detection_window_days=PRE_DETECTION_WINDOW_DAYS)
     features = t.features.unsqueeze(0)  # (1, T, F)
     lengths = torch.tensor([features.shape[1]])
-    logits = model(features, lengths)  # (1, T, 3)
+    static = torch.from_numpy(build_static_vector(alert.static, normalizer)).unsqueeze(0)
+    logits = model(features, lengths, static)  # (1, T, 3)
     probs = torch.softmax(logits[0, -1], dim=-1).numpy()
     return probs
 
@@ -110,11 +111,11 @@ def main() -> None:
     ]
     print(f"{len(candidates)} candidate test objects (3-class labeled + cutout available)")
 
-    model = load_model()
+    model, normalizer = load_model()
 
     records = []
     for a in candidates:
-        probs = predict_full(model, a)
+        probs = predict_full(model, normalizer, a)
         true_idx = class_index_of[a.class_id]
         pred_idx = int(np.argmax(probs))
         n_obs = len(a.observations)
@@ -267,6 +268,24 @@ def main() -> None:
     Path(OUT_PATH).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT_PATH)
     print(f"Wrote {OUT_PATH}")
+
+    SELECTION_JSON.parent.mkdir(parents=True, exist_ok=True)
+    SELECTION_JSON.write_text(json.dumps({
+        "checkpoint": str(CHECKPOINT),
+        "misclassification_pattern": pattern,
+        "min_obs_well_sampled": MIN_OBS_WELL_SAMPLED,
+        "panels": {
+            key: {
+                "object_id": selected[key]["alert"].object_id,
+                "true": CLASS_NAMES[selected[key]["true_idx"]],
+                "predicted": CLASS_NAMES[selected[key]["pred_idx"]],
+                "confidence": selected[key]["confidence"],
+                "n_obs": selected[key]["n_obs"],
+            }
+            for key in panel_order
+        },
+    }, indent=2))
+    print(f"Wrote {SELECTION_JSON}")
 
 
 if __name__ == "__main__":

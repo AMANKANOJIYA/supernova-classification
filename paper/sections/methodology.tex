@@ -365,11 +365,11 @@ Left-edge window & Full archived history; 30-day pre-detection lookback &
   \WindowMeanDetections{} detections vs.\ \WindowMeanForcedPhot{} forced-
   photometry points/object measured; \WindowFracRemoved{}\% of a sampled
   sequence's observations fall outside the window \\
-Right-edge cap & Uncapped; fixed span cap & 200-day cap
+Right-edge cap & Uncapped; fixed span cap & \SpanChosenDefault{}-day cap
   (\texttt{max\_span\_days}) & A long-lived recurring source's tensorized
   span is otherwise unbounded and far outside the training distribution &
-  Span ablation: \SpanTwoHundredMacroF{} at 200~d vs.\ \SpanUncappedMacroF{}
-  uncapped, $<$1\% of any class affected \\
+  Span ablation: \SpanTwoHundredMacroF{} at \SpanChosenDefault{}~d vs.\ \SpanUncappedMacroF{}
+  uncapped, at most \SpanTwoHundredMaxAffected{}\% of any class affected \\
 Hierarchical loss & WHXE; flat head & Flat head (WHXE kept, provisional) &
   WHXE was worse on a single-populated-branch dataset with no non-SN-like
   negatives yet to gracefully degrade against & Controlled comparison:
@@ -380,10 +380,11 @@ Anomaly ensemble & With classifier entropy; without & Without (3-component) &
   improved from \AnomalyTierACombined{} to
   \AnomalyTierACombinedThreeRecomputed{} (Tier A) and \AnomalyTierBCombined{}
   to \AnomalyTierBCombinedThreeRecomputed{} (Tier B) on dropping it \\
-Tier B host features & LC+static; LC-only & LC-only (deployed) & Host
-  features helped on Tier A but measurably hurt the Tier B fine-tune &
-  \LCOnlyMacroF{} (LC-only) vs.\ \WithStaticMacroF{} (LC+static) on
-  Tier B test \\
+Tier B host features & LC+static; LC-only & LC+static (deployed) & Host
+  features help on both tiers once fluxes are correctly scaled; an earlier
+  LC-only choice rested on mis-scaled input (Section~\ref{sec:silentfailures})
+  & \WithStaticMacroF{} (LC+static) vs.\ \LCOnlyMacroF{} (LC-only), Tier B
+  test, mean of \TierBNSeeds{} seeds \\
 Image encoder & Build; cut & Cut & No remaining schedule day, and Tier B
   cutout data was never loaded across three sessions & Descope ladder
   accounting (Section~\ref{sec:discussion}) \\

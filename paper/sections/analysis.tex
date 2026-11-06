@@ -37,12 +37,11 @@ different artifacts, not merely different volumes of the same thing:
 training on the former means training on an input distribution a live
 system will never actually present at inference time.
 
-Measured directly on a stratified 3,000-object sample of Tier A (1,000 per
-target class, reconstructed from the interim parquet via the same reader
+Measured directly on a class-stratified \WindowNSampleObjects{}-object sample of Tier A (reconstructed from the interim parquet via the same reader
 and tensorisation code used in production), the unwindowed mean is
 \WindowMeanDetections{} detections against \WindowMeanForcedPhot{} forced-
-photometry points per object -- the training corpus is, on average, more
-than seventeen times longer than what a live stream would ever accumulate
+photometry points per object -- the training corpus is, on average, about
+\WindowForcedToDetRatio{} times longer than what a live stream would ever accumulate
 for the same object. Applying the pipeline's 30-day pre-detection lookback
 window reduces the mean sequence length from \WindowMeanSeqLenUnwindowed{}
 to \WindowMeanSeqLenWindowed{} observations, a \WindowFracRemoved{}\%
@@ -73,9 +72,9 @@ raw ELAsTiCC2 exotic-class model directories: a tidal disruption event
 \ExoticSpanMeanTDE{} days, while an eclipsing binary (EB) and a changing-look
 AGN (CLAGN) -- both continuously variable, non-fading sources -- have mean
 spans of \ExoticSpanMeanEB{} and \ExoticSpanMeanCLAGN{} days respectively,
-17--19$\times$ longer, despite a per-object observation count only
+\ExoticSpanRatioEB{}--\ExoticSpanRatioCLAGN{}$\times$ longer, despite a per-object observation count only
 \ExoticNobsMeanEB{}--\ExoticNobsMeanCLAGN{} versus TDE's \ExoticNobsMeanTDE{}
-(around $1.5\times$, not $17$--$19\times$). The right edge is therefore
+(about \ExoticNobsRatioEB{}--\ExoticNobsRatioCLAGN{}$\times$, not \ExoticSpanRatioEB{}--\ExoticSpanRatioCLAGN{}$\times$). The right edge is therefore
 unbounded in practice for exactly the class of object a live serving system
 will keep re-observing indefinitely.
 
@@ -104,15 +103,14 @@ CLAGN (non-fading) & \ExoticNObjectsCLAGN{} & \ExoticSpanMeanCLAGN{} &
 
 A right-edge cap, \texttt{max\_span\_days}, was added and ablated at
 $\{100, 200, \text{uncapped}\}$ days, evaluated by inference only against
-the already-trained Tier A checkpoint (Table~\ref{tab:spanablation}). 200
-days gives the best full-cutoff macro-F1 among the two finite settings
-tested, costs only $\SpanUncappedMacroF{} - \SpanTwoHundredMacroF{}$
-macro-F1 relative to uncapped, and leaves well under 1\% of every class's
-objects truncated at all. This value, \SpanChosenDefault{} days, was
+the already-trained Tier A checkpoint (Table~\ref{tab:spanablation}).
+\SpanChosenDefault{} days gives the best full-cutoff macro-F1 among the two finite settings
+tested, costs only \SpanTwoHundredCost{} macro-F1 relative to uncapped, and
+truncates at most \SpanTwoHundredMaxAffected{}\% of any class's objects. This value, \SpanChosenDefault{} days, was
 adopted as the default the serving path passes explicitly; the underlying
 function's own parameter default is left unchanged (\texttt{None}, i.e.\
 uncapped) so that no existing training or evaluation call site is affected
-by the change. Capping CLAGN's window at 200 days more than triples its
+by the change. Capping CLAGN's window at \SpanChosenDefault{} days more than triples its
 mean classifier entropy (from \ClagnEntropyUncapped{} to
 \ClagnEntropyCapped{}) and pulls its mean maximum softmax probability down
 from \ClagnMaxProbUncapped{} to \ClagnMaxProbCapped{}, on the same
@@ -161,12 +159,20 @@ early. The conversion is
 \end{align}
 followed by a rescaling from \texttt{magzpsci} onto \texttt{FLUXCAL}
 zeropoint 27.5, applied per row through one shared, tested helper every
-non-SNANA reader calls. The signal-to-noise feature
-($\mathrm{flux}/\mathrm{flux\_err}$) is scale-invariant and would survive a
-calibration bug of this kind unchanged, since the erroneous zeropoint
-factor cancels in the ratio; the absolute-flux feature would not, and would
-carry a silent, brightness-dependent distortion into training with no
-symptom that would look like an error.
+non-SNANA reader calls:
+\begin{equation}
+  \mathrm{flux}_{27.5} = \mathrm{flux}_\mathrm{zp} \times 10^{(27.5 - \mathrm{zp})/2.5},
+\end{equation}
+the only direction that leaves $\mathrm{mag} = \mathrm{zp} - 2.5\log_{10}\mathrm{flux}$
+unchanged; LSST's nanojansky fluxes (zeropoint 31.4) are rescaled the same
+way. The signal-to-noise feature ($\mathrm{flux}/\mathrm{flux\_err}$) is
+scale-invariant and survives a calibration bug of this kind unchanged,
+since the erroneous zeropoint factor cancels in the ratio; the
+absolute-flux feature does not, and carries a silent, brightness-dependent
+distortion into training with no symptom that looks like an error. This
+is not hypothetical: an earlier version of the helper applied the
+reciprocal factor, and Section~\ref{sec:silentfailures} describes what it
+did and how it was found.
 
 \subsection{Training protocol}
 
@@ -182,7 +188,7 @@ learning-rate schedule: the GRU trunk is frozen for the first two epochs
 comparatively high learning rate), then unfrozen for six further epochs at
 a learning rate $100\times$ lower than the head's own. This asymmetry is
 deliberate: the Tier A encoder is the only part of this model that has ever
-seen a negative-flux input (Tier B is 0\% negative-flux by construction,
+seen a negative-flux input (Tier B is \TierBNegFluxFrac{}\% negative-flux by construction,
 Section~\ref{sec:discussion}), and Tier B's small, positive-flux-only
 training set must be allowed to adapt the model to real ZTF cadence and
 noise characteristics without being allowed to overwrite what the trunk

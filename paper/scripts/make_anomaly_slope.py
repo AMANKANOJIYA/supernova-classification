@@ -1,11 +1,12 @@
 """Figure 7: anomaly-component behaviour under domain shift -- a slope chart,
 Tier A (simulated exotics) on the left axis, Tier B (real BTS "weird"
-objects) on the right, one line per component. Values read directly from
-outputs/anomaly/anomaly_results.json (tier_a_roc_auc / tier_b_roc_auc); the
-3-component ("entropy dropped") combined score is recomputed independently
-from the per-object score files (outputs/anomaly/scores_*.json) the same way
-paper/scripts/collect_numbers.py does, rather than trusting a single stored
-number twice over.
+objects) on the right, one line per component. Tier A values come from
+outputs/anomaly/anomaly_results.json (simulated data, no zeropoint
+conversion, unaffected by the 2026-11-05 fix). Tier B values come from the
+zeropoint-corrected re-score, reports/anomaly_tier_b_zpfix_2026-11-06/
+(same persisted scorers, no refit). The 3-component ("entropy dropped")
+combined score is recomputed from the per-object score files on both tiers,
+the same way paper/scripts/collect_numbers.py does.
 """
 
 import json
@@ -17,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 OUT_PATH = "paper/figures/fig7_anomaly_slope.pdf"
+TIER_B_DIR = "reports/anomaly_tier_b_zpfix_2026-11-06"
 
 COMPONENT_LABELS = {
     "reconstruction_error": "Reconstruction error",
@@ -67,13 +69,13 @@ def binary_auc(normal_scores, anomalous_scores):
 def main() -> None:
     results = json.load(open("outputs/anomaly/anomaly_results.json"))
     tier_a = results["tier_a_roc_auc"]
-    tier_b = results["tier_b_roc_auc"]
+    tier_b = json.load(open(f"{TIER_B_DIR}/tier_b_roc_auc.json"))["tier_b_roc_auc"]
 
     ref = results["reference_zscore_stats"]
     tier_a_normal = json.load(open("outputs/anomaly/scores_tier_a_normal_test.json"))
     tier_a_exotic = json.load(open("outputs/anomaly/scores_tier_a_exotic.json"))
-    tier_b_normal = json.load(open("outputs/anomaly/scores_tier_b_normal_test.json"))
-    tier_b_weird = json.load(open("outputs/anomaly/scores_tier_b_weird.json"))
+    tier_b_normal = json.load(open(f"{TIER_B_DIR}/scores_tier_b_normal_test.json"))
+    tier_b_weird = json.load(open(f"{TIER_B_DIR}/scores_tier_b_weird.json"))
     combined3_a = binary_auc(combine3(tier_a_normal, ref), combine3(tier_a_exotic, ref))
     combined3_b = binary_auc(combine3(tier_b_normal, ref), combine3(tier_b_weird, ref))
 

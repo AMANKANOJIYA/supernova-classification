@@ -9,23 +9,30 @@ Tier B) for fine-tuning, and a live Fink stream (ZTF and LSST, Tier C) for
 serving. The classifier is a causal gated recurrent unit over
 per-observation flux, conditioned on continuous filter wavelength rather
 than band identity, so weights learned on simulated LSST photometry
-transfer to real ZTF photometry. A separate branch scores anomalies via
-light-curve reconstruction error, Mahalanobis distance in the
-classifier's latent space, and an isolation forest. On held-out Tier A
-data the classifier reaches macro-F1 \TierAFullMacroF{} (Ia-vs-rest
-ROC-AUC \LCOnlyRocAucIa{}); fine-tuned on Tier B, the deployed model
-reaches \LCOnlyMacroF{} (a \SimToRealGapLCOnly{} drop, the expected
-sim-to-real direction), and fine-tuning recovers \TransferGain{} macro-F1
-over the zero-shot baseline. The anomaly branch's three-component
-combination reaches ROC-AUC \AnomalyTierACombinedThreeRecomputed{} on
-held-out simulated exotic classes and
-\AnomalyTierBCombinedThreeRecomputed{} on real confirmed non-supernova
-objects -- smaller but useful under domain shift. The pipeline was
-validated against four pre-registered gates (reader correctness,
-causality/label-shuffling, sim-to-real drop, manual anomaly inspection)
-and briefly run against live ZTF and LSST alert traffic; a serving
-latency benchmark exists in project records but is not restated here
-since no artifact survives. We report two unanticipated results -- a
-net-negative effect of host-galaxy features on real-data fine-tuning, and
-an anomaly classifier that grows more, not less, confident on unfamiliar
-inputs -- as open findings.
+transfer to real ZTF photometry; host-galaxy features enter through a
+separate static branch. A second branch scores anomalies via light-curve
+reconstruction error, Mahalanobis distance in the classifier's latent
+space, and an isolation forest. On held-out Tier A data the deployed
+light-curve-plus-host configuration reaches macro-F1
+\TierLCStaticMacroFFull{} (Ia-vs-rest ROC-AUC \TierLCStaticRocAucIaFull{});
+fine-tuned on Tier B, the same configuration reaches \WithStaticMacroF{}
+(mean of \TierBNSeeds{} seeds), a \SimToRealGapStatic{} drop in the expected
+sim-to-real direction, and fine-tuning recovers \TransferGain{} macro-F1
+over the matching zero-shot model. Ib/c F1 on Tier B, \WithStaticFIbc{},
+falls below the \IbcBandLow{}--\IbcBandHigh{} band we pre-registered, and we
+report the miss as such. The anomaly branch's three-component combination
+reaches ROC-AUC \AnomalyTierACombinedThreeRecomputed{} on held-out simulated
+exotic classes and \AnomalyTierBCombinedThreeRecomputed{} on real confirmed
+non-supernova objects. The served pipeline has a median per-alert latency
+of \ServingLatencyPFifty{}\,ms at \ServingThroughput{} alerts per second on a
+single machine, and it ingested live ZTF and, for the first time, live
+LSST alerts unmodified; the LSST alerts are unlabelled, so no accuracy is
+claimed for them. The pipeline was validated against four pre-registered
+gates. Its most instructive failure passed all of them: a flux-zeropoint
+conversion inverted in the project's own specification, its code and the
+test written for that code, which mis-scaled every real flux by an order
+of magnitude and produced a spurious finding that host features hurt
+real-data performance. A test of magnitude invariance, rather than of the
+formula, exposed it; with corrected fluxes, host features help on both
+tiers. We also report an anomaly-score component, classifier entropy, that
+grows more rather than less confident on unfamiliar inputs.

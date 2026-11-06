@@ -3,54 +3,71 @@
 
 \section{The sim-to-real gap}
 
-The deployed model's sim-to-real drop ($\TierAFullMacroF{} \to
-\LCOnlyMacroF{}$, $\SimToRealGapLCOnly{}$ macro-F1) is read here as a
+The sim-to-real drop is measured between matched configurations:
+$\SimToRealGapStatic{}$ macro-F1 for the deployed LC+static model
+($\TierLCStaticMacroFFull{} \to \WithStaticMacroF{}$) and
+$\SimToRealGapLCOnly{}$ for LC-only
+($\TierLCOnlyMacroFFull{} \to \LCOnlyMacroF{}$). It is read here as a
 result, not a failure: Tier A carries none of Tier B's instrument noise,
 real-bogus artifacts, or host-catalogue error, so a model that scored the
 same on both would be the stronger evidence of a broken, leaking evaluation
 split, since nothing about Tier B should be \emph{easier} than its own
-simulated approximation. The transfer gain over zero-shot
-($\ZeroShotMacroF{} \to \WithStaticMacroF{}$, $+\TransferGain{}$ macro-F1)
-demonstrates that fine-tuning is not cosmetic: a model carrying only Tier A
-weights, evaluated on Tier B with no adaptation at all, is measurably worse
-than one given even a small amount of real labelled data to adapt to. The
-Ib/c figure at Tier B (F1 \LCOnlyFIbc{}, deployed configuration) sits
-inside this project's own pre-registered 0.40--0.60 expectation band --
-this is not a surprise requiring investigation, but the expected
-consequence of Ib/c being simultaneously the rarest class in the real sky
-and the class Tier B's own test split supports least (\TierBSupportIbc{}
-objects against \TierBSupportIa{} Ia).
+simulated approximation. Part of the gap is a plain brightness mismatch:
+real BTS objects are far brighter than the simulated training population
+(Section~\ref{sec:limitations}). The transfer gains over the matching
+zero-shot models ($+\TransferGain{}$ for LC+static, $+\TransferGainLCOnly{}$
+for LC-only) show that fine-tuning is not cosmetic: a model carrying only
+Tier A weights, evaluated on Tier B with no adaptation at all, is
+measurably worse than one given even a small amount of real labelled data.
 
-\section{The Tier B static-encoder inversion (unresolved)}
+\paragraph{Ib/c misses its pre-registered band.} Before any Tier B result
+existed, this project expected Ib/c F1 between \IbcBandLow{} and
+\IbcBandHigh{}. The deployed configuration reaches \WithStaticFIbc{} (mean
+over seeds; \DeployedFIbc{} for the served checkpoint), and LC-only reaches
+\LCOnlyFIbc{}: both are below the band. The band is reported unchanged and
+the miss is reported as a miss. Two reasons are likely, neither of which
+would justify moving the band after the fact. First, the Tier B test split
+holds only \TierBSupportIbc{} Ib/c objects against \TierBSupportIa{} Ia, so a
+handful of objects moves this F1 substantially. Second, the band was
+derived from published models trained and evaluated with far more Ib/c
+examples than the \TierBJoinCountIbc{} spectroscopically confirmed Ib/c
+objects available here across all splits. Before the zeropoint correction
+this figure was \PreFixWithStaticFIbc{} for LC+static and
+\PreFixLCOnlyFIbc{} for LC-only, inside the band, but those values came from
+mis-scaled input and are not evidence that the band was met.
 
-Adding host/static features helped substantially on Tier A
-($\TierLCOnlyMacroFFull{} \to \TierLCStaticMacroFFull{}$) but made the Tier
-B fine-tune measurably \emph{worse}, not merely non-additive
-($\LCOnlyMacroF{}$ LC-only versus $\WithStaticMacroF{}$ LC+static). The
-leading hypothesis going in -- that host photometric redshift, structurally
-absent at Tier B, was doing most of Tier A's gain as a distance proxy for
-Ia's standard-candle brightness -- was tested directly by re-training Tier
-A's LC+static configuration with photo-$z$ removed, and is
-\textbf{refuted}: only \PhotozGainFractionSurviving{}\% of the Tier A gain
-survives removing photo-$z$ ($+\PhotozGainWithout{}$ macro-F1 without it,
-versus $+\PhotozGainWith{}$ with it); photo-$z$ is a real but minority
-contributor, not the dominant one. This does not hand the Tier B inversion
-a confirmed alternative explanation. A small-sample-overfitting story --
-Tier B fine-tuning has only \TierBLabeledTrain{} labelled training objects,
-and three of the static branch's seven inputs are permanently missing-
-flagged there -- remains plausible but was never isolated with its own
-controlled ablation, and this report does not present it as more than a
-plausible, untested alternative. The deployed model sidesteps this by using
-no static branch at all; the inversion is a property of the static branch
-specifically, not of the model actually shipped.
+\section{Host features help on both tiers}
+
+With correctly scaled fluxes, host and static features improve
+classification on both tiers: by $\PhotozGainWith{}$ macro-F1 on Tier A
+($\TierLCOnlyMacroFFull{} \to \TierLCStaticMacroFFull{}$) and by
+$\StaticGainTierB{}$ on Tier B ($\LCOnlyMacroF{} \to \WithStaticMacroF{}$,
+\StaticGainOverSD{} times the larger seed-to-seed standard deviation).
+LC+static is therefore the deployed configuration.
+
+An earlier version of this analysis reported the opposite on Tier B -- host
+features making real-data fine-tuning worse -- and treated it as an open
+finding. That inversion was an artifact of the flux-zeropoint conversion
+error described in Section~\ref{sec:silentfailures}. Under identical code,
+seeds and object order, the old fluxes put LC-only
+\OldFluxStaticInversion{} macro-F1 above LC+static
+($\OldFluxLCOnlyMacroF{}$ against $\OldFluxWithStaticMacroF{}$); the
+corrected fluxes reverse the order. There is no remaining inversion to
+explain.
+
+Separately, on Tier A only, retraining LC+static without host photometric
+redshift keeps \PhotozGainFractionSurviving{}\% of the static-feature gain
+($+\PhotozGainWithout{}$ macro-F1 without photo-$z$, against
+$+\PhotozGainWith{}$ with it): photo-$z$ contributes, but most of the Tier A
+benefit comes from the other host fields.
 
 \section{Windowing: one mechanism, three symptoms}
 
 The train/serve sequence-length mismatch (Section~\ref{sec:windowing}), the
 unbounded right edge for non-fading sources (Table~\ref{tab:spans}), and
 classifier entropy's inversion under domain shift are one mechanism
-observed at three points, not three separate findings. A model trained
-almost entirely on sequences under 30 observations long
+observed at three points, not three separate findings. A model trained on
+windowed sequences averaging \WindowMeanSeqLenWindowed{} observations
 (Figure~\ref{fig:windowhist}) meets, at serving time, a changing-look AGN
 whose uncapped tensorized sequence runs to a mean of \ClagnSeqLenUncapped{}
 observations -- an input far outside anything the encoder was ever fit
@@ -58,7 +75,7 @@ against. The measured consequence is not increased uncertainty but
 increased, misplaced confidence: CLAGN's mean entropy under the uncapped
 window (\ClagnEntropyUncapped{}) sits \emph{below} the Tier A in-distribution
 test population's own baseline (\EntropyTierANormal{}), and capping the
-window at 200 days moves it substantially toward, though not all the way
+window at \SpanChosenDefault{} days moves it substantially toward, though not all the way
 to, that baseline (\ClagnEntropyCapped{}). The general lesson is that a live
 serving pipeline needs a bounded, \emph{recent} window for any long-lived
 source, not a window defined relative to first detection alone -- a
@@ -120,26 +137,52 @@ exactly the domain shift that breaks the two latent-geometry methods. The
 combination should be read as \emph{robustness under domain shift}, not as
 peak performance -- it is beaten by the single best component on each
 individual set (isolation forest on Tier A, reconstruction error on Tier B)
-and is the only score that stays useful, above \num{0.74} ROC-AUC, on both.
+and is the only score that stays useful on both: its weaker value
+(\AnomalyTierBCombinedThreeRecomputed{}, Tier B) is higher than the weaker of
+the two values for any single component.
 That is the honest, and more useful, claim to make about it.
 
 \section{Systems findings}
 
 The classifier itself is a small fraction of what an end-to-end serving
-pipeline actually spends time on: ONNX inference measured separately at a
-fraction of a millisecond per alert, well under the per-alert Redis and
-Postgres round trips that dominate total latency in this implementation
-(Section~\ref{sec:results} states why a specific latency number is not
-restated here). The implication for a broker-scale deployment is that
+pipeline actually spends time on: ONNX inference takes
+\OnnxMsPerAlertBatchOne{}\,ms per alert against a median end-to-end latency
+of \ServingLatencyPFifty{}\,ms, which is dominated by the per-alert Redis
+and Postgres round trips in this implementation
+(Section~\ref{sec:results}). The implication for a broker-scale deployment is that
 batching the state-layer writes, not further optimising the model, is the
 obvious next lever if higher throughput is ever required.
 
 \section{Validation findings: what would have failed silently}
+\label{sec:silentfailures}
 
 Table~\ref{tab:silentfailures} is, in its way, this report's methodological
 contribution: every item in it would have produced a plausible, confident,
 \emph{wrong} result, and none of them would have raised an error or crashed
 anything.
+
+The first row is qualitatively different from the rest, and it is the
+strongest example of this section's argument. The project's governing
+document described the conversion from a survey's native zeropoint to the
+common FLUXCAL scale as a multiplication by a fixed factor, when the
+correct operation is a division. That wrong value propagated into the
+implementation, and then into the unit test written to verify the
+implementation, which asserted the same factor. Implementation and test
+agreed with each other and with the document, so all \TestsPassedPreFix{}
+tests passed while every real ZTF flux was stored a median
+\FluxBugFactor{} times too faint (\FluxBugFactorLow{}--\FluxBugFactorHigh{}
+times across rows, since the ZTF zeropoint varies per exposure) and every
+live LSST flux \LsstInversionFactor{} times too bright. A golden test is
+only as independent as the number it was computed from; this one was
+computed from the same wrong statement as the code. The replacement test
+checks a property rather than restating a formula: the AB magnitude of a
+source must be unchanged by the conversion. Once it existed,
+\TestsFailedInvarianceOnOldCode{} tests failed against the old code. The
+error survived every pre-registered gate because each Tier B result was
+internally consistent -- fine-tuning, testing and serving all saw the same
+mis-scaled fluxes -- and it surfaced only in comparisons across tiers,
+where it produced a spurious finding (Section~\ref{sec:discussion}, host
+features) and the wrong choice of deployed model.
 
 \begin{table}[htb]
 \centering
@@ -152,6 +195,11 @@ raised an error.}
 \toprule
 Issue & How it was caught & Consequence if unchecked \\
 \midrule
+Zeropoint conversion inverted in the governing document, the code and its
+  test & A post-hoc audit checking AB-magnitude invariance numerically,
+  after all \TestsPassedPreFix{} tests had passed & Real-data fluxes
+  mis-scaled by an order of magnitude; a spurious ``host features hurt''
+  finding and the wrong deployed model \\
 Undocumented sentinel conventions (Table~\ref{tab:sentinels}) & Manual
   cross-check of raw FITS values against the format spec & Missing host
   features would train as real, extremely faint measurements \\
@@ -185,33 +233,57 @@ Undersized CCD-edge cutouts discarding an entire alert & A live ingestion
 
 The common property across every row is that none of them would have raised
 an error; each would have produced a confident, plausible, wrong result.
-What caught them was not a single tool but three reinforcing habits: a
-frozen evaluation harness that could not be quietly adjusted to make a
+What caught them was not a single tool but reinforcing habits: a frozen
+evaluation harness that could not be quietly adjusted to make a
 disappointing number look better (Section~\ref{sec:methodology}), golden
 tests written against one hand-verified real object before the reader code
-that would have to pass them existed, and pre-registered gates
-(Table~\ref{tab:gates}) defined before the results they judge. This is the
-project's actual methodological contribution, and is presented as such
-rather than as an apology.
+that would have to pass them existed, pre-registered gates
+(Table~\ref{tab:gates}) defined before the results they judge, and -- the
+lesson of the first row -- tests that check a physical invariant rather
+than a transcribed constant. This is the project's actual methodological
+contribution, and is presented as such rather than as an apology.
 
 \section{Limitations}
+\label{sec:limitations}
+
+Real BTS objects are much brighter than the simulated training set: the
+median detection flux is \FluxMedianTierB{} FLUXCAL on Tier B against
+\FluxMedianTierA{} on Tier A, a factor of about \FluxBrightnessRatio{}. The
+conversion error masked roughly \FluxBugFactor{} times of that difference
+(the pre-fix Tier B median was \FluxMedianTierBPreFix{}), so the encoder
+was fine-tuned with a frozen-trunk, low-learning-rate schedule chosen
+before the true size of the brightness shift was visible. This mismatch is
+a plausible contributor to the sim-to-real gap; it has not been isolated,
+and no schedule designed for it was tried.
 
 Tier B is a systematically cleaner slice of the real sky than a live
 stream, not a representative sample of one: it is pre-filtered to
 brightening subtractions before a candidate ever reaches its public
-release (\TierBNegFluxFrac{}\% negative flux, against \LiveZtfRunOneNegFluxFrac{}--\LiveZtfRunTwoNegFluxFrac{}\%
-measured on live, unfiltered ZTF traffic), it contains no forced-photometry
-row type at all, and its labels are drawn from a magnitude-limited
-spectroscopic follow-up programme, not from LSST's own future detection
-limit. Output probabilities carry the ELAsTiCC training prior rather than
-the true sky prior; a live-ZTF class-distribution check run during
-development found a skew consistent with this (dividing out the training
-prior moved the predicted Ib/c share substantially toward the real sky
-rate), but the specific percentages from that check were computed once,
-live, against a database query and were never persisted to a stored
-artifact, so they are not restated here as verified figures
-(\texttt{paper/NUMBERS\_GAPS.md}). LSST ingestion is built but unverified
-against real traffic. The image encoder was cut, not deferred: Tier B
-image data was never loaded across the project, and no schedule remained
-to build, fuse, and retrain around it once that became clear. Gate D
-remains unresolved, for the reason given in Table~\ref{tab:gateoutcomes}.
+release (\TierBNegFluxFrac{}\% negative flux, against
+\LiveNovZtfNegFluxFrac{}\% measured on live ZTF traffic), it contains no
+forced-photometry row type at all, and its labels are drawn from a
+magnitude-limited spectroscopic follow-up programme, not from LSST's own
+future detection limit.
+
+Output probabilities carry the deployed model's training prior, not the
+sky prior. On \LiveNovZtfNObjects{} live ZTF objects the deployed model
+predicts Ia \LiveNovZtfRawIa{}\%, Ib/c \LiveNovZtfRawIbc{}\% and II
+\LiveNovZtfRawII{}\%; Ib/c sits below its real sky rate, consistent with the
+low Ib/c recall above. A single multiplicative prior correction does not
+repair this: dividing out the ELAsTiCC prior gives Ib/c
+\LiveNovZtfElasticcIbcRangeLow{}--\LiveNovZtfElasticcIbcRangeHigh{}\%
+across plausible sky priors, and dividing out the effective Tier B
+fine-tuning prior (Ia \TierBEffectivePriorIa{}\%, Ib/c
+\TierBEffectivePriorIbc{}\%, II \TierBEffectivePriorII{}\%) pushes II to
+\LiveNovZtfTierBCorrII{}\%. Calibrating the output probabilities is a
+prerequisite for any rate estimate and has not been done.
+
+LSST ingestion now works on real traffic (Section~\ref{sec:results}), but
+LSST alerts carry no labels, so no accuracy claim is possible for them,
+and their cutout stamps (\LsstArchiveStampMin{}--\LsstArchiveStampMax{}
+pixels on a side) do not fit the fixed cutout shape of the canonical
+schema, so LSST cutouts are not stored. The image encoder was cut, not
+deferred: Tier B image data was never loaded across the project, and no
+schedule remained to build, fuse, and retrain around it once that became
+clear. Gate D remains unresolved, for the reason given in
+Table~\ref{tab:gateoutcomes}.

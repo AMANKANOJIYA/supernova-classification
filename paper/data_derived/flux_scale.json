@@ -1,0 +1,19 @@
+{
+  "tier_a_median_detection_fluxcal": 73.38457870483398,
+  "tier_b_corrected_median_detection_fluxcal": 2628.700201007375,
+  "tier_b_prefix_median_detection_fluxcal": 239.50196559882264,
+  "n_detections_tier_b_corrected": 407711,
+  "n_detections_tier_b_prefix": 407711,
+  "n_rows_matched": 411471,
+  "row_ratio_corrected_over_prefix": {
+    "median": 10.333492565399357,
+    "p05": 7.878271969936571,
+    "p95": 17.856358956008005
+  },
+  "brightness_ratio_tier_b_corrected_over_tier_a": 35.82088018220397,
+  "brightness_ratio_tier_b_prefix_over_tier_a": 3.263655250541708,
+  "notes": [
+    "n_rows_matched exceeds the detection count because a few (object_id, mjd, lam_eff) keys repeat; the ratio quantiles are insensitive to this and match reports/zeropoint_fix_2026-11-05/README.md.",
+    "CLAUDE.md's earlier prose figures (Tier A ~62, so ~41x) do not reproduce: the Tier A median detection FLUXCAL is 73.2-73.7 in every split. Tier B train alone reproduces its 2578 / 236."
+  ]
+}
