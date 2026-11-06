@@ -1,0 +1,110 @@
+{
+  "join_stats": {
+    "train": {
+      "not_in_bts_sample": 7735,
+      "mapped_ia": 4094,
+      "unclassified": 1625,
+      "mapped_ii": 1041,
+      "mapped_other_leaf": 384,
+      "no_tree_node": 442,
+      "mapped_ibc": 272,
+      "uncertain": 141,
+      "ambiguous": 48,
+      "excluded_csm_interacting": 22
+    },
+    "val": {
+      "mapped_ii": 111,
+      "not_in_bts_sample": 848,
+      "mapped_ia": 442,
+      "mapped_ibc": 28,
+      "unclassified": 183,
+      "no_tree_node": 51,
+      "uncertain": 11,
+      "mapped_other_leaf": 31,
+      "ambiguous": 6,
+      "excluded_csm_interacting": 2
+    },
+    "test": {
+      "not_in_bts_sample": 982,
+      "mapped_ia": 488,
+      "unclassified": 221,
+      "mapped_ii": 135,
+      "mapped_ibc": 35,
+      "no_tree_node": 54,
+      "mapped_other_leaf": 54,
+      "uncertain": 14,
+      "ambiguous": 6,
+      "excluded_csm_interacting": 5
+    }
+  },
+  "n_3class_labeled": {
+    "train": 5407,
+    "val": 581,
+    "test": 658
+  },
+  "zero_shot": {
+    "macro_f1_full": 0.4483001964548148,
+    "ia_vs_rest_roc_auc": 0.7802193828351013,
+    "per_class_f1_full": [
+      0.6056527590847913,
+      0.3294117647058824,
+      0.40983606557377056
+    ],
+    "per_class_support_full": [
+      488,
+      35,
+      135
+    ]
+  },
+  "with_static": {
+    "macro_f1_full": 0.635449292634882,
+    "ia_vs_rest_roc_auc": 0.8640188042430087,
+    "per_class_f1_full": [
+      0.8766839378238341,
+      0.4109589041095891,
+      0.618705035971223
+    ],
+    "per_class_support_full": [
+      488,
+      35,
+      135
+    ],
+    "phase_curve": {
+      "0": 0.28388598022105876,
+      "5": 0.29508800922595874,
+      "15": 0.46308866241537977,
+      "30": 0.5509826152683296,
+      "full": 0.635449292634882
+    }
+  },
+  "lc_only": {
+    "macro_f1_full": 0.6727253963786471,
+    "ia_vs_rest_roc_auc": 0.882172131147541,
+    "per_class_f1_full": [
+      0.8854489164086686,
+      0.5,
+      0.6327272727272728
+    ],
+    "per_class_support_full": [
+      488,
+      35,
+      135
+    ]
+  },
+  "with_static_drb": {
+    "macro_f1_full": 0.5840690960212872,
+    "ia_vs_rest_roc_auc": 0.870576181292189,
+    "per_class_f1_full": [
+      0.9023904382470119,
+      0.15384615384615383,
+      0.6959706959706959
+    ],
+    "per_class_support_full": [
+      488,
+      35,
+      135
+    ]
+  },
+  "tier_a_test_macro_f1_full": 0.716945209621613,
+  "sim_to_real_gap": 0.08149591698673098
+}

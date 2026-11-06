@@ -163,10 +163,27 @@ Rules:
 SNANA `FLUXCAL` already sits on AB zeropoint 27.5, so
 `src/readers/elasticc2.py` does no conversion — but that reader is the one
 exception, not a template. A real LSST/ZTF alert-stream reader (Day 9+)
-receives flux in **nJy, AB zeropoint 31.4**, not 27.5: a fixed multiplicative
-factor of `10**((31.4-27.5)/2.5) ≈ 36.3`. Every such reader must rescale
-`flux`/`flux_err` by that factor before constructing an `Observation`;
-nothing does this today because no non-SNANA reader exists yet.
+receives flux in **nJy, AB zeropoint 31.4**, not 27.5: a fixed factor of
+~36.3 between the two scales, applied as a **division** — the FLUXCAL value
+is `flux_nJy * 10**((27.5-31.4)/2.5) = flux_nJy / 36.3`. In general,
+`flux_27.5 = flux_zp * 10**((27.5 - zp)/2.5)`, which is the only direction
+that keeps `mag = zp - 2.5*log10(flux)` unchanged. Every such reader must
+rescale `flux`/`flux_err` this way before constructing an `Observation`.
+
+**Corrected 2026-11-05 (post-NSSP audit).** This paragraph previously
+called 36.3 a "multiplicative factor"; `src/readers/zeropoint.py` and its
+tests implemented exactly that reading, i.e. the **inverse** of the
+correct conversion. Every Tier B (BTSbot) and live ZTF flux was stored a
+median ~10.3× too faint (row-dependent through `magzpsci`, p5–p95
+0.056–0.127× of correct), and every live LSST flux ~1318× too bright.
+Tier A (no conversion) was always correct. Fixed in `zeropoint.py`;
+`tests/test_zeropoint_conversion.py` now asserts magnitude invariance
+directly instead of a hard-coded factor, and every golden fixture's
+expected flux was recomputed from `10**(-0.4*(magpsf - 27.5))`, which
+needs no zeropoint at all. Numbers from before this date that compare
+Tier A against Tier B (zero-shot, sim-to-real gap, transfer gain) were
+measured on mis-scaled Tier B input — see `reports/zeropoint_fix_2026-11-05/`
+for the re-run.
 `flux_norm` (`flux/flux_err`, `tensorize.py`) is scale-invariant and needs no
 correction — the factor cancels in the ratio. `flux_abs_norm` and
 `flux_err_norm` are **not** scale-invariant, and skipping the conversion
@@ -1557,6 +1574,72 @@ a reportable metric here — always-predict-Ia scores well and is useless.
 
   See `RESULTS.md` (repo root) for the consolidated, reader-facing summary
   of what was built, measured, and left unresolved.
+
+- **2026-11-05 (post-NSSP): zeropoint conversion was inverted; Tier B
+  re-run. SUPERSEDES every Tier B number above.** See §3's correction
+  note, `reports/audit_2026-11-05/AUDIT.md`, and
+  `reports/zeropoint_fix_2026-11-05/`. Regenerated Tier B parquets
+  reproduce `magpsf` to 3.6e-15 mag; static fields and `flux/flux_err`
+  unchanged; correct fluxes are a median 10.3x larger (p5-p95 7.9-17.8x)
+  than what was stored before.
+
+  Controlled comparison, 5 seeds x 2 conditions, identical code and
+  object order (the reader's object order is not deterministic across
+  builds -- a separate, smaller confound, removed here by giving the
+  old-flux control the new order):
+
+  | Tier B test, full cutoff | old flux | corrected flux |
+  | --- | ---: | ---: |
+  | zero-shot (LC+static weights) | 0.4483 | 0.4240 |
+  | zero-shot (LC-only weights) | 0.4377 | 0.2737 |
+  | LC+static fine-tune | 0.6309 +/- 0.0033 | **0.6210 +/- 0.0067** |
+  | LC-only fine-tune | 0.6754 +/- 0.0012 | **0.5647 +/- 0.0012** |
+  | LC+static+DRB fine-tune | 0.6064 +/- 0.0340 | 0.5358 +/- 0.0059 |
+  | logistic-regression baseline | 0.3810 | 0.4687 |
+
+  (macro-F1; +/- is the SD over seeds 42/1/2/3/4.)
+
+  Consequences, stated as measured, not explained:
+  - **The "Tier B static-encoder inversion" (unresolved item #1) does not
+    survive the fix.** With correct fluxes LC+static beats LC-only by
+    +0.056. The inversion was produced by the mis-scaled input; neither
+    Day 9's overfitting story nor Day 10's photo-z ablation needs to
+    explain it any more.
+  - **The deployed model (LC-only) is no longer the best variant**, and its
+    Ib/c F1 falls to 0.137 (was 0.500), below §11's 0.40-0.60 anchor.
+    LC+static Ib/c F1 is 0.286. **Redeployed 2026-11-05:** serving now
+    runs the corrected LC+static model
+    (`outputs/finetune_bts_zpfix/with_static_{checkpoint.pt,model.onnx}`,
+    seed 42, macro-F1 0.6201). `src/serve/model.py`'s ONNX graph takes a
+    second input (`static_features`), built with `build_static_vector`
+    and the Tier-B-refit normalizer stored in the checkpoint -- serving's
+    static vectors match training's exactly (max diff 0.0 over the 658
+    test objects); ONNX vs PyTorch probabilities agree to 7e-6 with 100%
+    argmax agreement. End-to-end replay: macro-F1 0.6213 (offline 0.6201;
+    the 0.0012 is the serving-only 200-day span cap). Uncontended latency
+    p50 37.6 / p95 54.1 / p99 65.6 ms, 575 alerts/s, ONNX 0.185 ms/alert
+    -- unchanged from LC-only. Live ZTF: 29/29 alerts, 0 skipped.
+    `tests/test_serve_model_classifier.py` covers export parity,
+    padding/batching invariance, causality of the exported graph,
+    all-missing static context, and normalizer provenance.
+  - Sim-to-real gaps (matched configs): LC-only 0.6981 -> 0.5647 (-0.133);
+    LC+static 0.7169 -> 0.6210 (-0.096). Transfer gains: LC+static +0.197
+    (0.4240 -> 0.6210); LC-only +0.291 (0.2737 -> 0.5647).
+  - Ia-vs-rest ROC-AUC rises for zero-shot (0.780 -> 0.860) and LC+static
+    (0.864 -> 0.882) even where macro-F1 falls -- ranking improves while the
+    argmax boundary shifts.
+  - Mechanism for the larger gap, measured: median detection FLUXCAL is
+    ~62 on Tier A, was 236 on buggy Tier B, is 2578 on correct Tier B.
+    Real BTS objects are ~41x brighter than the simulated training
+    population; the bug had hidden ~10x of that gap. Tier A is unchanged
+    (no conversion), verified: Tier A baselines identical before/after.
+  - Tier B anomaly (Tier-A-fitted scorers, byte-identical): recon 0.8142,
+    Mahalanobis 0.4407, isoforest 0.5371, combined(3) **0.7793** (was
+    0.7616). Gate D's top-50 was not re-derived.
+  - Replay through serving with the corrected parquet + re-exported ONNX:
+    0.5678 vs offline 0.5635.
+  - Live LSST additionally needs `avro_lsst.py` to read `dec` (live schema)
+    instead of `decl`; not changed here.
 
 ## 12. Working style
 

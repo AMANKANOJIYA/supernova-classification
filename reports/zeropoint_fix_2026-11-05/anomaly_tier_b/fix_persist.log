@@ -1,0 +1,21 @@
+2026-11-05 09:30:29,663 INFO Loaded frozen Tier A LC-only encoder from outputs/train/checkpoint.pt
+2026-11-05 09:30:29,664 INFO Loading Tier A object_id/class_id only from data/interim/elasticc2/train_02_full_3class.parquet (cheap pass)
+2026-11-05 09:30:31,099 INFO Reconstructed fit population ids: 60000 objects (matches train_anomaly.py's own)
+2026-11-05 09:30:31,099 INFO Loading fit population CanonicalAlerts (id-filtered)...
+2026-11-05 09:30:46,493 INFO Scoring fit population (encoder+decoder forward pass only, no training)...
+2026-11-05 09:31:26,732 INFO Fitting MahalanobisScorer + EngineeredFeatureNormalizer...
+2026-11-05 09:31:26,883 INFO Isolation-forest component: using PineForest (prior run recorded: PineForest)
+2026-11-05 09:31:26,886 INFO Wrote outputs/anomaly/mahalanobis.npz, outputs/anomaly/engineered_normalizer.npz, outputs/anomaly/forest.pkl
+2026-11-05 09:31:29,029 INFO === Cheap verification: recomputed fit z-score stats vs. anomaly_results.json ===
+2026-11-05 09:31:29,029 INFO   reconstruction_error: recomputed=(0.9835, 0.6462) prior=(0.9835, 0.6462) diff=(1.19e-07, 5.96e-08)
+2026-11-05 09:31:29,029 INFO   mahalanobis: recomputed=(119.1379, 48.5563) prior=(119.1381, 48.5564) diff=(-1.46e-04, -2.49e-05)
+2026-11-05 09:31:29,029 INFO   isoforest: recomputed=(0.4657, 0.0309) prior=(0.4639, 0.0326) diff=(1.82e-03, -1.74e-03)
+2026-11-05 09:31:29,029 INFO Loading + scoring Tier B normal test + weird (full, uncapped)...
+2026-11-05 09:31:29,029 INFO bts_labels: using cached BTS Sample Explorer sample at data/raw/btsbot/bts_sample_explorer_raw.csv
+2026-11-05 09:31:29,473 INFO Tier B category counts across train+val+test: {'not_in_bts_sample': 9565, 'mapped_2224': 1287, 'mapped_2222': 5024, 'unclassified': 2029, 'mapped_2223': 335, 'no_tree_node': 547, 'uncertain': 166, 'mapped_other_leaf': 469, 'ambiguous': 60, 'excluded_csm_interacting': 29}
+2026-11-05 09:31:29,473 INFO Tier B eval sets: normal_test(3-class, test split only)=658 weird(pooled)=1045
+2026-11-05 09:31:30,556 INFO === Tier B (full, uncapped) 3-component ROC-AUC === {'reconstruction_error': 0.8141504631986155, 'mahalanobis': 0.44066258489550764, 'isoforest': 0.5371387850671165, 'combined_3component': 0.7793109466121784, 'n_normal': 658, 'n_anomalous': 1045}
+2026-11-05 09:31:30,556 INFO   tier_b.reconstruction_error: recomputed=0.8142 prior=0.8382 diff=-0.0241
+2026-11-05 09:31:30,556 INFO   tier_b.mahalanobis: recomputed=0.4407 prior=0.5236 diff=-0.0830
+2026-11-05 09:31:30,556 INFO   tier_b.isoforest: recomputed=0.5371 prior=0.6400 diff=-0.1028
+2026-11-05 09:31:30,556 INFO Wrote outputs/anomaly/persisted_scorers_meta.json

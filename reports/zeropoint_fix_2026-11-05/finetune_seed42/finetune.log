@@ -1,0 +1,57 @@
+2026-11-05 09:26:40,926 INFO Fetching/loading cached BTS Sample Explorer sample...
+2026-11-05 09:26:40,926 INFO bts_labels: using cached BTS Sample Explorer sample at data/raw/btsbot/bts_sample_explorer_raw.csv
+2026-11-05 09:26:40,939 INFO Loading + joining Tier B splits...
+2026-11-05 09:26:41,418 INFO bts_labels: join outcome counts across 15804 alerts: {'not_in_bts_sample': 7735, 'mapped_ii': 1041, 'mapped_ia': 4094, 'unclassified': 1625, 'mapped_ibc': 272, 'no_tree_node': 442, 'uncertain': 141, 'mapped_other_leaf': 384, 'ambiguous': 48, 'excluded_csm_interacting': 22}
+2026-11-05 09:26:41,419 INFO Tier B train: 15804 objects read, join outcomes={'not_in_bts_sample': 7735, 'mapped_ii': 1041, 'mapped_ia': 4094, 'unclassified': 1625, 'mapped_ibc': 272, 'no_tree_node': 442, 'uncertain': 141, 'mapped_other_leaf': 384, 'ambiguous': 48, 'excluded_csm_interacting': 22}
+2026-11-05 09:26:41,470 INFO bts_labels: join outcome counts across 1713 alerts: {'not_in_bts_sample': 848, 'uncertain': 11, 'mapped_ia': 442, 'mapped_ii': 111, 'unclassified': 183, 'no_tree_node': 51, 'mapped_other_leaf': 31, 'mapped_ibc': 28, 'ambiguous': 6, 'excluded_csm_interacting': 2}
+2026-11-05 09:26:41,471 INFO Tier B val: 1713 objects read, join outcomes={'not_in_bts_sample': 848, 'uncertain': 11, 'mapped_ia': 442, 'mapped_ii': 111, 'unclassified': 183, 'no_tree_node': 51, 'mapped_other_leaf': 31, 'mapped_ibc': 28, 'ambiguous': 6, 'excluded_csm_interacting': 2}
+2026-11-05 09:26:41,612 INFO bts_labels: join outcome counts across 1994 alerts: {'unclassified': 221, 'mapped_ia': 488, 'mapped_ii': 135, 'not_in_bts_sample': 982, 'excluded_csm_interacting': 5, 'mapped_ibc': 35, 'mapped_other_leaf': 54, 'ambiguous': 6, 'no_tree_node': 54, 'uncertain': 14}
+2026-11-05 09:26:41,613 INFO Tier B test: 1994 objects read, join outcomes={'unclassified': 221, 'mapped_ia': 488, 'mapped_ii': 135, 'not_in_bts_sample': 982, 'excluded_csm_interacting': 5, 'mapped_ibc': 35, 'mapped_other_leaf': 54, 'ambiguous': 6, 'no_tree_node': 54, 'uncertain': 14}
+2026-11-05 09:26:41,615 INFO Tier B 3-class labeled object counts: {'train': 5407, 'val': 581, 'test': 658}
+2026-11-05 09:26:41,616 INFO Tier B 3-class labeled objects: train=5407 val=581 test=658
+2026-11-05 09:26:41,616 INFO === Zero-shot: Tier A LC+static weights on Tier B test ===
+2026-11-05 09:26:41,994 INFO zero_shot: {'macro_f1_full': 0.4239937838612011, 'ia_vs_rest_roc_auc': 0.8598963355834137, 'per_class_f1_full': [0.642570281124498, 0.16216216216216217, 0.46724890829694327], 'per_class_support_full': [488, 35, 135]}
+2026-11-05 09:26:41,994 INFO === Fine-tuning: with_static ===
+/private/tmp/claude-501/-Users-akaza-Desktop-Test-Supernova-detection/bea413ca-c163-4abe-9310-0280f7d24106/scratchpad/repo/src/models/static_encoder.py:116: RuntimeWarning: Mean of empty slice
+  mean = np.nanmean(rows, axis=0)
+/Users/akaza/.local/share/sn-classifier/venv/lib/python3.12/site-packages/numpy/lib/_nanfunctions_impl.py:2053: RuntimeWarning: Degrees of freedom <= 0 for slice.
+  var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+2026-11-05 09:26:42,013 INFO with_static: Tier-B-refit normalizer mean=[nan, nan, 2.9114622682406597, nan, 18.71024062444927, 0.10942204152688835, 11.70427485750404] std=[1.0, 1.0, 3.7337978546446773, 1.0, 2.1167494423487523, 0.3247034997178889, 40.34720810386167]
+2026-11-05 09:26:42,219 INFO with_static: class_weights=[0.43714314699172974, 1.6959503889083862, 0.8669064044952393]
+2026-11-05 09:26:43,567 INFO [with_static[frozen]] epoch 1/2: loss=0.9453 lr=3.00e-04 (0.8s)
+2026-11-05 09:26:44,255 INFO [with_static[frozen]] epoch 2/2: loss=0.8886 lr=3.00e-04 (0.7s)
+2026-11-05 09:26:46,435 INFO [with_static[unfrozen]] epoch 1/6: loss=0.8496 lr=3.00e-04 (2.2s)
+2026-11-05 09:26:48,908 INFO [with_static[unfrozen]] epoch 2/6: loss=0.8125 lr=2.80e-04 (2.5s)
+2026-11-05 09:26:51,303 INFO [with_static[unfrozen]] epoch 3/6: loss=0.7973 lr=2.25e-04 (2.4s)
+2026-11-05 09:26:53,609 INFO [with_static[unfrozen]] epoch 4/6: loss=0.7925 lr=1.50e-04 (2.3s)
+2026-11-05 09:26:55,911 INFO [with_static[unfrozen]] epoch 5/6: loss=0.7809 lr=7.50e-05 (2.3s)
+2026-11-05 09:26:58,154 INFO [with_static[unfrozen]] epoch 6/6: loss=0.7897 lr=2.01e-05 (2.2s)
+2026-11-05 09:26:58,493 INFO with_static: {'macro_f1_full': 0.6200655278811592, 'ia_vs_rest_roc_auc': 0.8820033751205401, 'per_class_f1_full': [0.9078156312625251, 0.2857142857142857, 0.6666666666666667], 'per_class_support_full': [488, 35, 135], 'phase_curve': {'0': 0.283551673944687, '5': 0.283551673944687, '15': 0.367188746315881, '30': 0.496015781669745, 'full': 0.6200655278811592}}
+2026-11-05 09:26:58,493 INFO === Fine-tuning: lc_only (host-fields ablation, 'without') ===
+2026-11-05 09:26:58,669 INFO lc_only: class_weights=[0.43714314699172974, 1.6959503889083862, 0.8669064044952393]
+2026-11-05 09:26:59,386 INFO [lc_only[frozen]] epoch 1/2: loss=1.2481 lr=3.00e-04 (0.7s)
+2026-11-05 09:27:00,196 INFO [lc_only[frozen]] epoch 2/2: loss=1.0620 lr=3.00e-04 (0.8s)
+2026-11-05 09:27:02,295 INFO [lc_only[unfrozen]] epoch 1/6: loss=0.9462 lr=3.00e-04 (2.1s)
+2026-11-05 09:27:04,421 INFO [lc_only[unfrozen]] epoch 2/6: loss=0.8972 lr=2.80e-04 (2.1s)
+2026-11-05 09:27:06,794 INFO [lc_only[unfrozen]] epoch 3/6: loss=0.8668 lr=2.25e-04 (2.4s)
+2026-11-05 09:27:08,977 INFO [lc_only[unfrozen]] epoch 4/6: loss=0.8559 lr=1.50e-04 (2.2s)
+2026-11-05 09:27:11,102 INFO [lc_only[unfrozen]] epoch 5/6: loss=0.8463 lr=7.50e-05 (2.1s)
+2026-11-05 09:27:13,507 INFO [lc_only[unfrozen]] epoch 6/6: loss=0.8496 lr=2.01e-05 (2.4s)
+2026-11-05 09:27:13,821 INFO lc_only: {'macro_f1_full': 0.5634986144422375, 'ia_vs_rest_roc_auc': 0.8685511089681774, 'per_class_f1_full': [0.89564336372847, 0.13559322033898305, 0.6592592592592592], 'per_class_support_full': [488, 35, 135]}
+2026-11-05 09:27:13,821 INFO === Fine-tuning: with_static_drb (real_bogus_score ablation) ===
+/private/tmp/claude-501/-Users-akaza-Desktop-Test-Supernova-detection/bea413ca-c163-4abe-9310-0280f7d24106/scratchpad/repo/src/models/static_encoder.py:116: RuntimeWarning: Mean of empty slice
+  mean = np.nanmean(rows, axis=0)
+/Users/akaza/.local/share/sn-classifier/venv/lib/python3.12/site-packages/numpy/lib/_nanfunctions_impl.py:2053: RuntimeWarning: Degrees of freedom <= 0 for slice.
+  var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+2026-11-05 09:27:13,841 INFO with_static_drb: drb_mean=0.9250 drb_std=0.2106
+2026-11-05 09:27:14,044 INFO with_static_drb: class_weights=[0.43714314699172974, 1.6959503889083862, 0.8669064044952393]
+2026-11-05 09:27:14,763 INFO [with_static_drb[frozen]] epoch 1/2: loss=1.0465 lr=3.00e-04 (0.7s)
+2026-11-05 09:27:15,496 INFO [with_static_drb[frozen]] epoch 2/2: loss=0.9375 lr=3.00e-04 (0.7s)
+2026-11-05 09:27:17,802 INFO [with_static_drb[unfrozen]] epoch 1/6: loss=0.8950 lr=3.00e-04 (2.3s)
+2026-11-05 09:27:20,131 INFO [with_static_drb[unfrozen]] epoch 2/6: loss=0.8573 lr=2.80e-04 (2.3s)
+2026-11-05 09:27:22,285 INFO [with_static_drb[unfrozen]] epoch 3/6: loss=0.8281 lr=2.25e-04 (2.2s)
+2026-11-05 09:27:24,696 INFO [with_static_drb[unfrozen]] epoch 4/6: loss=0.8156 lr=1.50e-04 (2.4s)
+2026-11-05 09:27:26,898 INFO [with_static_drb[unfrozen]] epoch 5/6: loss=0.8094 lr=7.50e-05 (2.2s)
+2026-11-05 09:27:29,091 INFO [with_static_drb[unfrozen]] epoch 6/6: loss=0.8053 lr=2.01e-05 (2.2s)
+2026-11-05 09:27:29,526 INFO with_static_drb: {'macro_f1_full': 0.5335904853744776, 'ia_vs_rest_roc_auc': 0.876808100289296, 'per_class_f1_full': [0.9122468659594986, 0.0, 0.6885245901639344], 'per_class_support_full': [488, 35, 135]}
+2026-11-05 09:27:29,567 INFO Wrote Gate C report to reports/gate_c/gate_c_report.json

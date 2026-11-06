@@ -1,0 +1,15 @@
+{
+  "survey": "ztf",
+  "topics": [
+    "fink_sn_candidates_ztf"
+  ],
+  "n_received": 29,
+  "n_produced": 29,
+  "n_skipped": 0,
+  "skip_reasons": {},
+  "n_cutouts_stored": 29,
+  "n_detection_observations": 325,
+  "n_negative_flux_detection_observations": 14,
+  "negative_flux_fraction": 0.043076923076923075,
+  "elapsed_seconds": 122.64704904099926
+}

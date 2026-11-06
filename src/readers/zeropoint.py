@@ -21,8 +21,16 @@ def convert_zeropoint(
     `SNANA_FLUXCAL_ZEROPOINT`.
 
     `mag = zp - 2.5*log10(flux)` is invariant under a zeropoint change iff
-    `flux` is rescaled by `10**((from_zeropoint - SNANA_FLUXCAL_ZEROPOINT) /
-    2.5)`. `flux_err` scales by the identical factor (it sits on the same
+    `flux` is rescaled by `10**((SNANA_FLUXCAL_ZEROPOINT - from_zeropoint) /
+    2.5)`. For LSST nJy (zp 31.4) that DIVIDES by ~36.3; for a ZTF
+    `magzpsci` near 26 it multiplies by ~3.6.
+
+    Audit 2026-11-05: until then this used the reciprocal factor
+    (`from_zeropoint - 27.5`), which does NOT preserve magnitude -- every
+    Tier B / live ZTF flux came out a median ~10x too faint (row-dependent,
+    via magzpsci) and LSST ~1318x too bright. The tests encoded the same
+    inversion; `tests/test_zeropoint_conversion.py` now checks magnitude
+    invariance directly. `flux_err` scales by the identical factor (it sits on the same
     additive flux scale as `flux`), which is exactly why `flux/flux_err`
     (this project's `flux_norm` feature, `src/features/tensorize.py`) is
     scale-invariant and needs no correction of its own — only `flux`/
@@ -38,5 +46,5 @@ def convert_zeropoint(
     Returns:
         `(flux, flux_err)` rescaled onto `SNANA_FLUXCAL_ZEROPOINT`.
     """
-    scale = 10 ** ((from_zeropoint - SNANA_FLUXCAL_ZEROPOINT) / 2.5)
+    scale = 10 ** ((SNANA_FLUXCAL_ZEROPOINT - from_zeropoint) / 2.5)
     return flux * scale, flux_err * scale

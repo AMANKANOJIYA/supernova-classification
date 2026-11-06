@@ -1,0 +1,36 @@
+{
+  "forest_kind": "PineForest",
+  "fit_zscore_stats_diff": {
+    "reconstruction_error": {
+      "mean_diff": 1.1920928955078125e-07,
+      "std_diff": 5.960464477539063e-08
+    },
+    "mahalanobis": {
+      "mean_diff": -0.00014643845528894417,
+      "std_diff": -2.4888634236219787e-05
+    },
+    "isoforest": {
+      "mean_diff": 0.0018179255827841523,
+      "std_diff": -0.0017375876610759497
+    }
+  },
+  "verification_tier_b_roc_auc": {
+    "reconstruction_error": 0.8141504631986155,
+    "mahalanobis": 0.44066258489550764,
+    "isoforest": 0.5371387850671165,
+    "combined_3component": 0.7793109466121784,
+    "n_normal": 658,
+    "n_anomalous": 1045
+  },
+  "prior_tier_b_roc_auc": {
+    "reconstruction_error": 0.8382309739532584,
+    "entropy": 0.42028766306481874,
+    "mahalanobis": 0.523641308299763,
+    "isoforest": 0.6399746949578976,
+    "combined": 0.7418260351071101,
+    "n_normal": 658,
+    "n_anomalous": 1045
+  },
+  "tier_a_note": "Tier A's full 3-component ROC-AUC was NOT recomputed this session (442,303-object exotic eval set -- deemed too expensive for a verification pass; see module docstring). The cheap fit-population z-score check above covers Tier A equally (same fit population backs both tiers) -- only the expensive per-eval-set ROC-AUC number is Tier-B-only here.",
+  "combined_definition": "reconstruction_error + mahalanobis + isoforest, equal-weight z-score average (entropy dropped, per CLAUDE.md Sec 11 Day 10 decision) -- this is the combination src.serve.model.AnomalyScorer now serves when these persisted artifacts are present."
+}

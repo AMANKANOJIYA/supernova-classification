@@ -1,0 +1,23 @@
+{
+ "worker_model_time_per_alert_ms": {
+  "p50": 0.61421875,
+  "p95": 1.029859375,
+  "mean": 0.6464533743633277,
+  "n_batches": 1550
+ },
+ "onnx_isolated": {
+  "1": {
+   "n_batches": 658,
+   "per_alert_ms_p50": 0.1822085032472387,
+   "per_alert_ms_p95": 0.5393231913330963,
+   "per_alert_ms_mean": 0.23052015088464622
+  },
+  "32": {
+   "n_batches": 21,
+   "per_alert_ms_p50": 0.23948568741616327,
+   "per_alert_ms_p95": 0.3452407222034203,
+   "per_alert_ms_mean": 0.26294946437027883
+  }
+ },
+ "note": "isolated = ONNXClassifier.predict_probs only, on Tier B test objects' full tensorized sequences (658 labeled objects), CPU, warm"
+}

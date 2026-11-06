@@ -1,0 +1,79 @@
+{
+ "method": "Read-only re-measurement from the serving Postgres (predictions table).\nUsage: python db_audit.py <repo_root> <out_json> [<since_utc_iso>]\nSplits rows into runs by gaps > 20 min in scored_at_utc, per survey.\nFor each run: rows, objects, latency percentiles (inference_latency_ms =\nKafka-poll receipt -> just before that row's INSERT), busy-interval\nthroughput, latest-prediction-per-object class distribution, and, where\nlabels exist, macro-F1 / Ia ROC-AUC via the frozen src.eval.metrics.\nPrior correction: corrected(c) \u221d p(c) * sky(c)/train(c), as in CLAUDE.md Day 14.\n",
+ "train_prior": [
+  0.204,
+  0.285,
+  0.511
+ ],
+ "sky_priors": {
+  "midpoint": [
+   0.275,
+   0.15,
+   0.575
+  ],
+  "low_ibc": [
+   0.3,
+   0.1,
+   0.6
+  ],
+  "high_ibc": [
+   0.25,
+   0.2,
+   0.55
+  ]
+ },
+ "runs": [
+  {
+   "survey": "ztf",
+   "start_utc": "2026-11-05 03:22:01.634718+00:00",
+   "end_utc": "2026-11-05 03:23:30.279781+00:00",
+   "n_rows": 49587,
+   "n_objects": 1994,
+   "busy_seconds": 88.64506316184998,
+   "throughput_alerts_per_sec_busy": 559.3881738170014,
+   "latency_ms": {
+    "p50": 38.28758301096968,
+    "p95": 55.73233770846854,
+    "p99": 68.06207359884864,
+    "mean": 39.62948144210399,
+    "max": 144.38333301222883
+   },
+   "mean_seq_length_latest": 16.87763289869609,
+   "class_distribution_latest_raw": {
+    "Ia": 0.5872617853560682,
+    "Ib/c": 0.03460381143430291,
+    "II": 0.3781344032096289
+   },
+   "class_distribution_latest_prior_corrected": {
+    "midpoint": {
+     "Ia": 0.6253761283851554,
+     "Ib/c": 0.009027081243731194,
+     "II": 0.36559679037111337
+    },
+    "low_ibc": {
+     "Ia": 0.6369107321965898,
+     "Ib/c": 0.0025075225677031092,
+     "II": 0.36058174523570713
+    },
+    "high_ibc": {
+     "Ia": 0.6133400200601805,
+     "Ib/c": 0.020561685055165497,
+     "II": 0.36609829488465395
+    }
+   },
+   "alert_mjd_range": [
+    58303.202974500135,
+    60172.27899309993
+   ],
+   "labeled_3class_objects": 658,
+   "macro_f1_latest": 0.6727253963786471,
+   "per_class_f1_latest": [
+    0.8854489164086686,
+    0.5,
+    0.6327272727272728
+   ],
+   "ia_vs_rest_roc_auc_latest": 0.8828351012536162,
+   "confusion_latest": null
+  }
+ ]
+}

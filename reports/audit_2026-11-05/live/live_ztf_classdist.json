@@ -1,0 +1,45 @@
+{
+ "rows": 466,
+ "objects": 297,
+ "mean_seq_length_latest": 36.15151515151515,
+ "latency_ms": {
+  "p50": 113.33427049976308,
+  "p95": 165.19028174661798,
+  "p99": 194.47251885430887
+ },
+ "raw_pct": {
+  "Ia": 9.4,
+  "Ib/c": 25.6,
+  "II": 65.0
+ },
+ "corrected_midpoint_pct": {
+  "Ia": 13.8,
+  "Ib/c": 10.4,
+  "II": 75.8
+ },
+ "corrected_low_ibc_pct": {
+  "Ia": 15.5,
+  "Ib/c": 4.4,
+  "II": 80.1
+ },
+ "corrected_high_ibc_pct": {
+  "Ia": 12.1,
+  "Ib/c": 15.8,
+  "II": 72.1
+ },
+ "live_fink_summary": {
+  "survey": "ztf",
+  "topics": [
+   "fink_sn_candidates_ztf"
+  ],
+  "n_received": 466,
+  "n_produced": 466,
+  "n_skipped": 0,
+  "skip_reasons": {},
+  "n_cutouts_stored": 459,
+  "n_detection_observations": 6656,
+  "n_negative_flux_detection_observations": 356,
+  "negative_flux_fraction": 0.05348557692307692,
+  "elapsed_seconds": 183.12808629198116
+ }
+}

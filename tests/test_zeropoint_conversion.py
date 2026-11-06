@@ -7,6 +7,7 @@ conversion the way this project's audit found nothing currently does.
 """
 
 import glob
+import math
 import os
 
 import pytest
@@ -20,13 +21,40 @@ _EXEMPT_READERS = {"elasticc2.py", "zeropoint.py", "__init__.py"}
 
 
 class TestConvertZeropoint:
-    def test_lsst_alert_zeropoint_factor_is_approximately_36(self):
-        # CLAUDE.md §3: LSST/ZTF alert-packet flux uses AB zeropoint 31.4.
+    def test_lsst_nanojansky_is_divided_by_approximately_36(self):
+        # LSST alert-packet flux is nJy, AB zeropoint 31.4. Going DOWN to
+        # zp 27.5 makes the number SMALLER: 1 FLUXCAL unit is ~36.3 nJy.
+        # (Audit 2026-11-05: this test previously asserted a x36.3
+        # multiplication, copied from CLAUDE.md §3's wording, and so
+        # encoded the inverted conversion it was meant to guard against.)
         flux, flux_err = convert_zeropoint(1.0, 0.1, from_zeropoint=31.4)
-        expected_scale = 10 ** ((31.4 - SNANA_FLUXCAL_ZEROPOINT) / 2.5)
-        assert expected_scale == pytest.approx(36.307805, abs=1e-3)
+        expected_scale = 10 ** ((SNANA_FLUXCAL_ZEROPOINT - 31.4) / 2.5)
+        assert 1.0 / expected_scale == pytest.approx(36.307805, abs=1e-3)
         assert flux == pytest.approx(1.0 * expected_scale)
         assert flux_err == pytest.approx(0.1 * expected_scale)
+
+    @pytest.mark.parametrize("from_zp", [21.4, 25.9, 26.2, 26.44, 27.5, 31.4])
+    @pytest.mark.parametrize("flux_in", [0.37, 1.0, 631.0, 8000.0, 2.5e6])
+    def test_magnitude_is_invariant_under_conversion(self, from_zp, flux_in):
+        """The physical definition, independent of any factor written down
+        anywhere: the AB magnitude a flux implies must be the same before
+        and after rescaling to zp 27.5. This is the test that would have
+        caught the inverted conversion."""
+        flux_out, _ = convert_zeropoint(flux_in, 1.0, from_zeropoint=from_zp)
+        mag_in = from_zp - 2.5 * math.log10(flux_in)
+        mag_out = SNANA_FLUXCAL_ZEROPOINT - 2.5 * math.log10(flux_out)
+        assert mag_out == pytest.approx(mag_in, abs=1e-9)
+
+    def test_ztf_magnitude_converts_to_fluxcal_independent_of_magzpsci(self):
+        """ZTF: flux_raw = 10**(-0.4*(magpsf - magzpsci)) on the alert's own
+        zeropoint. After a correct conversion the zeropoint cancels and the
+        result is exactly 10**(-0.4*(magpsf - 27.5)) whatever magzpsci was."""
+        magpsf = 19.0
+        expected = 10 ** (-0.4 * (magpsf - SNANA_FLUXCAL_ZEROPOINT))
+        for magzpsci in (25.5, 26.0, 26.44):
+            raw = 10 ** (-0.4 * (magpsf - magzpsci))
+            flux, _ = convert_zeropoint(raw, 1.0, from_zeropoint=magzpsci)
+            assert flux == pytest.approx(expected, rel=1e-12)
 
     def test_already_on_snana_scale_is_identity(self):
         flux, flux_err = convert_zeropoint(123.4, 5.6, from_zeropoint=SNANA_FLUXCAL_ZEROPOINT)
