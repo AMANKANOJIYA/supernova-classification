@@ -1,5 +1,15 @@
 # Guide — Transient Supernova Classifier
 
+> **Revision note, 2026-11-06.** The flux-zeropoint conversion for real ZTF
+> and LSST data was inverted until 2026-11-05 (see `CLAUDE.md` §3 and
+> `reports/zeropoint_fix_2026-11-05/`). The commands in this guide still
+> work, but every real-data (Tier B) number quoted below predates the fix
+> and is superseded by `RESULTS.md`. In particular: the deployed model is now
+> **LC+static** (`outputs/finetune_bts_zpfix/with_static_model.onnx`), not
+> LC-only; the "static-feature inversion" is withdrawn; live LSST now
+> ingests; `requirements-lock.txt` has been regenerated and matches the venv;
+> and serving latency is p50 37.6 ms / 575 alerts/s, not the Day-12 figures.
+
 This document is written for someone who was not here for the 14-day build
 and has no astronomy background. It explains the domain, the pipeline, how
 to run every piece of it, how to read the results, and — importantly —

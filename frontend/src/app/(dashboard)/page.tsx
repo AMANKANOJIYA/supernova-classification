@@ -14,10 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtCompact, fmtMs } from "@/lib/format";
 
 export default function OverviewPage() {
-  const { data: gateC } = useStaticJson<GateCReport>("reports/gate_c/gate_c_report.json");
+  const { data: gateC } = useStaticJson<GateCReport>("reports/zeropoint_fix_2026-11-05/finetune_seed42/gate_c_report.json");
   const { data: anomaly } = useStaticJson<AnomalyResults>("outputs/anomaly/anomaly_results.json");
   const { data: persisted } = useStaticJson<PersistedScorersMeta>(
-    "outputs/anomaly/persisted_scorers_meta.json",
+    "reports/zeropoint_fix_2026-11-05/anomaly_tier_b/persisted_scorers_meta.json",
   );
   const { data: stats } = useSWR("stats-overview", () => api.stats(), { refreshInterval: 15000 });
   const { data: rate } = useSWR("rate-overview", () => api.alertsRate(60), { refreshInterval: 20000 });
@@ -25,7 +25,7 @@ export default function OverviewPage() {
   const loading = !gateC || !anomaly || !persisted || !stats;
 
   const tierAF1 = gateC?.tier_a_test_macro_f1_full;
-  const tierBF1 = gateC?.lc_only.macro_f1_full;
+  const tierBF1 = gateC?.with_static.macro_f1_full;
   const gap = tierAF1 !== undefined && tierBF1 !== undefined ? tierAF1 - tierBF1 : undefined;
   const anomalyRocAuc = persisted?.verification_tier_b_roc_auc.combined_3component;
 
@@ -48,31 +48,31 @@ export default function OverviewPage() {
                 caption="ELAsTiCC2 sim, full cutoff"
                 accent="primary"
               >
-                <SourceCite path="gate_c_report.json:tier_a_test_macro_f1_full" className="mt-1" />
+                <SourceCite path="finetune_seed42/gate_c_report.json:tier_a_test_macro_f1_full" className="mt-1" />
               </StatCard>
               <StatCard
                 label="Tier B macro-F1 (deployed)"
                 value={tierBF1 !== undefined ? tierBF1.toFixed(4) : "—"}
-                caption="Real ZTF, LC-only fine-tune"
+                caption="Real ZTF, LC+static fine-tune (seed 42)"
                 accent="ii"
               >
-                <SourceCite path="gate_c_report.json:lc_only.macro_f1_full" className="mt-1" />
+                <SourceCite path="finetune_seed42/gate_c_report.json:with_static.macro_f1_full" className="mt-1" />
               </StatCard>
               <StatCard
                 label="Sim-to-real gap"
                 value={gap !== undefined ? `−${gap.toFixed(4)}` : "—"}
-                caption="Expected direction (Gate C)"
+                caption="LC+static vs LC+static (Gate C)"
                 accent="ibc"
               >
-                <SourceCite path="gate_c_report.json (A − B, LC-only)" className="mt-1" />
+                <SourceCite path="finetune_seed42/gate_c_report.json (A − B, LC+static)" className="mt-1" />
               </StatCard>
               <StatCard
                 label="Anomaly ROC-AUC"
                 value={anomalyRocAuc !== undefined ? anomalyRocAuc.toFixed(4) : "—"}
-                caption="Tier B, 3-component (entropy dropped)"
+                caption="Tier B, 3-component, corrected flux"
                 accent="ia"
               >
-                <SourceCite path="persisted_scorers_meta.json" className="mt-1" />
+                <SourceCite path="zeropoint_fix_2026-11-05/anomaly_tier_b/persisted_scorers_meta.json" className="mt-1" />
               </StatCard>
               <StatCard
                 label="Serving latency (p50)"
@@ -143,8 +143,9 @@ export default function OverviewPage() {
                 height={72}
               />
               <p className="text-caption">
-                Alerts/minute, trailing 60 min · benchmark peak 730 alerts/sec (~9× LSST&apos;s 7M/night on one
-                node) — CLAUDE.md §11, Day 12.
+                Alerts/minute, trailing 60 min · stored benchmark 575 alerts/sec on one node, p50 37.6 ms
+                (Tier B test replay, deployed LC+static model, 2026-11-05).
+                <SourceCite path="reports/zeropoint_fix_2026-11-05/serving_lc_static/replay_benchmark_uncontended.json" className="ml-1" />
               </p>
             </CardContent>
           </Card>

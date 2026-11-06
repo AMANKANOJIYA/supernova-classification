@@ -1257,17 +1257,24 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   eval pass for no new information): the refit fit-population z-score
   stats match Day 10's recorded ones almost exactly --
   reconstruction_error and mahalanobis to ~1e-4 or better, isoforest to
-  only ~0.002 (a small, real, unexplained residual, most likely
-  `PineForest`'s own internal randomness not fully pinned by the shared
-  seed -- noted, not chased further). Tier B's full, uncapped 3-component
-  ROC-AUC (entropy dropped, per this section's own Day-10 decision) was
-  independently recomputed end-to-end: **0.7616**, matching Day 10's
-  already-recorded 3-component figure (0.7622) to within 0.0006 despite
-  being computed from a freshly-refit forest -- strong evidence this is the
-  same fit, not a different one. Individual components:
-  reconstruction_error 0.8382 (exact match) and mahalanobis 0.5236 (exact
-  match) against Day 10's own numbers; isoforest 0.6479 vs. 0.6400 (the
-  same small residual noted above). Tier A's exotic-population ROC-AUC was
+  only ~0.002. Tier B's full, uncapped 3-component ROC-AUC (entropy
+  dropped, per this section's own Day-10 decision) was independently
+  recomputed end-to-end: **0.7616**, against Day 10's recorded 0.7622.
+  Individual components: reconstruction_error 0.8382 (exact match) and
+  mahalanobis 0.5236 (exact match) against Day 10's own numbers; isoforest
+  0.6479 vs. 0.6400.
+
+  **Corrected 2026-11-06 (from the 2026-11-05 audit, `AUDIT.md` Part A).**
+  This entry originally attributed the isoforest residual to "PineForest's
+  own internal randomness not fully pinned by the shared seed" and called
+  the match "strong evidence this is the same fit". Both were wrong. The
+  persisted forest's refit is byte-identical across runs, so it is
+  deterministic: the Day-10 forest and the persisted Day-13 forest are two
+  different fits, not one fit with noise. The 0.6479 / 0.6400 isoforest
+  gap, the ~0.002 z-score residual and the 0.7616 / 0.7622 combined gap are
+  the difference between those two fits. Serving uses the persisted
+  (Day-13) forest; the paper's Tier B anomaly numbers now come from it,
+  re-scored on corrected flux (`reports/anomaly_tier_b_zpfix_2026-11-06/`). Tier A's exotic-population ROC-AUC was
   NOT recomputed (too expensive for a verification pass); its
   already-recorded per-component numbers are unaffected, since they never
   depended on persisting these objects. `src/serve/model.py::AnomalyScorer`
@@ -1642,7 +1649,56 @@ a reportable metric here — always-predict-Ia scores well and is useless.
   - Replay through serving with the corrected parquet + re-exported ONNX:
     0.5678 vs offline 0.5635.
   - Live LSST additionally needs `avro_lsst.py` to read `dec` (live schema)
-    instead of `decl`; not changed here.
+    instead of `decl`; not changed here. (Done 2026-11-06, see below.)
+
+- **2026-11-06: open measurements closed, paper and docs regenerated.**
+  - **Repo location.** The working copy is `~/Developer/supernova-detection-research`
+    (cloned from GitHub, not iCloud-synced). The old copy at
+    `~/Desktop/Test/Supernova detection` is superseded: its working tree was
+    byte-compared against this one and holds nothing uncommitted except 12
+    tiny iCloud-evicted files that could not be downloaded (Hydra run
+    snapshots, `paper/main.blg`, `outputs/train_whxe/eval/node_accuracy.json`
+    -- the last rebuilt from its own training log line). Raw data (minus
+    `images_v10.zip`) was copied here. The shared venv's editable install
+    pointed at the Desktop copy -- any `python script.py` silently imported
+    the Desktop `src/` -- and was re-pointed here (`pip install -e . --no-deps`).
+  - **Correction to the 2026-11-05 entry above:** "Tier A median ~62, so
+    ~41x" does not reproduce. Tier A median detection FLUXCAL is 73.2-73.7
+    in every split; Tier B train reproduces 2578 / 236. Pooled over all
+    splits: 73 vs 2629, **~36x**; the bug hid a median 10.3x
+    (`paper/data_derived/flux_scale.json`).
+  - **Gate D re-derived** on corrected Tier B with the persisted scorers
+    (reproduces 0.7793 exactly): top 50 = 42 CV/nova/LBV/LRN, 6 AGN, 1 91bg,
+    1 TDE, 0 normal SNe (pre-fix 46/3/1/0/0); 35/50 overlap. Visual check of
+    all 50 plots: multi-season recurrent outbursts and AGN variability, no
+    single-epoch spikes -- same reading as Day 10. Still DEFERRED.
+    `reports/gate_d_zpfix_2026-11-06/`.
+  - **Tier B anomaly, all four components on corrected data:** entropy
+    0.3175 (still inverted), combined(4) 0.7532, combined(3) 0.7793.
+    `reports/anomaly_tier_b_zpfix_2026-11-06/`.
+  - **Live ZTF, deployed LC+static:** 578 alerts, 0 skipped, 330 objects,
+    negative flux 5.7%; raw Ia 28.2 / Ib-c 3.9 / II 67.9 %. Prior
+    correction no longer behaves: ELAsTiCC prior -> Ib/c 0.3-0.6 %; the
+    deployed model's actual training prior (Tier B counts x sqrt-dampened
+    weights = Ia 56.8 / Ib-c 14.6 / II 28.6 %) -> II 97 %. The Day-14
+    "prior mismatch" story was for the pre-fix model and does not carry
+    over; the outputs need calibration. `reports/live_2026-11-06/`.
+  - **LSST works on real traffic.** `avro_lsst.py` reads `dec`; all 2033
+    archived live packets convert, magnitude preserved to 4e-15 mag. Live
+    session: 1817 alerts, 0 skipped, 853 objects, negative flux 19.1%, raw
+    Ia 27.0 / Ib-c 3.4 / II 69.6 %. **Unlabelled -- no accuracy claim.**
+    Live LSST cutouts are raw (non-gzip) 4-HDU FITS, 30-102 px (6/2033 are
+    63 px); the frozen (3,63,63) schema cannot hold them, so they stay None.
+  - **Serving:** isolated ONNX for the LC+static model is 0.174 ms/alert
+    (batch 1, median; `reports/serving_2026-11-06/`) -- the "0.185" quoted
+    above had no artifact. Test counts reproduced in worktrees: pre-fix
+    suite 414 passed; post-fix tests on the old conversion 31 failed
+    (`reports/zeropoint_fix_2026-11-05/test_counts.json`).
+  - **Paper** regenerated from `numbers.tex` (all Tier B numbers corrected,
+    matched gaps, baselines filled, static-inversion section replaced, the
+    zeropoint bug added as the lead silent failure, Ib/c miss reported
+    against an unchanged band). `RESULTS.md` rewritten; `requirements-lock.txt`
+    regenerated from the venv (all 24 declared deps inside their bounds).
 
 ## 12. Working style
 
